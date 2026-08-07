@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2076–2117 -->
 ### 13.7 Momir — Designer and Author
 
@@ -41,4 +43,3 @@
 > If Momir is merely colouring in an answer Narset already wrote, the designer has become an executor. If Momir removes candidates because it dislikes their live test results, the author is grading its own examination.
 
 Momir may learn from historical failures offline. It must not own the live admission boundary.
-

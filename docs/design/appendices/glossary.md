@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 4455–4475 -->
 ## Appendix D — Plain-English Glossary
 
@@ -18,6 +20,3 @@
 | Kasmina | Host and reversible growth physiology | Live-edition integrator |
 | Emrakul | Post-commit maintenance and lysis executor | Corrections, withdrawal and retirement desk |
 | Oona | Observability, flight recorder and operator surface | Front page, broadcast and presentation |
-
----
-

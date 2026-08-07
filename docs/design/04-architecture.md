@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 492–723 -->
 ## 7. System Context and Architectural Planes
 
@@ -231,6 +233,8 @@ The analogy is useful because it makes an authority leak audible. “The assignm
 | **Oona** | Event projections, flight recorder, TUI/dashboard adapters, audit bundles and alerts | Operator views and audit records | Training control or source-of-truth schemas |
 
 The deterministic request resolver is a Leyline application service operating over immutable `GrowthIntent`, `StrategicEnvelope`, `RegionContract`, and `GrammarProfile` records. It performs no diagnosis and has no learned policy.
+
+---
 
 <!-- hld: source: v4.1 monolith lines 1301–1569 -->
 ## 10. End-to-End Operating Flow
@@ -501,4 +505,3 @@ Sarpadia stores:
 - and terminal outcomes.
 
 Oona presents the same causal chain to operators. It may show the newsroom view—source, assignment, draft, standards, production, fact check, publication decision, placement, correction and archive—but it remains read-only.
-

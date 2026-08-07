@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 724–1300 -->
 ## 9. Core Contracts
 
@@ -574,6 +576,3 @@ ScaffoldState
 ```
 
 The three regime fields are independent axes, not aliases for one global curriculum stage. A transition that changes more than one axis must carry an explicit interaction experiment identifier and cite the completed single-axis controls. The run fails closed when its declared scaffold state cannot be reconciled with the active Tolaria profile, host split, or Momir ancestry context.
-
----
-

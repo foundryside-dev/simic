@@ -6,7 +6,8 @@ Design-doc tiering (PDR-0002, `docs/product/decisions/0002-design-doc-tiering.md
   `00-INDEX.md`; the locked core is `02-constitution.md`). Constitutional
   constraints — Namespec 1.0, the INV-01..44 invariants, authority boundaries,
   the newsroom rule, the no-op requirement, scaffold withdrawal — change only
-  through an ADR that **names the displaced invariant** (HLD §30 / repo
+  through an ADR that **names the displaced invariant**
+  (`../design/ops/repo-structure.md#30-repository-handoff-and-custody` / repo
   discipline in the authority grant).
 - **Tier 1 — ADRs** (this directory). Numbered, immutable once accepted;
   supersede, never edit. Absorb change so Tier 0 stays stable.

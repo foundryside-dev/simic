@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2358–2396 -->
 ### 13.14 Oona — Witness and Operator Surface
 
@@ -36,6 +38,3 @@ Leyline owns event schemas. Producers own the truth of their events. Oona owns p
 #### Smell
 
 > If changing a dashboard changes the training trace, the witness has become a participant.
-
----
-

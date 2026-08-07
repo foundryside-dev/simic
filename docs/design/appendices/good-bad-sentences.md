@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 4396–4454 -->
 ## Appendix C — Good and Bad Architecture Sentences
 
@@ -56,6 +58,3 @@ Ask:
 7. Does it turn a temporary classroom scaffold into a production dependency?
 
 If so, stop and review the boundary before implementing it.
-
----
-

@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2653–2951 -->
 ## 16. Static-to-Counterfactual Curriculum and Scaffold Withdrawal
 
@@ -298,4 +300,3 @@ Evaluate on:
 - and larger benchmarks.
 
 The broad environment is the examination, not the initial classroom. Narset's repeated host-seed curriculum and Momir's reference-ancestry curriculum are both successful only if the scaffolds can be removed. Tolaria's execution curriculum is successful when Field operation remains decision-calibrated against Academy rather than when Academy is deleted. Final reporting names the exact `ScaffoldState` of every result and distinguishes scaffold-free operation from reference-assisted escalation.
-

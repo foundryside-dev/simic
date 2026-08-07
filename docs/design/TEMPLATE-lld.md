@@ -7,7 +7,7 @@
 sentence — e.g. "Augustin judges the resulting evidence under Leyline">
 **Authority:** <what this subsystem alone decides>
 **Forbidden knowledge / authority:** <what it must never see or decide —
-from `04-architecture.md#subsystem-map` and `02-constitution.md` App B>
+from `04-architecture.md#8-subsystem-map` and `02-constitution.md` App B>
 **Bound invariants:** <INV-nn list this design is answerable to>
 **Contracts consumed:** <names, from `05-leyline-contracts.md`>
 **Contracts produced:** <names>

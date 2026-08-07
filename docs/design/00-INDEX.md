@@ -2,7 +2,12 @@
 
 **Architecture version:** 4.1 · **Namespec:** 1.0 — locked · **Status:** canonical
 design authority (decomposed from the v4.1 monolith per [ADR-0001](../adr/0001-hld-decomposition-structure.md);
-the monolith is archived, content-identical, at `../concept/archive/simic-v4.1-monolith.md`).
+the monolith is archived, content-identical, at
+[`../concept/archive/simic-v4.1-monolith.md`](../concept/archive/simic-v4.1-monolith.md)).
+
+Where the HLD's custody language says "this document" (the §30 handoff
+declaration in `ops/repo-structure.md`), it means the HLD as a whole — this
+chapter set — not the single chapter that happens to carry it.
 
 Every chapter is standalone. Load `02-constitution.md` in every working session;
 load the chapters your task names; do not load the rest.
@@ -18,16 +23,18 @@ load the chapters your task names; do not load the rest.
 | `05-leyline-contracts.md` | All core contract shapes (`StrategicEnvelope` … `ScaffoldManifest`) |
 | `06-growth-model.md` | Growth levels, candidate identity, lifecycle FSM and transition authority |
 | `07-counterfactual-engine.md` | Branch pools, Academy/Field QA, no-op anchoring, blindness, statistical unit |
+| `domains/README.md` | The §13 grouping preamble and navigation to the fourteen domain chapters |
 | `domains/<subsystem>.md` | Per-domain specification (responsibilities, invariants, smells); `sarpadia.md` also carries the data model |
 | `programme/curriculum.md` | Static-to-counterfactual curriculum, scaffold withdrawal stages |
 | `programme/learning.md` | Learning responsibilities per subsystem |
 | `programme/evaluation.md` | Testing strategy and evaluation framework |
 | `programme/phases.md` | Minimum Viable System and implementation phases A–K |
 | `programme/risks-and-open-decisions.md` | Risk table and open design decisions |
-| `ops/observability.md` | Live/investigation/audit views |
+| `ops/observability.md` | Live/investigation/audit views and the naming-smell view |
 | `ops/repo-structure.md` | Target codebase layout, dependency direction, repository handoff |
 | `ops/migration.md` | Current-to-target migration |
 | `appendices/` | Newsroom principle, scaffold-withdrawal pattern, glossary, good/bad sentences |
+| `TEMPLATE-lld.md` | Header template for Tier 2 LLDs; LLDs land just-in-time under `lld/` (reserved, empty until Phase A) |
 
 ## Reading paths
 
@@ -35,7 +42,7 @@ load the chapters your task names; do not load the rest.
 - **Admission / adjudication work:** `02` + `domains/augustin.md` + `domains/urabrask.md` + `07-counterfactual-engine.md`.
 - **Contract / schema work:** `02` + `05-leyline-contracts.md` + `04-architecture.md` (flow).
 - **Experiment / curriculum design:** `02` + `01-claim.md` + `programme/*`.
-- **New here:** `01` → `04` → `02`, then Appendix E (newsroom) for the authority model.
+- **New here:** `01` → `04` → `02`, then `appendices/newsroom.md` for the authority model.
 
 ## Citation convention
 
@@ -60,6 +67,7 @@ names and file anchors survive restructuring, numbers do not.
 | §9 core contracts | `05-leyline-contracts.md` |
 | §10 end-to-end flow | `04-architecture.md` |
 | §11–§12 growth model, lifecycle/authority | `06-growth-model.md` |
+| §13 preamble | `domains/README.md` |
 | §13.1–§13.14 subsystem specs | `domains/<subsystem>.md` |
 | §14 counterfactual execution, QA, adjudication | `07-counterfactual-engine.md` |
 | §15 Sarpadia data model | `domains/sarpadia.md` |

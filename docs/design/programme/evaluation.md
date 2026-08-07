@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 3506–3860 -->
 ## 21. Testing and Verification Strategy
 
@@ -352,6 +354,3 @@ For each main endpoint report:
 - and confidence interval across independent base host trajectories.
 
 Counterfactual branches are paired measurements, not additional independent hosts.
-
----
-

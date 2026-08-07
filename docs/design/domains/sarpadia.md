@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1917–1952 -->
 ### 13.3 Sarpadia — Historical Infrastructure
 
@@ -36,12 +38,14 @@
 
 > If Sarpadia forgets the dead, history has become propaganda. If it installs a precedent, history has started governing the present.
 
+---
+
 <!-- hld: source: v4.1 monolith lines 2530–2652 -->
-## 15. Sarpadia Data Model and Learning Use
+### 15. Sarpadia Data Model and Learning Use
 
 Sarpadia is both an operational archive and a research data factory.
 
-### 15.1 Required records
+#### 15.1 Required records
 
 For every case it stores:
 
@@ -60,7 +64,7 @@ For every case it stores:
 - Emrakul maintenance history;
 - and final outcome.
 
-### 15.2 Blinded views
+#### 15.2 Blinded views
 
 Sarpadia maintains a privileged provenance map and produces separate blinded views:
 
@@ -83,7 +87,7 @@ research_view
 
 Blinding is a data product, not a promise that consumers will ignore a field.
 
-### 15.3 Failure taxonomy
+#### 15.3 Failure taxonomy
 
 Failures are classified rather than collapsed into generic rejection:
 
@@ -118,7 +122,7 @@ BRANCH_TRANSPLANT_VIOLATION
 ```
 
 
-### 15.4 Reference ancestry and scaffold status
+#### 15.4 Reference ancestry and scaffold status
 
 Every bootstrap record distinguishes:
 
@@ -137,7 +141,7 @@ This prevents a de novo result from being credited to a hidden reference depende
 
 The `withdrawal_schedule_id` and `curriculum_stage` are part of record provenance. A production result is not “scaffold free” unless the ancestry context is null at proposal time.
 
-### 15.5 Retrieval
+#### 15.5 Retrieval
 
 Retrieval returns evidence and candidate material, not an automatic deployment decision. Every retrieved growth must:
 
@@ -147,7 +151,7 @@ Retrieval returns evidence and candidate material, not an automatic deployment d
 - pass Urabrask QA;
 - and compete under Augustin against no-op and fresh candidates.
 
-### 15.6 Training consumers
+#### 15.6 Training consumers
 
 - **Momir** consumes successful, failed and contrasting candidate sets.
 - **Narset** consumes action trajectories and regret labels.
@@ -157,6 +161,3 @@ Retrieval returns evidence and candidate material, not an automatic deployment d
 - **Emrakul** consumes maintenance, re-adaptation and safe-decay outcomes.
 
 No consumer treats multiple branches from one base trajectory as independent validation or test examples.
-
----
-

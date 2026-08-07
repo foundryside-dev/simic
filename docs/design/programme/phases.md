@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 3948–4093 -->
 ## 24. Minimum Viable System
 
@@ -143,6 +145,3 @@ The MVP does **not** require:
 - expand the grammar;
 - add image tasks;
 - and scale only after synthetic reliability gates pass.
-
----
-

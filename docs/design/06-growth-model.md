@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1570–1815 -->
 ## 11. Generated Growth Model
 
@@ -243,6 +245,3 @@ Kasmina executes it in Tolaria
 ```
 
 This prevents an evidence subsystem or judge from quietly becoming a lifecycle controller.
-
----
-

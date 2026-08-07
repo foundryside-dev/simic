@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1863–1916 -->
 ### 13.2 Tolaria — Training and Execution Infrastructure
 
@@ -53,4 +55,3 @@ All modes and regimes use the same host-runtime interface and, wherever possible
 #### Smell
 
 > If Tolaria “likes,” “rejects,” or “prefers” a candidate, the training substrate has acquired opinions. If Field execution cannot be audited against Academy execution, the factory has thrown away its metrology laboratory.
-

@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2174–2209 -->
 ### 13.10 Urabrask — Quality Assurance
 
@@ -35,4 +37,3 @@
 #### Smell
 
 > If Urabrask issues an admission token, QA has put on the judge’s robes.
-

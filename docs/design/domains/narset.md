@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1993–2036 -->
 ### 13.5 Narset — Tactical Controller
 
@@ -43,4 +45,3 @@
 #### Smell
 
 > If Narset tells Momir what the problem “really is” or what kind of answer to produce, the assignments editor has become a co-author.
-

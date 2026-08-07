@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 3143–3245 -->
 ## 19. Observability and Auditability
 
@@ -100,6 +102,3 @@ OBSERVATION_IDENTITY_MISMATCH
 ```
 
 These events do not replace static checks, but they make constitutional violations visible during integration.
-
----
-

@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2292–2321 -->
 ### 13.12 Kasmina — Host and Growth Physiology
 
@@ -29,4 +31,3 @@
 #### Smell
 
 > If Kasmina ranks candidates, calculates admission utility, or regains an internal Norm/Attention/Conv catalogue, physiology has acquired opinions and design authority.
-

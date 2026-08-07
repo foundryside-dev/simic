@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 3861–3947 -->
 ## 23. Current-to-Target Migration
 
@@ -84,6 +86,3 @@ The migration should include:
 - persisted-record schema migration;
 - dashboard label migration;
 - and removal dates for old aliases.
-
----
-

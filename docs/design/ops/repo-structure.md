@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 3246–3505 -->
 ## 20. Target Codebase Structure
 
@@ -260,6 +262,8 @@ kasmina importing reference blueprint catalogue     prohibited
 
 Integration occurs through Leyline records and protocols, not circular implementation imports.
 
+---
+
 <!-- hld: source: v4.1 monolith lines 4252–4272 -->
 ## 30. Repository Handoff and Custody
 
@@ -281,4 +285,3 @@ The first repository milestones should:
 The handoff rule is:
 
 > **Implement the architecture incrementally, but preserve the evidence and authority boundaries from the first commit.**
-

@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2952–3093 -->
 ## 17. Learning Responsibilities
 
@@ -139,6 +141,3 @@ These infrastructure domains are not policy learners.
 - Request resolution must remain a pure, reproducible transformation whose output can be recomputed from recorded inputs.
 - Tolaria may learn or autotune Field execution only inside a profile calibrated against Academy-exact evidence; exact replay remains available as a non-learned reference path.
 - `ScaffoldState` is declarative experiment metadata, not a policy output inferred by infrastructure.
-
----
-

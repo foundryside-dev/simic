@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 169–348 -->
 ## 5. Locked Naming Constitution
 
@@ -180,6 +182,8 @@ Oona
 
 Changing a codename or moving an authority between names requires an architecture decision record because it changes the project's shared responsibility grammar, package paths, telemetry names, tests, and operational language.
 
+---
+
 <!-- hld: source: v4.1 monolith lines 3094–3142 -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
@@ -229,6 +233,8 @@ The following are blocking invariants.
 42. **Retained reference capability:** withdrawal removes a production dependency, not the Academy replay harness, acquisition fixtures or blinded reference controls.
 43. **Field calibration:** Field evidence is valid only inside a current calibration envelope and carries uncertainty and escalation provenance.
 44. **Decision-aware execution gate:** Field-to-Academy accept/no-op disagreement and selection regret must remain inside declared limits, including tail cases.
+
+---
 
 <!-- hld: source: v4.1 monolith lines 4323–4395 -->
 ## Appendix B — One-Line Namespec Invariants
@@ -301,6 +307,3 @@ OONA
 Reveals the system's account.
 Must not steer the system through the act of observing it.
 ```
-
----
-

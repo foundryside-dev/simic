@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 4476–4615 -->
 ## Appendix E — The Newsroom Principle
 
@@ -137,6 +139,3 @@ The newsroom model is not a literal organisational chart and should not determin
 - Kasmina and Emrakul operate on a neural host, not a publication.
 
 The analogy is used to explain and lint authority boundaries. Leyline schemas, dependency rules, tests, blinding and deterministic provenance remain the source of architectural truth.
-
----
-

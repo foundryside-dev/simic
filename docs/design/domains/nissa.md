@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2037–2075 -->
 ### 13.6 Nissa — Observer and Source Desk
 
@@ -38,4 +40,3 @@ Nissa must not emit:
 #### Smell
 
 > If Nissa captions the photograph with the answer it is supposed to prove, observation has become policy.
-

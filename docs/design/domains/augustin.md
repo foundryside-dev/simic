@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2210–2291 -->
 ### 13.11 Augustin — Independent Judge
 
@@ -81,4 +83,3 @@ Installation shock is omitted because a resident growth is no longer integrating
 #### Smell
 
 > If Augustin asks for a more favourable minibatch after seeing the evidence, the judge has tampered with the case.
-

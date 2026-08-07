@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2150–2173 -->
 ### 13.9 Tezzeret — Compiler
 
@@ -23,4 +25,3 @@
 #### Smell
 
 > If Tezzeret invents a semantic node to improve predicted performance, the compiler has become Momir.
-

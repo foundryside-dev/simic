@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 349–491 -->
 ## 6. Design Principles
 
@@ -143,6 +145,8 @@ Scaffolds advance independently. A subsystem does not lose its scaffold merely b
 
 Withdrawal does not imply deletion. Academy-exact Tolaria, repeated acquisition trajectories, and traditional seed references remain available as trusted oracles and controls after ordinary operation no longer depends on them.
 
+---
+
 <!-- hld: source: v4.1 monolith lines 4273–4322 -->
 ## Appendix A — Architectural Smell Catalogue
 
@@ -191,6 +195,3 @@ Withdrawal does not imply deletion. Academy-exact Tolaria, repeated acquisition 
 | Urabrask and Augustin share one mutable policy object | Evidence and judgement are not independent |
 | Candidate source is “hidden” only by convention | Blinding is not enforced by construction |
 | A package name no longer supports its canonical sentence | Namespec responsibility drift |
-
----
-

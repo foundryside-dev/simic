@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2397–2529 -->
 ## 14. Counterfactual Execution, QA and Adjudication
 
@@ -130,6 +132,3 @@ A branch-only shortcut is permitted only as an explicitly validated approximatio
 Counterfactual branches are paired observations. The independent statistical unit is the **base host trajectory**, not the branch, candidate, intervention or epoch.
 
 All branches derived from one base trajectory remain in the same acquisition, validation or test split.
-
----
-

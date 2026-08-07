@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 2118–2149 -->
 ### 13.8 Elesh — Structural Verifier and Canonicalizer
 
@@ -31,4 +33,3 @@ Every Elesh transformation must be semantics-preserving under the declared numer
 #### Smell
 
 > If Elesh rejects a legal candidate because it is predicted to perform poorly, structural orthodoxy has become the government.
-

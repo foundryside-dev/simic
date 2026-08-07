@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 4616–4720 -->
 ## Appendix F — The Scaffold Withdrawal Pattern
 
@@ -104,4 +106,3 @@ The review question is:
 > **Where is the classroom, where is the graduation test, and where is the retained laboratory?**
 
 If the classroom can never be left, the system has not generalised. If the laboratory is dismantled after graduation, the system can no longer calibrate or explain itself.
-

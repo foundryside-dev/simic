@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: 00-INDEX.md -->
+[← HLD index](00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1–168 -->
 # High-Level Design: Counterfactual Generative Morphogenesis
 
@@ -214,4 +216,3 @@ The governing curriculum principle is:
 The governing namespec principle is:
 
 > **Actors have verbs. Infrastructure has prepositions. A sentence that sounds wrong is an architecture smell until shown otherwise.**
-

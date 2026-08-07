@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1820–1862 -->
 ### 13.1 Leyline — Constitutional Infrastructure
 
@@ -42,4 +44,3 @@ Leyline must not:
 #### Smell
 
 > If Leyline imports Narset, Augustin, Momir or Kasmina—or if its resolver starts diagnosing the case—the constitution has started governing individual cases.
-

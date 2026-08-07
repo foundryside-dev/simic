@@ -1,4 +1,6 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
+[← HLD index](../00-INDEX.md)
+
 <!-- hld: source: v4.1 monolith lines 1953–1992 -->
 ### 13.4 Tamiyo — Strategic Controller
 
@@ -39,4 +41,3 @@
 #### Smell
 
 > If Tamiyo chooses the next candidate or alpha increment, strategy has collapsed into micromanagement.
-
