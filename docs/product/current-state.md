@@ -18,7 +18,9 @@ burn-down (43 open `hld-review` items → 0).
   unlabeled `Future` release bucket is simic-78039ae681
 
 ## Open questions / blocked-on-owner
-- Project-level rename (HLD §27.1) — open by design; owner-gated when it lands.
+- Project-level name (HLD §27.1) — resolved in principle (PDR-0006): simic
+  through publication, predecessors as clean-seam history; formal ADR closure at
+  the gate session. Publication itself stays owner-gated.
 - (Scoreboard settled 2026-08-08, PDR-0005: burn-down 0 by 2026-08-31; Phase A
   by 2026-09-30 provisional; K/N and the harm ceiling bind to their producing
   tasks. Dates are owner pacing signals — spare-time moonshot.)
