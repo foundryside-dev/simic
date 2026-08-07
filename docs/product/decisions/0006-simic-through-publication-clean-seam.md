@@ -42,3 +42,11 @@ programme itself, not just to Sarpadia.
 Reopen only if an external naming constraint surfaces at the publication gate,
 or if the §27.1 ADR adjudication uncovers a conflict not visible now. Absent
 that, the decision stands unrevisited — naming churn is pure cost.
+
+## Addendum — 2026-08-08 (owner clarification; call unchanged)
+The clean seam is not erasure: "here's where we got the idea" references are
+permitted where they earn their place. The canonical framing formula for any
+retrospective reference is: **"early versions of the simic project (known as
+esper) found that…"** — the predecessors are absorbed into Simic's identity as
+early versions of *this* project; continuity flows backward into the simic name,
+never forward out of the esper one.
