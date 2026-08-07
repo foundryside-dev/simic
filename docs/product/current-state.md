@@ -18,11 +18,10 @@ burn-down (43 open `hld-review` items → 0).
   unlabeled `Future` release bucket is simic-78039ae681
 
 ## Open questions / blocked-on-owner
-- Real numbers and dates for the TBD targets in metrics.md — talk-through with
-  owner in progress (2026-08-08).
-- Secondary-audience assumption in vision.md (implementation agents) — inferred,
-  unconfirmed.
 - Project-level rename (HLD §27.1) — open by design; owner-gated when it lands.
+- (Scoreboard settled 2026-08-08, PDR-0005: burn-down 0 by 2026-08-31; Phase A
+  by 2026-09-30 provisional; K/N and the harm ceiling bind to their producing
+  tasks. Dates are owner pacing signals — spare-time moonshot.)
 
 ## Last checkpoint did
 - Bootstrapped the five-artifact workspace; verified three-way alignment

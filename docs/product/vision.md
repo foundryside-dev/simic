@@ -27,10 +27,12 @@ over-provisioning.
 - **Primary:** john — researcher-owner. The product is defensible experimental
   evidence (positive *or* negative) about generative morphogenesis; HLD §28 notes a
   clean negative result is scientifically useful.
-- **Secondary:** implementation agents (Claude / Codex sessions) building against
-  HLD v4.1 — served by contract clarity and the locked Namespec, never at the
-  expense of evidential rigor. *(assumption — inferred from HLD §30 handoff
-  framing; confirm.)*
+- **Secondary (operational):** implementation agents (Claude / Codex sessions)
+  building against HLD v4.1 — served by contract clarity and the locked
+  Namespec, never at the expense of evidential rigor.
+- **Secondary (eventual):** the morphogenetic-AI research community, on
+  publication — served by the evidence chain and complete history; a clean
+  negative result is publishable (§28). *(owner-confirmed 2026-08-08.)*
 - **Explicitly not:** production ML teams wanting a turnkey AutoML/NAS service, or
   a general training-framework competitor. The value is the causally-screened
   grown-during-training mechanism and its evidence chain, not model delivery.
