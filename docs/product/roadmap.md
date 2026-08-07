@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-08 (PDR-0010, PDR-0011)
+# Roadmap — Simic            Updated: 2026-08-08 (session 6 reconciliation; PDR-0012, ADR-0003)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -10,9 +10,10 @@
   every downstream package. The decision gate is adjudicated and closed
   (PDR-0007); the HLD is decomposed into docs/design/ chapters (PDR-0009,
   ADR-0001); remaining work runs as six region-based waves stamped as
-  `wave:*` labels (PDR-0008) · tracker: critical path simic-ae3caf44f1 →
-  simic-ed2698fafd; wave:0 remnants simic-aff80b1843, simic-e84fe6737c,
-  simic-a708c5b1b7 · metric: design-debt burn-down (metrics.md)
+  `wave:*` labels (PDR-0008) · tracker: wave:0 cleared and the wave:1
+  Augustin pair landed (ADR-0004, ADR-0005); dependency-critical path now
+  simic-0bf2c40dec → simic-38a07fad39, six wave:1 items remain ·
+  metric: design-debt burn-down (metrics.md)
 - **Information-management regime (ADR-0002)** — why: data management was the
   owner-named second esper bugbear (definition drift, no sign-or-lock,
   lost lineage, silent mutation); Phase A binds code to contracts, so the
@@ -40,5 +41,7 @@
   for the generation hypothesis · adjudicated at the gate (PDR-0007): accepted
   as a permanent blinded control; the spec task simic-1d3aa47ff1 is wave:2 work
   inside the Now bet, the running control itself lands with the QA-pool phases.
-- **Project-level rename decision** (HLD §27.1) — on the map; outward-facing when
-  it lands, therefore owner-gated.
+- **Project-level rename decision** (HLD §27.1) — **decided** (ADR-0003,
+  owner commit b42250c): Simic through publication, predecessors behind a
+  clean seam. Off the map; only an external naming constraint at the
+  publication gate reopens it.
