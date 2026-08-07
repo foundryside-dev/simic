@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-08
+# Metrics — Simic             Last read: 2026-08-08 (session 5 close)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 41 (2 in progress, 34 ready, 5 blocked — post-gate: 27 blocked collapsed to 5, all behind real edit/logic dependencies; net −2 despite two items added in-session) | 2026-08-08 (post-gate) |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 41 (39 open + 2 in progress) — **flat this session**: session 5 went to the information-management regime (PDR-0010) and the skill roster (PDR-0011), zero hld-review closures; 23 days to the pacing date. One flat session is noted, not fired; a second consecutive flat session with regime work as the cause fires PDR-0010's reversal-trigger review | 2026-08-08 (session 5 close) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)

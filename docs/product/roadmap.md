@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-08 (PDR-0007, PDR-0008, PDR-0009)
+# Roadmap — Simic            Updated: 2026-08-08 (PDR-0010, PDR-0011)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -13,6 +13,13 @@
   `wave:*` labels (PDR-0008) · tracker: critical path simic-ae3caf44f1 →
   simic-ed2698fafd; wave:0 remnants simic-aff80b1843, simic-e84fe6737c,
   simic-a708c5b1b7 · metric: design-debt burn-down (metrics.md)
+- **Information-management regime (ADR-0002)** — why: data management was the
+  owner-named second esper bugbear (definition drift, no sign-or-lock,
+  lost lineage, silent mutation); Phase A binds code to contracts, so the
+  lock machinery must exist first. Named-definition lifecycle in plainweave,
+  runtime data policy P1–P7; runs alongside the waves, does not displace the
+  critical path (PDR-0010) · tracker: simic-357c92664c · metric: none of its
+  own — guarded by the design-debt burn-down staying on pace
 
 ## Next (shaped, decreasing certainty)
 - **Phase A — Namespec, Leyline contracts, dependency boundaries** (HLD §25.A;
