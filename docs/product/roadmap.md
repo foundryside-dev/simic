@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-08 (PDR-0001)
+# Roadmap — Simic            Updated: 2026-08-08 (PDR-0007, PDR-0008, PDR-0009)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -6,11 +6,13 @@
 
 ## Now  (committed, in-flight)
 - **Design hardening — reconcile HLD v4.1 with the 2026-08-08 Esper-pivot peer
-  review** — why: 43 open `hld-review` items, including a decision gate at the top
-  of the critical path; starting Phase A on an unstable contract surface would
-  churn every downstream package · tracker: simic-0dd5362f05 (decision gate),
-  simic-aff80b1843 + simic-e84fe6737c (in progress) · metric: design-debt
-  burn-down (metrics.md)
+  review** — why: starting Phase A on an unstable contract surface would churn
+  every downstream package. The decision gate is adjudicated and closed
+  (PDR-0007); the HLD is decomposed into docs/design/ chapters (PDR-0009,
+  ADR-0001); remaining work runs as six region-based waves stamped as
+  `wave:*` labels (PDR-0008) · tracker: critical path simic-ae3caf44f1 →
+  simic-ed2698fafd; wave:0 remnants simic-aff80b1843, simic-e84fe6737c,
+  simic-a708c5b1b7 · metric: design-debt burn-down (metrics.md)
 
 ## Next (shaped, decreasing certainty)
 - **Phase A — Namespec, Leyline contracts, dependency boundaries** (HLD §25.A;
@@ -28,7 +30,8 @@
   allocation, Oona and scale.
 - **Esper-derived controls** — the working blueprint selector and the
   degenerate-architecture fixtures (~10%→~40% headroom) as sharp, cheap baselines
-  for the generation hypothesis · tracker: simic-1d3aa47ff1 (per the 2026-08-08
-  peer review; shape depends on the simic-0dd5362f05 adjudication).
+  for the generation hypothesis · adjudicated at the gate (PDR-0007): accepted
+  as a permanent blinded control; the spec task simic-1d3aa47ff1 is wave:2 work
+  inside the Now bet, the running control itself lands with the QA-pool phases.
 - **Project-level rename decision** (HLD §27.1) — on the map; outward-facing when
   it lands, therefore owner-gated.

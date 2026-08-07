@@ -1,44 +1,49 @@
-# Current State — Simic        Checkpoint: 2026-08-08 06:01 AEST (session 2 close)
+# Current State — Simic        Checkpoint: 2026-08-08 (session 4 close)
 
 ## The bet right now
-Design hardening: reconcile HLD v4.1 against the 2026-08-08 Esper-pivot peer
-review so Phase A starts on a stable contract surface — moves the design-debt
-burn-down (43 open `hld-review` items → 0).
+Design hardening, now fully unblocked: the decision gate is adjudicated
+(PDR-0007), the HLD is decomposed into docs/design/ chapters (PDR-0009,
+ADR-0001), and the burn-down runs as six region-based waves (PDR-0008) —
+moves the design-debt burn-down (41 open `hld-review` items → 0 by
+2026-08-31, pacing signal).
 
 ## In flight
-- HLD v4.1 consistency fixes — in progress — tracker: simic-aff80b1843
-- Skill-pack prompt updates for v4.1 refs — in progress — tracker: simic-e84fe6737c
-- DECISION GATE: adjudicate the peer-review proposals — ready, top of the critical
-  path — tracker: simic-0dd5362f05 (unblocks simic-ae3caf44f1 → simic-01f9ee1160;
-  owner-stated reset rationale filed as comment on simic-00351db32e is gate input)
-- Doc-tiering skeleton per PDR-0002 — ready — tracker: simic-80cc39ccfc
-- CI-skeleton design per PDR-0003 + esper-lite review — ready — tracker:
-  simic-4da299ff46 (Weft-first principle in comment #3)
-- Backlog: 14 ready / 27 blocked `hld-review` tasks (filigree, 2026-08-08); the
-  unlabeled `Future` release bucket is simic-78039ae681
+- Critical path: simic-ae3caf44f1 (lexicographic admission, wave:1) →
+  simic-ed2698fafd (Schmitt-trigger hysteresis). The metrics.md harm-ceiling
+  guardrail binds to ae3caf44f1's implementation.
+- wave:0 remnants: simic-aff80b1843 + simic-e84fe6737c (in progress, claims
+  held by claude-fable; both accumulated review findings as comments —
+  heading levels, Sanctum/Overwatch, LaTeX rendering, chapter-citation rule),
+  simic-a708c5b1b7 (§27.1 ADR, now ready).
+- Waves 1–5 stamped as filigree labels (`wave:1-augustin` … `wave:5-scoreboard`);
+  pick up with `filigree list --label=wave:N-…`. CI-skeleton design
+  (simic-4da299ff46) is a parallel track and carries the doc-lint lane
+  requirements as comment #9.
+- Backlog: 41 open `hld-review` = 2 in progress + 34 ready + 5 blocked (all
+  five behind real dependencies, none behind a decision).
 
 ## Open questions / blocked-on-owner
-- Project-level name (HLD §27.1) — resolved in principle (PDR-0006): simic
-  through publication, predecessors as clean-seam history; formal ADR closure at
-  the gate session. Publication itself stays owner-gated.
-- (Scoreboard settled 2026-08-08, PDR-0005: burn-down 0 by 2026-08-31; Phase A
-  by 2026-09-30 provisional; K/N and the harm ceiling bind to their producing
-  tasks. Dates are owner pacing signals — spare-time moonshot.)
+- Nothing escalated this session. Standing gates unchanged: publication and
+  any push/tag/external action remain owner-gated; §27.1 formal ADR closure
+  is filed as work (simic-a708c5b1b7), the ruling itself is settled (PDR-0006).
+- No metric reversal trigger fired (burn-down 43→41 with 23 days to the
+  2026-08-31 pacing date; K/N still owed by simic-642c2c1823 before Phase A).
 
 ## Last checkpoint did
-- Bootstrapped the five-artifact workspace; verified three-way alignment
-  (product docs ↔ filigree ↔ HLD), fixing an off-by-one count and a §18
-  citation (PDR-0001).
-- Decided design-doc tiering (PDR-0002) and the isolation-with-continuous-
-  integration build strategy (PDR-0003); filed simic-80cc39ccfc and
-  simic-4da299ff46.
-- Reviewed esper-lite CI/controls → docs/concept/reviews/2026-08-08-esper-lite-
-  ci-controls-review.md; owner confirmed CT1 (silent-default class) as the main
-  reset driver → vision.md Purpose updated with provenance (PDR-0004); Weft-first
-  tooling principle recorded on the CI task.
+- Adjudicated all 25 gate items with the owner: 23 accepted (keystone:
+  lexicographic admission), Tamiyo rename wontfixed (deliberate promotion —
+  owner-stated), fast-landing folded into the §27.3 open decision (PDR-0007).
+- Laid out and stamped the six-wave programme (PDR-0008).
+- Decomposed the 4,720-line HLD into 34 verified chapters with a four-agent
+  tech-writer review — zero blockers (PDR-0009, ADR-0001, commits 0e0f1ea +
+  ca25d92); AGENTS.md now points at docs/design/00-INDEX.md; citation
+  convention is INV-nn / contract names / path#anchor.
+- Name shelf: "weatherlight" available for a future proper noun (recorded on
+  simic-a708c5b1b7).
 
 ## Next session, start here
-Adjudicate the decision gate simic-0dd5362f05 — top of the critical path; the
-owner statement on simic-00351db32e and the contract-shape consequences (value/
-observed/age triples, generated layouts, transport tests) are standing inputs to
-that adjudication. The two in-progress consistency tasks close after.
+Start wave:1: claim simic-ae3caf44f1 (lexicographic admission) — it lands as
+an ADR (docs/adr/TEMPLATE.md, name the displaced constraints) editing
+docs/design/domains/augustin.md + 07-counterfactual-engine.md. Finishing the
+two in-progress wave:0 tasks first is the tidy alternative; their claims
+expire 2026-08-09 16:33 UTC — reclaim if stale.

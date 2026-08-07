@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 43 (2 in progress, 14 ready, 27 blocked; the 44-label total includes 1 closed item, and the ready count excludes the unlabeled `Future` release simic-78039ae681) | 2026-08-08 |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 41 (2 in progress, 34 ready, 5 blocked — post-gate: 27 blocked collapsed to 5, all behind real edit/logic dependencies; net −2 despite two items added in-session) | 2026-08-08 (post-gate) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)
