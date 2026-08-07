@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use or reference Simic, please cite it as below."
+type: software
+title: "Simic: Counterfactual Generative Morphogenesis"
+abstract: >-
+  A lifecycle-driven neural training system in which new computational
+  structure is generated from the live state of a host network, then
+  conformed, compiled, QA-tested in matched counterfactual branches,
+  adjudicated against doing nothing, embodied reversibly under warrant,
+  and eventually retired.
+authors:
+  - family-names: Morrissey
+    given-names: John
+version: 0.1.0
+repository-code: "https://github.com/tachyon-beep/simic"
+license: Apache-2.0
+keywords:
+  - neural-architecture-growth
+  - morphogenesis
+  - counterfactual-evaluation
+  - lifecycle-driven-training

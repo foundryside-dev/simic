@@ -6,12 +6,14 @@ fixed menu of human-authored blueprints — then conformed, compiled, QA-tested
 in matched counterfactual branches, adjudicated against doing nothing,
 embodied reversibly under warrant, and eventually retired.
 
-> **Status: pre-implementation bootstrap.** The design is complete —
-> [HLD v4.1](docs/concept/simic.md) is the authoritative
-> repository-handoff target — but no source code exists yet. First
-> engineering work is Phase A (Namespec, Leyline contracts, dependency
-> boundaries). The project-level name may still change (HLD §27.1); the
-> subsystem boundaries will not.
+> **Status: pre-implementation bootstrap.** The design is complete — the
+> HLD (v4.1, Namespec 1.0 — locked) is decomposed into standalone chapters
+> under [`docs/design/`](docs/design/00-INDEX.md) (ADR-0001) — and the
+> Python scaffold is in place, but no functional code exists yet. First
+> engineering work is Phase A (Namespec,
+> Leyline contracts, dependency boundaries). The project name and the
+> subsystem boundaries are locked
+> ([open decisions](docs/design/programme/risks-and-open-decisions.md)).
 
 ## The idea
 
@@ -37,7 +39,8 @@ to its verb is exercising authority it must not have). Three are
 infrastructure: **Leyline** (contracts and the deterministic request
 resolver), **Tolaria** (the single training/execution substrate for mainline
 and branches), and **Sarpadia** (append-only history, ancestry, retrieval).
-The other eleven are agents, summarised by the canonical sentence (HLD §5.3):
+The other eleven are agents, summarised by the canonical sentence
+([`docs/design/02-constitution.md`](docs/design/02-constitution.md)):
 
 > Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
 > Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
@@ -46,7 +49,8 @@ The other eleven are agents, summarised by the canonical sentence (HLD §5.3):
 > longer earns continued tenancy. Sarpadia retains every precedent. Oona
 > reveals the account.
 
-The architecture deliberately resembles a newsroom (HLD §5.5, Appendix E):
+The architecture deliberately resembles a newsroom
+([`docs/design/appendices/newsroom.md`](docs/design/appendices/newsroom.md)):
 observation, assignment, authorship, standards, production, fact-checking,
 publication judgement, and archive are separate desks, because letting one
 desk control the whole chain corrupts both evidence and accountability. The
@@ -55,36 +59,44 @@ designer; the assignments editor sends only the assignment brief.**
 
 ## Guarantees
 
-HLD §18 defines 44 blocking invariants. The spine:
+The constitution ([`docs/design/02-constitution.md`](docs/design/02-constitution.md))
+defines 44 blocking invariants, cited as INV-nn. The spine:
 
-- **Determinism:** identical snapshot + identical future data ⇒
+- **Determinism (INV-05):** identical snapshot + identical future data ⇒
   bitwise-identical traces under the Academy execution profile; non-exact
   profiles carry measured uncertainty instead of pretending.
-- **Doing nothing is a real competitor:** every admission and tenancy review
-  includes a measured no-intervention branch; the whole candidate pool may
-  lose to it.
-- **Evidence and judgement never mix:** Urabrask (QA) certifies evidence but
-  cannot issue verdicts; Augustin (judge) decides but cannot touch tests —
-  and neither ever sees candidate provenance (blinding by construction).
-- **No influence without a warrant:** Kasmina cannot raise a growth above
-  zero influence, and Emrakul cannot retire committed structure, without a
-  valid Augustin warrant.
-- **Complete history:** Sarpadia is append-only and keeps failures and
-  abstentions — never winners-only.
-- **Observability is inert:** disconnecting Oona cannot change training.
+- **Doing nothing is a real competitor (INV-15, INV-16):** every admission
+  and tenancy review includes a measured no-intervention branch with policy
+  utility exactly zero; the whole candidate pool may lose to it.
+- **Evidence and judgement never mix (INV-17, INV-18, INV-37):** Urabrask
+  (QA) certifies evidence but cannot issue verdicts; Augustin (judge)
+  decides but cannot touch tests — and neither ever sees candidate
+  provenance (blinding by construction).
+- **No influence without a warrant (INV-26, INV-27):** Kasmina cannot raise
+  a growth above zero influence, and Emrakul cannot retire committed
+  structure, without a valid Augustin warrant.
+- **Complete history (INV-31, INV-36):** Sarpadia is append-only and keeps
+  failures and abstentions — never winners-only.
+- **Observability is inert (INV-35):** disconnecting Oona cannot change
+  training.
 
 ## Repository map
 
 ```text
-docs/concept/simic.md            Authoritative HLD (v4.1, Namespec 1.0 — locked)
-docs/concept/archive/            Superseded designs, historical reference only
+docs/design/                     Canonical HLD chapter set; entry point 00-INDEX.md
+docs/adr/                        Architecture decision records
+docs/product/                    Product workspace (vision, roadmap, decisions)
+docs/concept/archive/            Archived v4.1 monolith and superseded v2.0 — historical only
+ARCHITECTURE.md                  One-page digest of the system shape (start here)
 AGENTS.md / CLAUDE.md            Orientation digest for coding agents
 ```
 
 Target code layout (once implementation starts) is one package per domain
-under `src/simic/`, with authority-boundary tests under `tests/` — see HLD
-§20. Implementation follows Phases A–K (HLD §25); the minimum viable system
-is defined in HLD §24. Python is the working language.
+under `src/simic/`, with authority-boundary tests under `tests/` — see
+[`docs/design/ops/repo-structure.md`](docs/design/ops/repo-structure.md).
+Implementation follows Phases A–K, and the minimum viable system is defined,
+in [`docs/design/programme/phases.md`](docs/design/programme/phases.md).
+Python is the working language.
 
 ## Lineage
 

@@ -50,9 +50,13 @@
 
 The subsystem names and their principal authorities are **not** open decisions. Namespec 1.0 is locked. The following implementation choices remain open.
 
-### 27.1 Project-level name
+### 27.1 Project-level name — decided
 
-The umbrella package or programme may remain `simic`, return to `esper`, or adopt another name. This does not change the subsystem names.
+**Decided 2026-08-08 (ADR-0003, PDR-0006): the name is locked as Simic** —
+repository, package (`src/simic/`), and presumptive publication name. The
+predecessors (ESPER, ESPER LITE) present as lineage history behind a clean
+seam. This decision never affected the subsystem names, which are locked
+with Namespec 1.0 and reaffirmed unamended in ADR-0003.
 
 ### 27.2 Default maturation mode
 

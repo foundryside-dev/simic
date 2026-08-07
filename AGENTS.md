@@ -22,13 +22,18 @@ invariants as INV-nn, contracts by name, chapters by path#anchor; never bare
 only; never ground design decisions on it. Everything below is a digest, not
 a replacement.
 
+ADRs live in `docs/adr/`. The product workspace (vision, roadmap, metrics,
+current-state, PDRs under `decisions/`) is `docs/product/`, maintained via
+the axiom-product-management ownership loop — treat it as owner-authored
+state, not free-edit documentation.
+
 ## The fourteen domains
 
 Three infrastructure domains carry prepositions (Leyline = contracts and the
 deterministic request resolver; Tolaria = the single training/execution
 substrate for mainline and branches; Sarpadia = append-only history, ancestry
 and retrieval). Eleven agent domains carry verbs — the canonical sentence
-(HLD §5.3):
+(`docs/design/02-constitution.md`):
 
 > Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
 > Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
@@ -39,7 +44,8 @@ and retrieval). Eleven agent domains carry verbs — the canonical sentence
 
 The codenames are behavioural mandates and act as an architecture linter: a
 subsystem acting contrary to its verb is exercising authority it must not have
-(HLD §5, §8, §13, Appendix A smell catalogue). The core loop: Tolaria trains
+(`02-constitution.md`, `04-architecture.md`, `domains/README.md`, and the
+smell catalogue in `03-principles.md`). The core loop: Tolaria trains
 the host → Nissa observes the ablated host and publishes the **same**
 `TelemetryEnvelope` directly to Narset and Momir → Tamiyo grants a
 `StrategicEnvelope` → Narset issues a narrow `GrowthIntent` (assignment brief;
@@ -51,10 +57,10 @@ in Tolaria's matched common-future branches and certifies evidence → Augustin
 adjudicates provider-blind against no-op and issues warrants → Kasmina
 germinates/blends/commits under an admission warrant → Emrakul later
 sedates/decays/lyses under maintenance warrants → Sarpadia records everything →
-Oona reveals it. The newsroom rule (HLD §5.5, Appendix E): **Nissa sends the
-photograph; Narset sends only the assignment brief.**
+Oona reveals it. The newsroom rule (`appendices/newsroom.md`): **Nissa sends
+the photograph; Narset sends only the assignment brief.**
 
-## Non-negotiable invariants (HLD §18 has all 44; these are the spine)
+## Non-negotiable invariants (`02-constitution.md` has all 44; these are the spine)
 
 - **Academy exact replay:** identical snapshot + identical future data ⇒
   bitwise-identical traces; non-exact profiles carry measured uncertainty.
@@ -90,16 +96,21 @@ Code goes under `src/simic/<subsystem>/` — one package per domain (`leyline/`,
 `controls/`, `curriculum/`, `benchmarks/`, `experiments/`, `analysis/`,
 `scripts/`, with
 `tests/{namespec,contracts,observation_routing,request_resolution,bootstrap_withdrawal,scaffold_withdrawal,unit,integration,training,determinism,counterfactual,authority,blinding,end_to_end}/`
-— see HLD §20. Implementation follows Phases A–K in HLD §25: **Phase A
-(Namespec, Leyline contracts and dependency boundaries) comes first**; MVP
-scope is HLD §24; the first repository milestones are enumerated in §30.
-Python is the working language.
+— see `ops/repo-structure.md`. Implementation follows Phases A–K in
+`programme/phases.md`: **Phase A (Namespec, Leyline contracts and dependency
+boundaries) comes first**; MVP scope is in `programme/phases.md`; the first
+repository milestones are in `ops/repo-structure.md`. Python is the working
+language.
 
 ## Current state (2026-08-08)
 
-Bootstrap. No source code, no pyproject, no tests — only the HLD and the Weft
-tooling below. First engineering work is Phase A. The project-level name may
-change (HLD §27.1); subsystem boundaries will not. Design-review findings and
+Phase A bootstrap. The Python scaffold is in place (pyproject with uv,
+`src/simic/`, `tests/`, pre-commit) but carries no functional code yet —
+substantive content is the HLD and the Weft tooling below. First engineering
+work is Phase A (Namespec, Leyline contracts, dependency boundaries).
+Licensed Apache-2.0. The project name was locked as Simic on 2026-08-08
+(`programme/risks-and-open-decisions.md`); subsystem boundaries are locked
+too. Design-review findings and
 open design decisions are tracked in filigree under the `hld-review` label.
 
 <!-- filigree:instructions:v3.1.0:c1c023c3 -->
@@ -144,6 +155,18 @@ Full reference: `loomweave-workflow` skill, `loomweave --help`, MCP schemas.
 <!-- wardline:last-writer:wardline install -->
 This project uses **wardline** as its trust-boundary gate. Before handing back code that touches external input, run `wardline scan . --fail-on ERROR` (exit 0 = clean, 1 = gate tripped, 2 = wardline error) and fix findings at the boundary, not the sink. The full scan -> explain -> fix -> rescan loop and the baseline-vs-waiver discipline live in the `wardline-gate` skill.
 <!-- /wardline:instructions -->
+
+## Plainweave (definitional lifecycle — ADR-0002)
+
+Named definitional units (Leyline contract shapes, invariants, telemetry
+standards) live under plainweave's sign/lock regime
+(`docs/adr/0002-information-management-regime.md`). Before implementing
+against or changing a named definition, check its baseline status via
+`mcp__plainweave__*` tools (e.g. `plainweave_baseline_get`,
+`plainweave_requirement_search`); a locked definition changes only through a
+recorded event, never a silent edit. The store is initialized but seeding is
+pending (simic-357c92664c) — absence of a baseline means "not yet seeded",
+not "unmanaged".
 
 <!-- warpline:instructions:v1.3.0 -->
 ## Warpline (temporal change-impact)
