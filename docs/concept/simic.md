@@ -4151,6 +4151,8 @@ Should the ecological default be one-shot generation, isolated nursery training,
 
 Should live operation adopt the winning branch state directly or restore and replay it? The answer may depend on hardware placement, branch latency and checkpoint cost.
 
+Conditionality note (2026-08-08 peer review §6, ruled at the decision gate): fast landing (flash-clone) is not required for the pivot — ordinary blending is sufficient — but if it is ever pursued, two collisions bite. A candidate matured in a branch is co-adapted to that branch, so copying it into a live host that followed a different trajectory is the transplant §14.6 forbids; fast landing therefore requires resolving this decision toward branch adoption (restore-and-replay instead pays the replay cost and reopens the staleness window). And §12.4's minimum blend and holding windows assume gradual alpha; a one-or-two-step landing trips them, so that mechanism would need re-deriving for a regime where alpha is not the thing taking time.
+
 ### 27.4 Growth grammar
 
 What is the smallest safe grammar materially more expressive than a residual microcell without becoming unrestricted architecture search?
