@@ -10,12 +10,17 @@ reversibly under warrant, and eventually retired.
 
 ## Canonical design authority
 
-**`docs/concept/simic.md`** is the high-level design (v4.1, Namespec 1.0 —
-locked) and the single source of truth for architecture; its §30 declares it
-the authoritative repository-handoff target. Read it before designing or
-implementing anything non-trivial. `docs/concept/archive/simic-v2.0.md` is
-**superseded** — historical context only; never ground design decisions on it.
-Everything below is a digest, not a replacement.
+The HLD (v4.1, Namespec 1.0 — locked) is decomposed into standalone chapters
+under **`docs/design/`** (ADR-0001). Entry point and §→file concordance:
+**`docs/design/00-INDEX.md`**. Load `docs/design/02-constitution.md` (naming
+constitution + the 44 INV-nn invariants) in every working session, plus the
+chapters your task names — the index's reading paths say which. Cite
+invariants as INV-nn, contracts by name, chapters by path#anchor; never bare
+§-numbers in new text. The v4.1 monolith is archived, content-identical, at
+`docs/concept/archive/simic-v4.1-monolith.md`;
+`docs/concept/archive/simic-v2.0.md` is **superseded** — historical context
+only; never ground design decisions on it. Everything below is a digest, not
+a replacement.
 
 ## The fourteen domains
 
