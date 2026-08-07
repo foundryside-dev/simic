@@ -1,0 +1,56 @@
+{
+  "mcpServers": {
+    "filigree": {
+      "args": [],
+      "command": "/home/john/.local/bin/filigree-mcp",
+      "env": {},
+      "type": "stdio"
+    },
+    "legis": {
+      "args": [
+        "mcp",
+        "--agent-id",
+        "claude-code"
+      ],
+      "command": "/home/john/.local/bin/legis",
+      "env": {},
+      "type": "stdio"
+    },
+    "loomweave": {
+      "args": [
+        "serve"
+      ],
+      "command": "/home/john/.local/share/uv/tools/loomweave/bin/loomweave",
+      "env": {},
+      "type": "stdio"
+    },
+    "plainweave": {
+      "args": [
+        "--root",
+        "/home/john/simic"
+      ],
+      "command": "/home/john/.local/share/uv/tools/plainweave/bin/plainweave-mcp",
+      "env": {},
+      "type": "stdio"
+    },
+    "wardline": {
+      "args": [
+        "mcp",
+        "--root",
+        ".",
+        "--loomweave-url",
+        "http://127.0.0.1:9755",
+        "--filigree-url",
+        "http://localhost:8749/api/p/simic/weft/scan-results"
+      ],
+      "command": "/home/john/.local/bin/wardline",
+      "type": "stdio"
+    },
+    "warpline": {
+      "args": [],
+      "command": "/home/john/.local/bin/warpline-mcp",
+      "env": {},
+      "type": "stdio"
+    }
+  }
+}
