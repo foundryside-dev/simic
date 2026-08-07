@@ -18,10 +18,8 @@ burn-down (43 open `hld-review` items → 0).
   unlabeled `Future` release bucket is simic-78039ae681
 
 ## Open questions / blocked-on-owner
-- The "Repo discipline" line appended to the authority grant (restating HLD §30's
-  ADR-only rule) — still awaiting explicit owner keep/strike; not in the
-  esper-lite grant that was carried over.
-- Real numbers and dates for the TBD targets in metrics.md — owner to set.
+- Real numbers and dates for the TBD targets in metrics.md — talk-through with
+  owner in progress (2026-08-08).
 - Secondary-audience assumption in vision.md (implementation agents) — inferred,
   unconfirmed.
 - Project-level rename (HLD §27.1) — open by design; owner-gated when it lands.
