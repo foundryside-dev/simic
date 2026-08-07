@@ -184,7 +184,7 @@ Changing a codename or moving an authority between names requires an architectur
 
 ---
 
-<!-- hld: source: v4.1 monolith lines 3094–3142 -->
+<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended) -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
 The following are blocking invariants.
@@ -221,7 +221,7 @@ The following are blocking invariants.
 30. **Grace-period protection:** contribution-based removal cannot fire before declared blend and holding windows complete.
 31. **Complete negative retention:** structural rejects, compilation failures, QA failures, adjudication rejects, no-op decisions and abstentions are stored.
 32. **Grouped statistics:** branches from one base trajectory never cross splits or inflate independent sample counts.
-33. **Selection–retention consistency:** shared cost terms use shared weights unless a structural difference is documented.
+33. **Selection–retention consistency:** shared cost terms use shared weights unless a structural difference is documented; admission and retention thresholds are deliberately asymmetric — the admit threshold sits strictly above the retain threshold by a versioned hysteresis band sized against measured execution noise. (ADR-0005)
 34. **Telemetry purity:** Nissa observation cannot perturb host training state.
 35. **Oona isolation:** disconnecting Oona cannot alter training outcomes.
 36. **Sarpadia append-only history:** corrections create new records rather than rewriting causal history.
@@ -233,6 +233,7 @@ The following are blocking invariants.
 42. **Retained reference capability:** withdrawal removes a production dependency, not the Academy replay harness, acquisition fixtures or blinded reference controls.
 43. **Field calibration:** Field evidence is valid only inside a current calibration envelope and carries uncertainty and escalation provenance.
 44. **Decision-aware execution gate:** Field-to-Academy accept/no-op disagreement and selection regret must remain inside declared limits, including tail cases.
+45. **Lexicographic admission:** the tail-risk veto is adjudicated before any utility comparison and cannot be traded against measured benefit; the assurance class owns the veto operating point. (ADR-0004)
 
 ---
 
@@ -293,7 +294,7 @@ Must not issue a verdict.
 AUGUSTIN
 Judges certified evidence under declared policy.
 May choose no-op.
-Must not gather or alter evidence.
+Must not gather or alter evidence, or trade tail risk against measured benefit.
 
 KASMINA
 Embodies legal, warranted growth and declares insertion-region contracts.

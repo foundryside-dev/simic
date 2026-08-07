@@ -13,7 +13,7 @@ reversibly under warrant, and eventually retired.
 The HLD (v4.1, Namespec 1.0 — locked) is decomposed into standalone chapters
 under **`docs/design/`** (ADR-0001). Entry point and §→file concordance:
 **`docs/design/00-INDEX.md`**. Load `docs/design/02-constitution.md` (naming
-constitution + the 44 INV-nn invariants) in every working session, plus the
+constitution + the 45 INV-nn invariants) in every working session, plus the
 chapters your task names — the index's reading paths say which. Cite
 invariants as INV-nn, contracts by name, chapters by path#anchor; never bare
 §-numbers in new text. The v4.1 monolith is archived, content-identical, at
@@ -60,12 +60,15 @@ sedates/decays/lyses under maintenance warrants → Sarpadia records everything 
 Oona reveals it. The newsroom rule (`appendices/newsroom.md`): **Nissa sends
 the photograph; Narset sends only the assignment brief.**
 
-## Non-negotiable invariants (`02-constitution.md` has all 44; these are the spine)
+## Non-negotiable invariants (`02-constitution.md` has all 45; these are the spine)
 
 - **Academy exact replay:** identical snapshot + identical future data ⇒
   bitwise-identical traces; non-exact profiles carry measured uncertainty.
 - **Mandatory no-op:** every admission and continued-tenancy case includes a
   measured no-intervention alternative with policy utility exactly zero.
+- **Lexicographic admission:** the tail-risk veto is adjudicated before any
+  utility comparison and cannot be traded against measured benefit; the
+  assurance class owns the veto operating point.
 - **QA/judgement split:** Urabrask certifies evidence but never issues
   verdicts or warrants; Augustin judges but never executes or alters tests.
 - **Dual provider blindness:** neither Urabrask nor Augustin sees candidate

@@ -17,7 +17,7 @@ load the chapters your task names; do not load the rest.
 | File | Contents |
 |---|---|
 | `01-claim.md` | The scientific claim and its falsifiers (exec summary, problem, goals, non-goals, success criteria, final statement) |
-| `02-constitution.md` | **Always load.** Naming constitution, the 44 constitutional invariants (INV-01..INV-44), one-line namespec invariants |
+| `02-constitution.md` | **Always load.** Naming constitution, the 45 constitutional invariants (INV-01..INV-45), one-line namespec invariants |
 | `03-principles.md` | Design principles and the architectural smell catalogue |
 | `04-architecture.md` | Planes, subsystem map, end-to-end operating flow |
 | `05-leyline-contracts.md` | All core contract shapes (`StrategicEnvelope` … `ScaffoldManifest`) |
@@ -73,7 +73,7 @@ names and file anchors survive restructuring, numbers do not.
 | §15 Sarpadia data model | `domains/sarpadia.md` |
 | §16 curriculum and scaffold withdrawal | `programme/curriculum.md` |
 | §17 learning responsibilities | `programme/learning.md` |
-| §18 constitutional invariants (INV-01..44) | `02-constitution.md` |
+| §18 constitutional invariants (INV-01..45) | `02-constitution.md` |
 | §19 observability | `ops/observability.md` |
 | §20 target codebase structure | `ops/repo-structure.md` |
 | §21–§22 testing, evaluation | `programme/evaluation.md` |

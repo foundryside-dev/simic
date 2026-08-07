@@ -55,7 +55,7 @@ Momir creates possibilities. Elesh establishes structural legality and canonical
 
 Urabrask establishes the facts that can only be learned by executing a candidate: runtime conformance, numerical safety, gradients, cost, trajectory behaviour, shock, regression and uncertainty.
 
-Augustin applies policy to those facts: eligibility, budget, risk, utility weights, no-op anchoring, admission margins and continued tenancy.
+Augustin applies policy to those facts: eligibility, the tail-risk veto, budget, expected risk, utility weights, no-op anchoring, admission margins and continued tenancy.
 
 > **Leyline contains the law. Urabrask establishes the evidence. Augustin applies the law.**
 

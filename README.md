@@ -60,7 +60,7 @@ designer; the assignments editor sends only the assignment brief.**
 ## Guarantees
 
 The constitution ([`docs/design/02-constitution.md`](docs/design/02-constitution.md))
-defines 44 blocking invariants, cited as INV-nn. The spine:
+defines 45 blocking invariants, cited as INV-nn. The spine:
 
 - **Determinism (INV-05):** identical snapshot + identical future data ⇒
   bitwise-identical traces under the Academy execution profile; non-exact
@@ -68,6 +68,9 @@ defines 44 blocking invariants, cited as INV-nn. The spine:
 - **Doing nothing is a real competitor (INV-15, INV-16):** every admission
   and tenancy review includes a measured no-intervention branch with policy
   utility exactly zero; the whole candidate pool may lose to it.
+- **Tail risk cannot be bought (INV-45):** admission is lexicographic — a
+  tail-risk veto precedes utility comparison, and no measured benefit can
+  offset a veto.
 - **Evidence and judgement never mix (INV-17, INV-18, INV-37):** Urabrask
   (QA) certifies evidence but cannot issue verdicts; Augustin (judge)
   decides but cannot touch tests — and neither ever sees candidate

@@ -9,7 +9,7 @@
 - consume `EventEnvelope` streams;
 - maintain append-only flight-recorder storage;
 - build materialised views and projections;
-- power Sanctum-style terminal interfaces and Overwatch-style dashboards;
+- power operator terminal consoles and mission-control-style dashboards;
 - expose training runs, branch trees, lineages, budgets, QA and adjudication;
 - generate audit bundles;
 - alert on invariant breaches;

@@ -22,7 +22,7 @@
 | **QA cost dominance** | Evidence costs more than the adaptation it protects | Predeclared budget and QA coverage–cost Pareto curve |
 | **Survivorship bias** | System cannot learn refusal or failure modes | Retain structural rejects, QA failures, no-op and long-term regressors |
 | **Host co-adaptation** | Same-host ablation exaggerates value | Separate no-op and re-adaptation branches |
-| **Install–lyse oscillation** | Admission and continued-tenancy policy disagree | Shared cost weights, churn metrics, cooldowns and pre-registration |
+| **Install–lyse oscillation** | Boundary growths churn as execution noise moves the estimate | Threshold hysteresis (INV-33, ADR-0005): admit strictly above retain by a versioned band sized against measured σ_exec; churn metrics; cooldowns as frequency limiter only; pre-registration |
 | **Tamiyo micromanagement** | Strategic controller becomes local policy | Slow cadence, aggregate inputs and interface prohibition |
 | **Narset budget escape** | Tactical controller creates ungoverned capacity | Envelope validation in Leyline, Augustin and Kasmina |
 | **Narset co-design / editorial angle** | Tactical policy encodes diagnosis, topology or ancestry into the assignment | Narrow `GrowthIntent`; schema-forbidden fields; direct Nissa-to-Momir route |

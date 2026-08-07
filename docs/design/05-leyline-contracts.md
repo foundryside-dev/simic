@@ -72,6 +72,8 @@ Any change in meaning, width, basis, normalisation or provenance creates a new s
 
 The same `observation_id` must be referenced by Narset's intent, Momir's conditioning input, and the Tolaria snapshot later used for counterfactual evaluation. A mismatch fails closed.
 
+`observation_id` and `telemetry_id` are distinct on purpose: `observation_id` names the canonical observation identity that binds downstream records (INV-08); `telemetry_id` names this envelope record instance for storage and audit. Independent publications and permitted per-consumer projections of one observation share `observation_id` but carry distinct `telemetry_id`s.
+
 ### 9.3 `GrowthIntent`
 
 Authored by Narset under an active `StrategicEnvelope`. This is the **assignment brief**, not the design brief.
@@ -433,6 +435,8 @@ AdmissionDecision
     selected_candidate_id | null
     selected_semantic_hash | null
     eligibility_results
+    tail_veto_results       # per candidate: tail estimate, threshold in force,
+                            # snapshot distance, margin, pass | veto (ADR-0004)
     no_op_margin
     adjudicated_utility
     cost_breakdown

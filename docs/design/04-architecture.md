@@ -39,7 +39,7 @@ flowchart TD
     TOL --> K[Kasmina: host and reversible growth physiology]
     K --> N[Nissa: canonical ablated diagnostic observation]
 
-    N -->|same TelemetryEnvelope| TAM[Tamiyo: strategic controller]
+    N -->|permitted coarse summary| TAM[Tamiyo: strategic controller]
     N -->|same TelemetryEnvelope| NAR[Narset: tactical assignments controller]
     N -->|same TelemetryEnvelope| MOM[Momir: candidate designer]
     TAM -->|StrategicEnvelope| NAR
@@ -158,7 +158,7 @@ Urabrask verifies runtime conformance and certifies measurements
         ↓
 QualityReport
         ↓
-Augustin applies eligibility, budget, risk and utility policy
+Augustin applies eligibility, then the tail-risk veto, then utility policy
         ↓
 ADMIT one / REJECT / DEFER / REQUIRE_RETEST / NO_OP
 ```
@@ -190,6 +190,8 @@ After COMMIT:
 ```
 
 Urabrask and Augustin are independent of this command hierarchy. Urabrask certifies evidence. Augustin issues admission and maintenance warrants. Neither performs Kasmina state transitions. Tolaria is beneath the hierarchy as neutral execution infrastructure.
+
+Emrakul's post-commit actions execute Augustin `MaintenanceDecision` verdicts; the vocabularies map one-to-one: `RETAIN` → `HOLD` (no physical transition), `RETEST` → `REQUEST_REVIEW` (schedule maintenance QA), and `SEDATE`/`DECAY`/`LYSE` execute directly under the maintenance warrant. Verdicts are Augustin records; actions are Emrakul executions of them.
 
 ### 7.6 The newsroom authority model
 
@@ -420,9 +422,13 @@ Urabrask certifies the returned evidence into a `QualityReport`. It may mark har
 
 ### 10.10 Independent adjudication
 
+<!-- hld: amended by ADR-0004 (lexicographic admission) -->
+
 Augustin receives a blinded `QualityReport`, the resolved request, the active `StrategicEnvelope`, and the applicable policy version.
 
-It first applies hard eligibility:
+Adjudication is lexicographic (ADR-0004): three ordered stages, no later stage reopening an earlier one.
+
+**Stage 1 — hard eligibility:**
 
 - structural and semantic identity valid;
 - compilation conformance valid;
@@ -431,7 +437,9 @@ It first applies hard eligibility:
 - evidence complete enough for the assurance class;
 - and measured spend inside declared budget.
 
-It then computes policy utility, risk and uncertainty relative to no-op. It may:
+**Stage 2 — tail-risk veto:** per candidate, Augustin estimates the tail of the intervention-outcome distribution from certified evidence and vetoes any candidate whose estimate breaches the threshold. The veto is not tradeable against measured benefit (INV-45); the assurance class owns the operating point, priced against current snapshot distance. No-op never faces the veto.
+
+**Stage 3 — utility competition:** Augustin computes policy utility, expected-risk and uncertainty charges for the survivors relative to no-op. It may:
 
 ```text
 ADMIT

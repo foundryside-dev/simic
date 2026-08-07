@@ -151,6 +151,22 @@ Retrieval returns evidence and candidate material, not an automatic deployment d
 - pass Urabrask QA;
 - and compete under Augustin against no-op and fresh candidates.
 
+<!-- hld: post-monolith addition (2026-08-08) — future direction, non-binding -->
+##### Future direction (non-binding): contextual retrieval over the precedent store
+
+As the precedent store grows beyond the fixed bootstrap population, the
+similarity indices behind the retrieval modes above may benefit from
+*contextual retrieval*: prepending a short, generated context prefix to each
+stored record fragment before embedding, combined with hybrid lexical
+(BM25-style) and embedding search plus reranking. Anthropic reported ~49%
+fewer retrieval failures with the hybrid form and ~67% with reranking
+(["Introducing Contextual Retrieval"](https://www.anthropic.com/news/contextual-retrieval),
+Sep 2024), measured on codebase-like corpora — close in character to
+canonical genotypes and QA evidence. This is an implementation note for
+Sarpadia's index layer only. It binds nothing: it changes no contract, no
+blinded view, no invariant, and no retrieval-mode semantics — a retrieval
+result remains precedent, not a verdict, however the index is built.
+
 #### 15.6 Training consumers
 
 - **Momir** consumes successful, failed and contrasting candidate sets.

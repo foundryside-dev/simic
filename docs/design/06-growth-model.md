@@ -4,7 +4,7 @@
 <!-- hld: source: v4.1 monolith lines 1570â€“1815 -->
 ## 11. Generated Growth Model
 
-## 11.1 Growth progression
+### 11.1 Growth progression
 
 The growth language expands only after the preceding level passes reliability gates.
 
@@ -56,7 +56,7 @@ The grammar remains bounded by:
 
 Arbitrary code generation is not required.
 
-## 11.2 One-shot and nursery modes
+### 11.2 One-shot and nursery modes
 
 ### One-shot mode
 
@@ -75,7 +75,7 @@ Arbitrary code generation is not required.
 
 Nursery mode is the default ecological configuration because it preserves safe behind-the-host maturation. One-shot mode remains a required scientific ablation.
 
-## 11.3 Candidate identity
+### 11.3 Candidate identity
 
 Three identities are distinct:
 
@@ -88,7 +88,7 @@ Sarpadia stores all three. Urabrask tests canonical semantics through Tezzeretâ€
 Two compiled artefacts may implement the same canonical growth. Two raw graphs may canonicalise to the same semantic identity. Candidate diversity is therefore measured primarily in canonical and functional space, not raw syntax or compiler artefact space.
 
 
-## 11.4 Reference-seed bootstrap and scaffold withdrawal
+### 11.4 Reference-seed bootstrap and scaffold withdrawal
 
 Momir is not initially asked to invent useful neural machinery from an unrestricted grammar with no examples. The first curriculum supplies a small, versioned **reference population** of known mechanically viable microcells held in Sarpadia, such as:
 

@@ -73,7 +73,7 @@ The field surrogate predicts measurements and uncertainty. It does not issue Aug
 - tail numerical-failure rate;
 - and stability across device, precision and kernel profiles.
 
-### 14.4.1 Execution uncertainty and adjudication margins
+#### 14.4.1 Execution uncertainty and adjudication margins
 
 Once Tolaria operates outside the Academy-exact regime, Augustin judges conservative evidence rather than point estimates that pretend execution is noiseless. A representative lower-confidence utility is:
 
@@ -84,6 +84,35 @@ $$
 where $\widehat U(c)$ is estimated candidate utility, $\sigma_{\mathrm{exec}}(c)$ is execution and surrogate uncertainty, and $\kappa$ is the versioned assurance coefficient. Admission requires the conservative margin over no-op to exceed the applicable policy threshold.
 
 A numerically imperfect Field estimate may be operationally adequate when its margin is large. A small prediction error may be unacceptable near the no-op boundary. Low-margin cases resolve to `REJECT`, `DEFER`, or `REQUIRE_RETEST`; they are never forced through merely because Field execution is cheaper.
+
+#### 14.4.2 Tail-risk veto and lexicographic order
+
+<!-- hld: added by ADR-0004 (lexicographic admission) -->
+
+The margin discipline above governs the **utility** stage. Before any
+utility comparison, every candidate faces the **tail-risk veto** (ADR-0004,
+INV-45): Augustin estimates the tail of the intervention-outcome
+distribution — the catastrophic case, not the expectation — from certified
+Urabrask measurements (integration shock, instability, numerical events,
+trajectory behaviour), and removes from contention any candidate whose
+estimate breaches the veto threshold. No measured benefit can offset a
+veto.
+
+The two mechanisms answer different questions with different functionals:
+
+- \(U^{-}(c)\) asks *"is the expected benefit still positive under
+  conservative measurement error"* — an expectation with an uncertainty
+  margin;
+- the veto asks *"could this candidate cost us the trajectory"* — a tail
+  bound, priced against current snapshot distance, because the real
+  downside of a bad admission is not a bad growth but a rollback to the
+  last snapshot.
+
+The assurance class owns the veto operating point — its primary semantics,
+beyond setting evidence-completeness requirements. Every veto and every
+thin-margin pass is recorded per candidate in the `AdmissionDecision`'s
+`tail_veto_results` (INV-31); thin-margin passes are the dense shoulder of
+the distribution whose extreme events are, by design, rare.
 
 ### 14.5 No-op anchoring
 
