@@ -4,64 +4,98 @@ Simic is the third incarnation of ESPER (`~/esper`) and ESPER LITE
 (`~/esper-lite`), redesigned around discoveries from those systems. It is a
 lifecycle-driven neural training system in which new computational structure is
 **generated from the live state of a host network** — not selected from a fixed
-menu of human-authored blueprints — then verified, compiled, causally screened
-against doing nothing, embodied reversibly, and eventually retired.
+menu of human-authored blueprints — then conformed, compiled, QA-tested in
+matched counterfactual branches, adjudicated against doing nothing, embodied
+reversibly under warrant, and eventually retired.
 
 ## Canonical design authority
 
-**`docs/concept/simic.md`** is the high-level design (v2.0) and the single
-source of truth for architecture. Read it before designing or implementing
-anything non-trivial. Everything below is a digest, not a replacement.
+**`docs/concept/simic.md`** is the high-level design (v4.1, Namespec 1.0 —
+locked) and the single source of truth for architecture; its §30 declares it
+the authoritative repository-handoff target. Read it before designing or
+implementing anything non-trivial. `docs/concept/archive/simic-v2.0.md` is
+**superseded** — historical context only; never ground design decisions on it.
+Everything below is a digest, not a replacement.
 
-## The thirteen authorities
+## The fourteen domains
 
-> Tamiyo allocates. Narset acts. Nissa observes. Momir imagines. Elesh permits.
-> Tezzeret builds. Tolaria repeats. Urabrask judges. Kasmina embodies.
-> Sarpadia remembers. Emrakul destroys. Oona reveals. Leyline constrains.
+Three infrastructure domains carry prepositions (Leyline = contracts and the
+deterministic request resolver; Tolaria = the single training/execution
+substrate for mainline and branches; Sarpadia = append-only history, ancestry
+and retrieval). Eleven agent domains carry verbs — the canonical sentence
+(HLD §5.3):
+
+> Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
+> Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
+> compiled result in Tolaria. Augustin judges the resulting evidence under
+> Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no
+> longer earns continued tenancy. Sarpadia retains every precedent. Oona
+> reveals the account.
 
 The codenames are behavioural mandates and act as an architecture linter: a
-subsystem doing something contrary to its narrative verb is exercising
-authority it must not have (HLD §5, §13, Appendix A smell catalogue). The
-core loop: Nissa observes the ablated host → Tamiyo grants strategic budgets →
-Narset requests growth → Momir generates raw candidates → Elesh canonicalises
-and verifies → Tezzeret compiles → Tolaria runs matched flash-cloned futures →
-Urabrask admits one candidate or no-op → Kasmina germinates/blends/commits →
-Emrakul later sedates or lyses → Sarpadia records everything → Oona reveals it.
+subsystem acting contrary to its verb is exercising authority it must not have
+(HLD §5, §8, §13, Appendix A smell catalogue). The core loop: Tolaria trains
+the host → Nissa observes the ablated host and publishes the **same**
+`TelemetryEnvelope` directly to Narset and Momir → Tamiyo grants a
+`StrategicEnvelope` → Narset issues a narrow `GrowthIntent` (assignment brief;
+diagnosis/topology/ancestry hints are schema-invalid) → Leyline's deterministic
+resolver produces the canonical `GrowthRequest` → Momir designs raw candidates
+(optionally conditioned on Sarpadia bootstrap ancestry) → Elesh canonicalises
+and verifies → Tezzeret compiles without changing semantics → Urabrask runs QA
+in Tolaria's matched common-future branches and certifies evidence → Augustin
+adjudicates provider-blind against no-op and issues warrants → Kasmina
+germinates/blends/commits under an admission warrant → Emrakul later
+sedates/decays/lyses under maintenance warrants → Sarpadia records everything →
+Oona reveals it. The newsroom rule (HLD §5.5, Appendix E): **Nissa sends the
+photograph; Narset sends only the assignment brief.**
 
-## Non-negotiable invariants (HLD §18 has all 22)
+## Non-negotiable invariants (HLD §18 has all 44; these are the spine)
 
-- **Determinism gate:** snapshot + same future data ⇒ bit-identical traces.
-- **Mandatory no-op:** every trial contains a no-intervention branch with
-  utility exactly zero; the whole candidate pool may lose to it.
-- **Provider blindness:** Urabrask never sees candidate source while scoring.
-- **Admission token:** Kasmina never raises influence without Urabrask evidence.
-- **Semantic identity:** the canonical hash admitted = the hash embodied;
-  Tezzeret may change execution strategy but never semantics.
+- **Academy exact replay:** identical snapshot + identical future data ⇒
+  bitwise-identical traces; non-exact profiles carry measured uncertainty.
+- **Mandatory no-op:** every admission and continued-tenancy case includes a
+  measured no-intervention alternative with policy utility exactly zero.
+- **QA/judgement split:** Urabrask certifies evidence but never issues
+  verdicts or warrants; Augustin judges but never executes or alters tests.
+- **Dual provider blindness:** neither Urabrask nor Augustin sees candidate
+  source; blinding is by construction (fields absent, not ignored).
+- **Warrants:** Kasmina never raises influence without a valid Augustin
+  admission warrant; ordinary decay/lysis requires a maintenance warrant.
+- **Assignment-brief boundary:** `GrowthIntent` carries scope and operational
+  constraints only; equivalent intents resolve to one canonical request, and
+  Momir never sees Narset hidden state.
+- **Semantic identity:** artefact, QA report, decision and embodiment all
+  reference the same canonical hash; Tezzeret preserves semantics.
 - **Authority separation:** Narset pre-commit only, Emrakul post-commit only,
   Tamiyo never issues local transitions, Nissa never emits `should_grow`.
-- **Complete history:** Sarpadia is append-only and keeps failures, rejected
-  pools, and abstentions — never winners-only.
+- **Complete history:** Sarpadia is append-only and retains failures, rejected
+  pools, no-op wins and abstentions — never winners-only.
 - **Oona isolation:** disconnecting observability cannot change training.
 - **Leyline dependency direction:** contracts import nothing from subsystems.
 - **Grouped statistics:** branches of one base trajectory never cross splits.
+- **Scaffold discipline:** every run declares its three-axis `ScaffoldState`;
+  withdrawal gates are independent; confirmatory transitions move one axis at
+  a time.
 
 ## Target layout and sequencing
 
-Code goes under `src/simic/<subsystem>/` — one package per authority
-(`leyline/`, `kasmina/`, `tamiyo/`, `narset/`, `nissa/`, `momir/`, `elesh/`,
-`tezzeret/`, `tolaria/`, `urabrask/`, `sarpadia/`, `emrakul/`, `oona/`) plus
+Code goes under `src/simic/<subsystem>/` — one package per domain (`leyline/`,
+`tolaria/`, `sarpadia/`, `tamiyo/`, `narset/`, `nissa/`, `momir/`, `elesh/`,
+`tezzeret/`, `urabrask/`, `augustin/`, `kasmina/`, `emrakul/`, `oona/`) plus
 `controls/`, `curriculum/`, `benchmarks/`, `experiments/`, `analysis/`,
 `scripts/`, with
-`tests/{contracts,unit,integration,determinism,counterfactual,authority,end_to_end}/`
-— see HLD §20. Implementation follows the phase order in HLD §25: **Phase A
-(Leyline contracts + authority tests) comes first**; MVP scope is HLD §24.
+`tests/{namespec,contracts,observation_routing,request_resolution,bootstrap_withdrawal,scaffold_withdrawal,unit,integration,training,determinism,counterfactual,authority,blinding,end_to_end}/`
+— see HLD §20. Implementation follows Phases A–K in HLD §25: **Phase A
+(Namespec, Leyline contracts and dependency boundaries) comes first**; MVP
+scope is HLD §24; the first repository milestones are enumerated in §30.
 Python is the working language.
 
-## Current state (2026-08-07)
+## Current state (2026-08-08)
 
 Bootstrap. No source code, no pyproject, no tests — only the HLD and the Weft
 tooling below. First engineering work is Phase A. The project-level name may
-change (HLD §27.1); subsystem boundaries will not.
+change (HLD §27.1); subsystem boundaries will not. Design-review findings and
+open design decisions are tracked in filigree under the `hld-review` label.
 
 <!-- filigree:instructions:v3.1.0:c1c023c3 -->
 <!-- filigree:last-writer:filigree install -->
