@@ -31,13 +31,15 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 
 ## VISUAL FOUNDATIONS
 
-**Color**: OKLCH throughout. Blue-green world: hue 225 ("ink") carries all structure — backgrounds, text, borders; hue 175 (teal) carries emphasis — links, accents, active nav, callout spines; hue 85 (amber) is the sole warning color. Both themes come from one palette via `light-dark()`; `color-scheme: light dark` follows the OS, `[data-theme]` overrides. Max 2 background colors per page (`--color-bg`, `--color-bg-subtle`), plus tinted note backgrounds. Never pure black/white.
+**Color**: OKLCH throughout. Blue-green world: hue 225 ("ink") carries all structure — backgrounds, text, borders; hue 175 (teal) carries emphasis — links, accents, active nav, callout spines; hue 85 (amber) is the sole warning color. A callout holds its family's hue on both sides of `light-dark()` — never let the dark side drift off-hue. Both themes come from one palette via `light-dark()`. Max 2 background colors per page (`--color-bg`, `--color-bg-subtle`), plus the two tinted note grounds (`--color-bg-note`, `--color-bg-note-status`). Never pure black/white.
+
+**Theme model — two-state, not three.** The marketing site follows the OS via `color-scheme: light dark` and **has no toggle**: it ships zero JavaScript, so nothing ever sets `data-theme`. The `:root[data-theme]` rules in `site/style.css` are an unreached hook, kept for a future toggle; the diagrams cannot follow them at all (they select via `<picture>`, resolved by the layout engine). Only the **wiki** is three-state — MkDocs Material supplies its own toggle. Do not describe the marketing site as having a theme switcher.
 
 **Type**: system stacks only, on purpose (zero third-party requests — a privacy stance, not an omission). Body `system-ui…`; code/labels `ui-monospace…`. Mono is the brand's display voice: the wordmark, taglines, note labels, invariant chips, table `name` cells are all mono. Fluid heading sizes via `clamp()`. Base 1rem/1.65. h1 tracking -0.02em; mono labels tracked out (+0.04–0.08em) and often uppercase at ~0.78rem.
 
 **Spacing/layout**: 8px-base scale (`--space-1..7` = 4/8/16/24/32/48/72px). Two widths: prose `--measure` 46rem, wide blocks (tables, diagrams, grids) `--page` 62rem. Prose is narrow by default; wide elements opt out.
 
-**Backgrounds**: flat solid colors only. No gradients, no textures, no imagery, no photography. The only "images" are pre-rendered Mermaid diagram SVGs, shipped in light+dark pairs and swapped with the color tokens.
+**Backgrounds**: flat solid colors only. No gradients, no textures, no imagery, no photography. The only "images" are pre-rendered Mermaid diagram SVGs, shipped in light+dark pairs and selected by `<picture>` + `media="screen and (prefers-color-scheme: dark)"` — one variant fetched, and print falls through to the light one. The single exception is `site/assets/social-card.png`, a 1200×630 Open Graph card rendered from `social-card.src.html`; it is a fixed dark artefact and does not track the viewer's theme.
 
 **Borders & radius**: 1px hairline `--color-border` everywhere (h2 top rules, table rows, cards, code); `--color-border-firm` for firmer edges. Radius `4px` (3px on inline code, 2px on focus rings). Callouts and quotes use a 3px left spine (teal = note/canon, amber = status, neutral = plain quote).
 
@@ -52,7 +54,7 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 ## ICONOGRAPHY
 
 There is **no icon system**. The site ships zero icon fonts, zero icon SVG sets. The complete iconography:
-- **The mark**: a teal diamond (`assets/mark.svg`, `#0f9b8e`), used as favicon and rendered as the `◈` character before the wordmark (`.wordmark::before`, colored accent). This is the closest thing to a logo — there is no wordmark image; the wordmark is live text in mono.
+- **The mark**: a teal diamond, used as favicon and rendered as the `◈` character before the wordmark (`.wordmark::before`, colored accent). This is the closest thing to a logo — there is no wordmark image; the wordmark is live text in mono. One file, two deployed copies kept byte-identical: `site/assets/mark.svg` (marketing) and `tools/wiki/assets/mark.svg` (wiki logo + favicon). Its `#0f9b8e` is a fixed hex, not a token — a favicon cannot use `light-dark()` — and sits between `--teal-600` and `--teal-400`; do not introduce a fourth teal to match it.
 - **Unicode as UI glyphs**: `◈` (wordmark), `→` (forward links "Read the architecture →"), `›` (breadcrumbs), `·` (footer separators).
 - **Diagrams**: pre-rendered Mermaid SVGs in `assets/diagrams/` (light/dark pairs) — the only illustrations in the brand.
 - The wiki (Material theme) uses Material Design icons only for chrome (theme toggle, GitHub link, permalinks); content uses none.
@@ -61,13 +63,28 @@ Do not introduce icon sets, emoji, or drawn illustrations. When an icon urge str
 
 ## Index
 
-- `styles.css` — global entry (imports everything below)
-- `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css`
-- `assets/` — `mark.svg`, `diagrams/` (6 Mermaid SVGs, light/dark pairs)
-- `guidelines/` — foundation specimen cards
-- `components/site/` — Masthead, SiteFooter, PageHead, Note, CanonQuote, Spine, CardGrid, DataTable, Split, Diagram (the full inventory `site/style.css` defines — nothing invented)
-- `ui_kits/website/` — recreation of the overview page
-- `ui_kits/wiki/` — recreation of a design-docs wiki page (MkDocs Material)
+> **⚠ INCOMPLETE EXPORT — read before using this skill.** Only the eight
+> metadata files were committed (`6e74997`). The 33 files listed below under
+> `tokens/`, `components/`, `guidelines/` and `ui_kits/` are **absent from this
+> directory** and are not gitignored — they were never committed. `styles.css`
+> is therefore four dangling `@import`s and loads nothing.
+>
+> Until the export is completed, **treat `site/style.css` in the repo as the
+> token source of truth** (it always was — see the note above) and read
+> `_ds_manifest.json` for the resolved token values, which it carries inline.
+> Do not hand-author replacements for the files below: they exist in the
+> upstream Claude Design project `SimicDesignSystem_5a908e` and re-exporting or
+> pulling them (`DesignSync`) is the fix. Do not edit this Index to match the
+> disk either — the gap is the record of what is missing.
+
+- `styles.css` — global entry (imports everything below) — **present but inert**
+- `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css` — **missing**
+- `assets/` — `mark.svg`, `diagrams/` (6 Mermaid SVGs, light/dark pairs) — **missing** (both live in the repo: `site/assets/mark.svg`, `site/assets/diagrams/`)
+- `guidelines/` — foundation specimen cards (14 files) — **missing**
+- `components/{content,data,navigation}/` — Masthead, SiteFooter, PageHead, Note, CanonQuote, Spine, CardGrid, DataTable, Split, Diagram (the full inventory `site/style.css` defines — nothing invented) — **missing**
+- `ui_kits/website/` — recreation of the overview page — **missing**
+- `ui_kits/wiki/` — recreation of a design-docs wiki page (MkDocs Material) — **missing**
+- `_ds_manifest.json` — component/token index; the only complete record of the palette in this directory
 - `SKILL.md` — agent skill entry point
 
 **Intentional additions**: none. The component list is exactly the class inventory of `site/style.css`. The wiki surface is stock MkDocs Material (teal/teal, `font: false`) — recreated as a UI kit screen, not as components.

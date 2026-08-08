@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Simic social card source</title>
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  SOURCE for assets/social-card.png (1200x630) — not deployed as a page, kept
+  so the card can be regenerated instead of hand-edited in an image editor.
+
+  Regenerate:
+    (cd site && python3 -m http.server 8765 &)
+    google-chrome --headless --disable-gpu --hide-scrollbars \
+      --screenshot=site/assets/social-card.png --window-size=1200,630 \
+      http://127.0.0.1:8765/assets/social-card.src.html
+
+  Tokens are duplicated here rather than imported from style.css because the
+  card must render one fixed appearance regardless of the renderer's colour
+  scheme — light-dark() would follow the headless browser's preference. Values
+  are the LIGHT side of style.css, kept in sync by hand; there are five.
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --ink-050: oklch(0.985 0.004 225);
+    --ink-500: oklch(0.495 0.024 225);
+    --ink-950: oklch(0.145 0.020 225);
+    --teal-400: oklch(0.780 0.110 175);
+    --amber-400: oklch(0.800 0.105 85);
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+                 Arial, sans-serif;
+    --font-code: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+                 "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    width: 1200px;
+    height: 630px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 28px;
+    padding: 0 96px;
+    background: var(--ink-950);
+    color: var(--ink-050);
+    font-family: var(--font-body);
+    /* The dark side is deliberate: the card is a fixed artefact, and the mark
+       reads strongest on ink. It does not track the viewer's theme. */
+  }
+  .wordmark {
+    font-family: var(--font-code);
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink-050);
+  }
+  .wordmark::before { content: "◈ "; color: var(--teal-400); }
+  h1 {
+    font-size: 78px;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    max-width: 20ch;
+  }
+  .tagline {
+    font-family: var(--font-code);
+    font-size: 26px;
+    letter-spacing: 0.01em;
+    color: var(--teal-400);
+  }
+  .lede {
+    font-size: 27px;
+    line-height: 1.45;
+    color: oklch(0.825 0.016 225);
+    max-width: 46ch;
+  }
+  .status {
+    margin-top: 8px;
+    font-family: var(--font-code);
+    font-size: 19px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber-400);
+  }
+</style>
+</head>
+<body>
+  <div class="wordmark">simic</div>
+  <h1>Counterfactual Generative Morphogenesis</h1>
+  <p class="lede">
+    New neural structure generated from the live state of a host network, then
+    causally screened against doing nothing.
+  </p>
+  <p class="status">Pre-implementation bootstrap · HLD v4.1 locked</p>
+</body>
+</html>

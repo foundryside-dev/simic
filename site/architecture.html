@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Architecture — Simic</title>
 <meta name="description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the newsroom routing rule, and the sentence test used as an architecture lint.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20d='M8%201L14%208L8%2015L2%208Z'%20fill='%230f9b8e'/%3E%3C/svg%3E">
+<link rel="canonical" href="https://simic.foundryside.dev/architecture.html">
+<link rel="icon" href="assets/mark.svg">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Simic">
+<meta property="og:url" content="https://simic.foundryside.dev/architecture.html">
+<meta property="og:title" content="Architecture — Simic">
+<meta property="og:description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the newsroom routing rule, and the sentence test used as an architecture lint.">
+<meta property="og:image" content="https://simic.foundryside.dev/assets/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Simic — Counterfactual Generative Morphogenesis. Pre-implementation bootstrap.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://simic.foundryside.dev/assets/social-card.png">
+
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +35,7 @@
         <li><a href="architecture.html" aria-current="page">Architecture</a></li>
         <li><a href="lineage.html">Why this design</a></li>
         <li><a href="/design/">Design docs</a></li>
-        <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
+        <li><a href="https://github.com/foundryside-dev/simic">Source</a></li>
       </ul>
     </nav>
   </div>
@@ -44,14 +58,16 @@
     <span class="note__label">Reading note</span>
     <p>
       This page is a digest. The canonical text is
-      <code>docs/design/02-constitution.md</code> (naming constitution and the
-      45 invariants) and <code>docs/design/04-architecture.md</code> (system
-      context, planes, control hierarchy) in
-      <a href="https://github.com/foundryside-dev/simic" rel="noopener">the repository</a>.
+      <a class="cite" href="/design/02-constitution/"><code>02-constitution.md</code></a>
+      (naming constitution and the 45 invariants) and
+      <a class="cite" href="/design/04-architecture/"><code>04-architecture.md</code></a>
+      (system context, planes, control hierarchy), published in full at
+      <a href="/design/">/design/</a> and versioned in
+      <a href="https://github.com/foundryside-dev/simic">the repository</a>.
     </p>
   </div>
 
-  <h2 id="grammar">Actors have verbs. Infrastructure has prepositions.</h2>
+  <h2 id="grammar">Actors have verbs. Infrastructure has prepositions.<a class="hlink" href="#grammar" aria-label="Permalink to “Actors have verbs. Infrastructure has prepositions.”">#</a></h2>
 
   <p>
     The locked convention distinguishes <strong>agents</strong> from
@@ -68,7 +84,7 @@
     happen.
   </p>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>The three infrastructure domains</caption>
       <thead>
@@ -102,7 +118,7 @@
     </table>
   </div>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>The eleven agent domains</caption>
       <thead>
@@ -139,12 +155,13 @@
       reveals the account.
     </p>
     <cite>The canonical sentence — a compact authority map.
-      <code>docs/design/02-constitution.md</code> §5.3</cite>
+      <a class="cite" href="/design/02-constitution/#53-the-canonical-sentence"><code>02-constitution.md</code>
+      § The canonical sentence</a></cite>
   </blockquote>
 
-  <h2 id="planes">Architectural planes</h2>
+  <h2 id="planes">Architectural planes<a class="hlink" href="#planes" aria-label="Permalink to “Architectural planes”">#</a></h2>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>Domains grouped by the concern they serve</caption>
       <thead>
@@ -165,7 +182,7 @@
     </table>
   </div>
 
-  <h2 id="newsroom">The newsroom principle</h2>
+  <h2 id="newsroom">The newsroom principle<a class="hlink" href="#newsroom" aria-label="Permalink to “The newsroom principle”">#</a></h2>
 
   <p>
     The resemblance to a newsroom is structural rather than decorative. A
@@ -175,7 +192,7 @@
     chain corrupts both evidence and accountability.
   </p>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>The analogy, desk by desk</caption>
       <thead>
@@ -223,16 +240,18 @@
     reject diagnostic or structural hints in Narset's channel.
   </p>
 
-  <h2 id="loops">The loops</h2>
+  <h2 id="loops">The loops<a class="hlink" href="#loops" aria-label="Permalink to “The loops”">#</a></h2>
 
-  <h3 id="observation-loop">Observation and commissioning</h3>
+  <h3 id="observation-loop">Observation and commissioning<a class="hlink" href="#observation-loop" aria-label="Permalink to “Observation and commissioning”">#</a></h3>
 
   <figure class="wide diagram">
-    <div class="diagram__frame" role="img" aria-label="Flowchart of the observation and commissioning loop. Nissa observes Snapshot S at decision point T and produces TelemetryEnvelope O. O is published directly to both Narset — asking whether work should be commissioned, where, and under what class — and Momir, asking what structure would address this observed state. Four inputs converge on a pure request resolution step: Narset's GrowthIntent I, Tamiyo's StrategicEnvelope E reaching Narset, Kasmina's RegionContract R, and Leyline's GrammarProfile G, with envelope O also bound in as the observation identity. Resolution maps the tuple O, E, I, R, G to GrowthRequest Q, which reaches Momir separately from O.">
-      <img class="diagram__img diagram__img--light" src="assets/diagrams/observation-loop-light.svg"
-           alt="" width="870" height="587" style="--dmin: 650px">
-      <img class="diagram__img diagram__img--dark" src="assets/diagrams/observation-loop-dark.svg"
-           alt="" width="870" height="587" style="--dmin: 650px">
+    <div class="diagram__frame" tabindex="0" role="img" aria-label="Flowchart of the observation and commissioning loop. Nissa observes Snapshot S at decision point T and produces TelemetryEnvelope O. O is published directly to both Narset — asking whether work should be commissioned, where, and under what class — and Momir, asking what structure would address this observed state. Four inputs converge on a pure request resolution step: Narset's GrowthIntent I, Tamiyo's StrategicEnvelope E reaching Narset, Kasmina's RegionContract R, and Leyline's GrammarProfile G, with envelope O also bound in as the observation identity. Resolution maps the tuple O, E, I, R, G to GrowthRequest Q, which reaches Momir separately from O.">
+      <picture>
+        <source srcset="assets/diagrams/observation-loop-dark.svg"
+                media="screen and (prefers-color-scheme: dark)">
+        <img class="diagram__img" src="assets/diagrams/observation-loop-light.svg"
+             alt="" width="870" height="587" decoding="async" style="--dmin: 650px">
+      </picture>
     </div>
     <figcaption>
       The two Nissa arrows are independent publications of the same observation
@@ -243,14 +262,16 @@
     </figcaption>
   </figure>
 
-  <h3 id="assurance-loop">Assurance and adjudication</h3>
+  <h3 id="assurance-loop">Assurance and adjudication<a class="hlink" href="#assurance-loop" aria-label="Permalink to “Assurance and adjudication”">#</a></h3>
 
   <figure class="wide diagram">
-    <div class="diagram__frame" role="img" aria-label="Flowchart of the assurance and adjudication loop. A Tezzeret artefact goes to Urabrask, which builds a blinded TestPlan. Tolaria restores one common snapshot and fans out into three matched branches run over an identical future: candidate branches, controls, and a mandatory no-op. All three return to Urabrask, which verifies conformance and certifies the measurements, producing a QualityReport. Augustin then applies eligibility, then the tail-risk veto, then utility policy, and returns one of: admit one, reject, defer, require retest, or no-op.">
-      <img class="diagram__img diagram__img--light" src="assets/diagrams/assurance-loop-light.svg"
-           alt="" width="572" height="797" style="--dmin: 430px">
-      <img class="diagram__img diagram__img--dark" src="assets/diagrams/assurance-loop-dark.svg"
-           alt="" width="572" height="797" style="--dmin: 430px">
+    <div class="diagram__frame" tabindex="0" role="img" aria-label="Flowchart of the assurance and adjudication loop. A Tezzeret artefact goes to Urabrask, which builds a blinded TestPlan. Tolaria restores one common snapshot and fans out into three matched branches run over an identical future: candidate branches, controls, and a mandatory no-op. All three return to Urabrask, which verifies conformance and certifies the measurements, producing a QualityReport. Augustin then applies eligibility, then the tail-risk veto, then utility policy, and returns one of: admit one, reject, defer, require retest, or no-op.">
+      <picture>
+        <source srcset="assets/diagrams/assurance-loop-dark.svg"
+                media="screen and (prefers-color-scheme: dark)">
+        <img class="diagram__img" src="assets/diagrams/assurance-loop-light.svg"
+             alt="" width="572" height="797" decoding="async" style="--dmin: 430px">
+      </picture>
     </div>
     <figcaption>
       Paired branches begin from the same complete snapshot and receive the same
@@ -259,10 +280,10 @@
     </figcaption>
   </figure>
 
-  <h3 id="control-hierarchy">Control hierarchy</h3>
+  <h3 id="control-hierarchy">Control hierarchy<a class="hlink" href="#control-hierarchy" aria-label="Permalink to “Control hierarchy”">#</a></h3>
 
   <figure class="wide">
-<pre role="img" aria-label="Tree diagram of the control hierarchy. Tamiyo establishes the StrategicEnvelope. Within it, Narset chooses one local action from: wait; commission growth, which emits a GrowthIntent; begin maturation; request QA; request adjudication; begin blend; hold; abort; or commit. After commit, Narset relinquishes ordinary ownership and Emrakul manages physical maintenance, choosing from: request review; hold; sedate; decay; or lyse."><code>Tamiyo
+<pre tabindex="0" role="img" aria-label="Tree diagram of the control hierarchy. Tamiyo establishes the StrategicEnvelope. Within it, Narset chooses one local action from: wait; commission growth, which emits a GrowthIntent; begin maturation; request QA; request adjudication; begin blend; hold; abort; or commit. After commit, Narset relinquishes ordinary ownership and Emrakul manages physical maintenance, choosing from: request review; hold; sedate; decay; or lyse."><code>Tamiyo
   └── establishes StrategicEnvelope
         └── Narset chooses local actions
               ├── WAIT
@@ -291,7 +312,7 @@ After COMMIT:
     </figcaption>
   </figure>
 
-  <h2 id="sentence-test">The sentence test</h2>
+  <h2 id="sentence-test">The sentence test<a class="hlink" href="#sentence-test" aria-label="Permalink to “The sentence test”">#</a></h2>
 
   <p>
     Because each domain owns a verb, the narrative grammar doubles as a cheap
@@ -302,7 +323,7 @@ After COMMIT:
   <div class="split">
     <section>
       <h3>Healthy</h3>
-<pre><code>Nissa published the same TelemetryEnvelope
+<pre tabindex="0"><code>Nissa published the same TelemetryEnvelope
   to Narset and Momir.
 Narset issued a GrowthIntent for Region A
   under Tamiyo's envelope.
@@ -317,7 +338,7 @@ Oona displayed the rejection without
     </section>
     <section>
       <h3>Triggers review</h3>
-<pre><code>Narset forwarded a captioned telemetry
+<pre tabindex="0"><code>Narset forwarded a captioned telemetry
   summary to Momir.
 Narset requested an attention-like topology.
 Nissa recommended a wide bottleneck.
@@ -333,12 +354,13 @@ Oona changed the learning rate directly.</code></pre>
 
   <p>
     The full catalogue of smells — observation to likely cause — is in
-    <code>docs/design/03-principles.md</code>, Appendix&nbsp;A. The sentence test
+    <a class="cite" href="/design/03-principles/#appendix-a-architectural-smell-catalogue"><code>03-principles.md</code>
+    § Appendix&nbsp;A</a>. The sentence test
     is not a proof; it is an intentionally cheap first filter, backed by Leyline
     contracts and authority tests that do the real enforcement.
   </p>
 
-  <h2 id="dependencies">Dependency direction</h2>
+  <h2 id="dependencies">Dependency direction<a class="hlink" href="#dependencies" aria-label="Permalink to “Dependency direction”">#</a></h2>
 
   <p>
     The naming grammar implies two rules. Agents may consume neutral services
@@ -346,7 +368,7 @@ Oona changed the learning rate directly.</code></pre>
     must not import agent policy or encode agent-specific preferences.
   </p>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>Dependency edges and their verdicts</caption>
       <thead>
@@ -399,7 +421,7 @@ Oona changed the learning rate directly.</code></pre>
   <div class="sitefoot__inner">
     <p>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
     <ul>
-      <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">github.com/foundryside-dev/simic</a></li>
+      <li><a href="https://github.com/foundryside-dev/simic">github.com/foundryside-dev/simic</a></li>
       <li>HLD v4.1 · Namespec 1.0 — locked</li>
     </ul>
   </div>

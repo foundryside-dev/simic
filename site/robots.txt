@@ -1,0 +1,10 @@
+# simic.foundryside.dev — a public research-project site. Nothing here is
+# private, nothing is tracked, and there is no crawl budget worth protecting.
+User-agent: *
+Allow: /
+
+# Two sitemaps, because the origin serves two artifacts of different classes:
+# the hand-written marketing pages at the root, and the mkdocs-generated design
+# wiki at /design/, which emits its own.
+Sitemap: https://simic.foundryside.dev/sitemap.xml
+Sitemap: https://simic.foundryside.dev/design/sitemap.xml

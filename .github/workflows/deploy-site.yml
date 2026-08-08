@@ -25,6 +25,9 @@ on:
       - 'docs/design/**'
       - 'docs/adr/**'
       - 'tools/wiki/**'
+      # The pre-upload gates: a change to either must re-run against the
+      # current site, not wait for the next content edit to notice it.
+      - 'tools/ci/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
@@ -109,6 +112,28 @@ jobs:
           echo "assembled: $(find _pages -type f | wc -l) files"
           echo "  root pages:  $(find _pages -maxdepth 1 -name '*.html' | wc -l)"
           echo "  wiki pages:  $(find _pages/design -name '*.html' | wc -l)"
+
+      - name: Validate the hand-written pages
+        # The wiki half is gated by `mkdocs build --strict` above; this is the
+        # equivalent gate for site/, which is hand-written and had none. Scoped
+        # to the ROOT pages on purpose — the generated Material output is the
+        # upstream theme's business, not ours, and linting it here would fail
+        # the deploy on markup we do not author.
+        run: npx --yes html-validate '_pages/*.html'
+
+      - name: Check internal links and fragments
+        # Offline: every href/src in the root pages must resolve to a file in
+        # the artifact, and every #fragment to a real id on the target page.
+        # External URLs are listed, never fetched — a deploy must not fail
+        # because GitHub rate-limited us.
+        #
+        # This exists because the marketing pages deep-link into the generated
+        # wiki (/design/02-constitution/#53-the-canonical-sentence). Those slugs
+        # are derived from chapter headings, so rewording a heading silently
+        # breaks a citation on the other half of the site. That is precisely the
+        # class of break --strict catches within the wiki and nothing caught
+        # across the seam.
+        run: python3 tools/ci/linkcheck.py _pages
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

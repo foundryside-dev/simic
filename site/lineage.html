@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Why this design — Simic</title>
-<meta name="description" content="The empirical driver behind Simic: two strata of documented failure, the pivot from shaped reward to measured counterfactuals, and the armour-and-forward-motion rule.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20d='M8%201L14%208L8%2015L2%208Z'%20fill='%230f9b8e'/%3E%3C/svg%3E">
+<meta name="description" content="The empirical driver behind Simic: two strata of documented failure, and the pivot from shaped reward to measured counterfactuals.">
+<link rel="canonical" href="https://simic.foundryside.dev/lineage.html">
+<link rel="icon" href="assets/mark.svg">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Simic">
+<meta property="og:url" content="https://simic.foundryside.dev/lineage.html">
+<meta property="og:title" content="Why this design — Simic">
+<meta property="og:description" content="The empirical driver behind Simic: two strata of documented failure, and the pivot from shaped reward to measured counterfactuals.">
+<meta property="og:image" content="https://simic.foundryside.dev/assets/social-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Simic — Counterfactual Generative Morphogenesis. Pre-implementation bootstrap.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://simic.foundryside.dev/assets/social-card.png">
+
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +35,7 @@
         <li><a href="architecture.html">Architecture</a></li>
         <li><a href="lineage.html" aria-current="page">Why this design</a></li>
         <li><a href="/design/">Design docs</a></li>
-        <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
+        <li><a href="https://github.com/foundryside-dev/simic">Source</a></li>
       </ul>
     </nav>
   </div>
@@ -40,24 +54,27 @@
     </p>
   </div>
 
-  <h2 id="the-record">The record this design answers</h2>
+  <h2 id="the-record">The record this design answers<a class="hlink" href="#the-record" aria-label="Permalink to “The record this design answers”">#</a></h2>
 
   <p>
-    Simic is the third incarnation of one research programme. Early versions of
-    the simic project (known as esper) built the morphogenetic chassis this
-    design retains — reversible slots, staged maturation, lifecycle states — and
-    that working record is the proximate reason for every major choice made
-    here. Whatever succeeds is Simic; the earlier work is history flowing
-    backward into that name, not a separate identity.
+    Simic is the third incarnation of one research programme. Its two
+    predecessors — ESPER and ESPER LITE — built the morphogenetic chassis this
+    design retains: reversible slots, staged maturation, lifecycle states. That
+    working record is the proximate reason for every major choice made here, and
+    the two strata below are, roughly, its two eras. Whatever succeeds is Simic;
+    the earlier work is history flowing backward into that name, not a separate
+    identity.
   </p>
 
   <p>
     The record is documented in full at
-    <code>docs/design/01-claim.md</code> §2.6, and the principle it produces is
-    <code>docs/design/03-principles.md</code> §6.20.
+    <a class="cite" href="/design/01-claim/#26-the-empirical-driver-the-predecessor-record"><code>01-claim.md</code>
+    § The empirical driver</a>, and the principle it produces is
+    <a class="cite" href="/design/03-principles/#620-armour-and-forward-motion"><code>03-principles.md</code>
+    § Armour and forward motion</a>.
   </p>
 
-  <h2 id="proved">What the record proved</h2>
+  <h2 id="proved">What the record proved<a class="hlink" href="#proved" aria-label="Permalink to “What the record proved”">#</a></h2>
 
   <p>
     <strong>Seed telemetry is sufficient for intelligent structural
@@ -76,14 +93,14 @@
     which parts of the programme get pushed forward and which get armoured.
   </p>
 
-  <h2 id="strata">Where it bled: two strata</h2>
+  <h2 id="strata">Where it bled: two strata<a class="hlink" href="#strata" aria-label="Permalink to “Where it bled: two strata”">#</a></h2>
 
   <p>
     The scars are layered, and they defend different parts of this architecture.
     Collapsing them into a single story loses information in both directions.
   </p>
 
-  <h3 id="stratum-one">Stratum one — telemetry-access corruption</h3>
+  <h3 id="stratum-one">Stratum one — telemetry-access corruption<a class="hlink" href="#stratum-one" aria-label="Permalink to “Stratum one — telemetry-access corruption”">#</a></h3>
 
   <p>
     In one generation, machine-generated telemetry code contained
@@ -113,10 +130,10 @@
     rule that <em>absent signal stays absent and is never a fabricated zero</em>
     (INV-38), fail-closed typed compatibility (INV-24), direct publication from
     Nissa with no editorial intermediary (INV-07), observation binding (INV-08),
-    the defaulting-access ban (ADR-0006), and a poison-pill acceptance harness.
+    the defaulting-access ban (<a class="cite" href="/design/decisions/0006-ban-silent-defaulting-telemetry-access/">ADR-0006</a>), and a poison-pill acceptance harness.
   </p>
 
-  <h3 id="stratum-two">Stratum two — learning-loop and instrument failures</h3>
+  <h3 id="stratum-two">Stratum two — learning-loop and instrument failures<a class="hlink" href="#stratum-two" aria-label="Permalink to “Stratum two — learning-loop and instrument failures”">#</a></h3>
 
   <p>
     After telemetry access was hardened, the reinforcement-learning loop and its
@@ -168,7 +185,7 @@
     self-deception. The armour is built in both directions accordingly.
   </p>
 
-  <h2 id="pivot">The pivot, stated plainly</h2>
+  <h2 id="pivot">The pivot, stated plainly<a class="hlink" href="#pivot" aria-label="Permalink to “The pivot, stated plainly”">#</a></h2>
 
   <p>
     The earlier work could not shape a reward to incentivise behaviour the reward
@@ -194,7 +211,7 @@
     honestly read as the price of that conversion.
   </p>
 
-  <h2 id="attribution">Attribution honesty</h2>
+  <h2 id="attribution">Attribution honesty<a class="hlink" href="#attribution" aria-label="Permalink to “Attribution honesty”">#</a></h2>
 
   <div class="note">
     <span class="note__label">Read the claims against this</span>
@@ -205,11 +222,12 @@
       contributions are the ones that could not: <strong>generated (not
       selected) structure, separated authorities, and provider
       blindness.</strong> The success criteria in
-      <code>docs/design/01-claim.md</code> §28 should be read against that split.
+      <a class="cite" href="/design/01-claim/#28-success-criteria"><code>01-claim.md</code>
+      § Success criteria</a> should be read against that split.
     </p>
   </div>
 
-  <h2 id="armour">Armour and forward motion</h2>
+  <h2 id="armour">Armour and forward motion<a class="hlink" href="#armour" aria-label="Permalink to “Armour and forward motion”">#</a></h2>
 
   <p>
     The whole shape follows one rule, stated by the owner:
@@ -220,7 +238,8 @@
       <strong>Where capability was validated, push forward; where the programme
       struggled, build armour.</strong>
     </p>
-    <cite><code>docs/design/03-principles.md</code> §6.20</cite>
+    <cite><a class="cite" href="/design/03-principles/#620-armour-and-forward-motion"><code>03-principles.md</code>
+      § Armour and forward motion</a></cite>
   </blockquote>
 
   <div class="split">
@@ -235,7 +254,7 @@
       schemas with fail-closed compatibility (INV-24), validity masks and the
       absent-is-never-zero rule (INV-38), Nissa's direct publication with no
       editorial intermediary (INV-07), observation binding (INV-08), the
-      defaulting-access ban (ADR-0006), and the poison-pill negative-space
+      defaulting-access ban (<a class="cite" href="/design/decisions/0006-ban-silent-defaulting-telemetry-access/">ADR-0006</a>), and the poison-pill negative-space
       harness.</p>
       <p><strong>Against learning-loop self-deception:</strong> no shaped-reward
       authority anywhere on the constitutional path, the evidence/judgement split
@@ -260,7 +279,7 @@
     </section>
   </div>
 
-  <h3 id="obligations">Two standing obligations</h3>
+  <h3 id="obligations">Two standing obligations<a class="hlink" href="#obligations" aria-label="Permalink to “Two standing obligations”">#</a></h3>
 
   <ul class="spine">
     <li>
@@ -299,7 +318,7 @@
   <div class="sitefoot__inner">
     <p>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
     <ul>
-      <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">github.com/foundryside-dev/simic</a></li>
+      <li><a href="https://github.com/foundryside-dev/simic">github.com/foundryside-dev/simic</a></li>
       <li>HLD v4.1 · Namespec 1.0 — locked</li>
     </ul>
   </div>
