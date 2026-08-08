@@ -73,7 +73,13 @@
   --md-typeset-color: var(--simic-ink-900);
   --md-typeset-a-color: var(--simic-teal-700);
 
-  --md-accent-fg-color: var(--simic-teal-600);
+  /* Material paints link :hover AND :focus with the accent colour, so the
+     accent has to clear AA on its own — teal-600 measured 4.22:1 here, i.e.
+     interacting with a link made it HARDER to read than at rest (6.12:1), and
+     keyboard users got the sub-AA state as their primary focus indicator.
+     This is site/style.css's own --color-link-hover formula, which simic.css
+     had not mapped across: 8.72:1, and darker than the resting link. */
+  --md-accent-fg-color: color-mix(in oklch, var(--simic-teal-700) 72%, var(--simic-ink-900) 28%);
   --md-accent-fg-color--transparent: oklch(0.560 0.105 175 / 0.1);
 
   --md-code-bg-color: var(--simic-ink-100);
@@ -98,7 +104,8 @@
   --md-typeset-color: var(--simic-ink-100);
   --md-typeset-a-color: var(--simic-teal-400);
 
-  --md-accent-fg-color: oklch(0.660 0.080 175);
+  /* Same formula, mirrored: in dark the hover lightens rather than darkens. */
+  --md-accent-fg-color: color-mix(in oklch, var(--simic-teal-400) 72%, var(--simic-ink-100) 28%);
   --md-accent-fg-color--transparent: oklch(0.660 0.080 175 / 0.12);
 
   --md-code-bg-color: var(--simic-ink-850);
@@ -117,6 +124,134 @@
 .md-header__button.md-logo img,
 .md-nav__button.md-logo img {
   filter: brightness(0) invert(0.98);
+}
+
+/* --- The way back out ------------------------------------------------------
+   overrides/main.html puts a link to the marketing site in Material's announce
+   bar, because the wiki is mounted at /design/ and nothing else in the chrome
+   led back to /. Styled as quiet chrome, not a call to action: it is a
+   breadcrumb for readers who landed on a chapter from a search engine.
+   ========================================================================== */
+/* The bar's background is scheme-INDEPENDENT (near-black in both), so its
+   foregrounds must be too. Two traps, both of which shipped and both of which
+   only showed up in the light scheme:
+
+   1. Material's `.md-banner__inner` carries `md-typeset`, so `.md-typeset a`
+      (0,1,1) beat a bare `.simic-upbar` (0,1,0) and painted the link with
+      --md-typeset-a-color — teal-700 in light, i.e. a DARK teal on a near-black
+      bar: 2.91:1. Hence the `.md-banner` prefix below, which wins on
+      specificity and stops the link tracking the page's link colour.
+   2. The footer alpha tokens (--md-footer-fg-color--light/--lighter) are 0.7
+      and 0.45 alpha over the bar: 3.79:1. Replaced with opaque ink steps.
+
+   Measured on ink-900 (#06151b): teal-400 9.74:1, ink-300 10.87:1. Both clear
+   AA in both schemes because neither value moves with the scheme. */
+.md-banner {
+  background: var(--simic-ink-900);
+  color: var(--simic-ink-300);
+  font-size: 0.7rem;
+}
+
+.md-banner__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.8rem;
+  align-items: baseline;
+  margin-block: 0.4rem;
+}
+
+.md-banner .simic-upbar {
+  color: var(--simic-teal-400);
+  font-weight: 600;
+}
+
+.md-banner .simic-upbar:hover,
+.md-banner .simic-upbar:focus {
+  text-decoration: underline;
+}
+
+.simic-upbar__arrow { margin-right: 0.2em; }
+
+/* Drops out first when the header gets tight; the link is what must survive. */
+.md-banner .simic-upbar__here { color: var(--simic-ink-300); }
+
+@media screen and (max-width: 44.9375em) {
+  .simic-upbar__here { display: none; }
+}
+
+/* --- Compiled diagrams ----------------------------------------------------
+   Two problems, both from the same source: the Structurizr export is 1305-
+   4774px wide and hardcoded light.
+
+   SIZE. Material scales images to the content column (~589px), which put
+   PlantUML's 12px labels at 2-3px — the same defect the mermaid fence had,
+   moved rather than fixed. So the frame SCROLLS instead of shrinking past
+   --dmin, and every figure links to the full-size SVG, because no in-column
+   rendering of a 3792px diagram is genuinely readable. Same trade, and same
+   reason, as --dmin in site/style.css: legibility beats fitting.
+
+   THEME. The SVGs carry background:#FFFFFF and #444444 text, so in slate they
+   punched a white slab through an ink-950 page. Rather than recolour a
+   generated artifact nobody could look at, the plate below makes the light
+   surface DELIBERATE: padded, bordered, rounded, and inset from the page, so
+   it reads as a printed figure laid on the page instead of a lighting bug.
+   The alternative — a second, recoloured SVG swapped on the scheme attribute,
+   as the marketing site does for its mermaid pair — is written up in
+   stage.py's diagram section and wants a pair of eyes before it ships.
+   ========================================================================== */
+.md-typeset .simic-diagram {
+  margin-block: 1.2em;
+  margin-inline: 0;
+}
+
+.md-typeset .simic-diagram__frame {
+  overflow-x: auto;
+  /* The plate. In light this is very nearly the page itself and reads as a
+     hairline-bordered figure; in slate it is the deliberate light artifact. */
+  background: var(--simic-ink-050);
+  border: 1px solid var(--md-typeset-table-color);
+  border-radius: 4px;
+  padding: 0.6rem;
+}
+
+.md-typeset .simic-diagram__img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  min-width: var(--dmin, 0px);  /* beats max-width when the frame is narrower */
+  margin-inline: auto;
+}
+
+.md-typeset .simic-diagram figcaption {
+  font-size: 0.75rem;
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.4rem;
+}
+
+/* In slate the plate needs its own border, since the table token is a dark
+   hairline that would vanish against a light surface. */
+[data-md-color-scheme="slate"] .md-typeset .simic-diagram__frame {
+  border-color: var(--simic-ink-300);
+}
+
+/* --- Faint interactive controls -------------------------------------------
+   Material paints two icon controls with --md-default-fg-color--lighter, which
+   this sheet maps to ink-300: 1.64:1 against the page in light mode. Both are
+   interactive, so WCAG 1.4.11 asks 3:1 and they were nowhere near it.
+
+     .headerlink            the heading anchor `¶` — the whole point of
+                            toc.permalink: true is that headings are
+                            deep-linkable, which a control nobody can see is not
+     .md-content__button    the "Edit this page" pencil — the C1 fix made these
+                            links CORRECT; this makes them visible
+
+   Fixed per-control rather than by remapping the token, because Material also
+   uses --lighter as a background and border colour in ~20 other rules where a
+   darker value would be wrong. --light gives 5.83:1 in light, 11.53:1 in dark
+   (both measured in-browser from computed styles). */
+.md-typeset .headerlink,
+.md-content__button.md-icon {
+  color: var(--md-default-fg-color--light);
 }
 
 /* --- Admonitions -----------------------------------------------------------

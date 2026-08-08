@@ -25,6 +25,9 @@ on:
       - 'docs/design/**'
       - 'docs/adr/**'
       - 'tools/wiki/**'
+      # The pre-upload gate: a change to the checker must re-run against the
+      # current site, not wait for the next content edit to notice it.
+      - 'tools/ci/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
@@ -76,12 +79,24 @@ jobs:
           java-version: '21'
 
       - name: Cache diagram toolchain
-        # The pinned jars build.sh downloads on first run (~15 MB). Keyed on
-        # build.sh because that is where the versions are pinned.
+        # The pinned jars build.sh downloads on first run (~15 MB).
+        #
+        # Keyed on all three inputs that can change what lands in .cache, not
+        # just build.sh: the jar versions are pinned in build.sh, but the cache
+        # also holds mkdocs-material's privacy-plugin vendored assets, whose
+        # content follows the plugin config in mkdocs.yml and the pinned
+        # package versions in requirements.txt. Keying on build.sh alone let an
+        # mkdocs.yml or dependency change reuse assets fetched under the old
+        # config — a stale-cache bug that survives until someone edits build.sh.
         uses: actions/cache@v4
         with:
           path: tools/wiki/.cache
-          key: wiki-diagram-jars-${{ hashFiles('tools/wiki/build.sh') }}
+          key: >-
+            wiki-diagram-jars-${{ hashFiles(
+              'tools/wiki/build.sh',
+              'tools/wiki/mkdocs.yml',
+              'tools/wiki/requirements.txt'
+            ) }}
 
       - name: Build the design-docs wiki
         # build.sh compiles the Structurizr model to SVGs, stages docs/design/
@@ -102,6 +117,12 @@ jobs:
           rm -rf _pages
           mkdir -p _pages
           cp -r site/. _pages/
+
+          # Build-time sources that live under site/ for convenience but must
+          # not be served. og-card.src.html is the 1200x630 card's source; the
+          # PNG it produces ships, the source does not.
+          rm -f _pages/assets/og-card.src.html
+
           test ! -e _pages/design || { echo "site/design would collide with the wiki mount"; exit 1; }
           mkdir -p _pages/design
           cp -r tools/wiki/build/site/. _pages/design/
@@ -109,6 +130,47 @@ jobs:
           echo "assembled: $(find _pages -type f | wc -l) files"
           echo "  root pages:  $(find _pages -maxdepth 1 -name '*.html' | wc -l)"
           echo "  wiki pages:  $(find _pages/design -name '*.html' | wc -l)"
+
+      - name: Validate the hand-written pages
+        # The wiki half is gated by `mkdocs build --strict` above; this is the
+        # equivalent gate for site/, which is hand-written and had none. Scoped
+        # to the ROOT pages on purpose — the generated Material output is the
+        # upstream theme's business, not ours, and linting it here would fail
+        # the deploy on markup we do not author.
+        #
+        # Pinned to the major: unpinned `npx html-validate` resolves latest at
+        # run time, so a new major's rules could fail the deploy on markup that
+        # did not change. @11 is what npx installs today (11.6.2) — do NOT
+        # "stabilise" onto @9, which would be a two-major downgrade and a
+        # behaviour change in its own right.
+        #
+        # The quoted glob is deliberate: it reaches html-validate unexpanded, so
+        # a zero-match glob is html-validate's error ("No files matching
+        # patterns", exit 1) rather than a silently-passing empty shell
+        # expansion. Verified — this gate cannot pass by matching nothing.
+        run: npx --yes html-validate@11 '_pages/*.html'
+
+      - name: Check internal links and fragments
+        # Offline: every href/src in the root pages must resolve to a file in
+        # the artifact, and every #fragment to a real id on the target page.
+        # External URLs are listed, never fetched — a deploy must not fail
+        # because GitHub rate-limited us.
+        #
+        # This exists because the marketing pages deep-link into the generated
+        # wiki (/design/02-constitution/#53-the-canonical-sentence). Those slugs
+        # derive from chapter headings, so rewording a heading silently breaks a
+        # citation on the other half of the site — precisely the class of break
+        # `--strict` catches inside the wiki and nothing caught across the seam.
+        #
+        # WHY NOT lychee: it is a Rust binary, not an npm package, so `npx
+        # lychee` fails outright ("could not determine executable to run"). The
+        # supported route is the lycheeverse/lychee-action, which could not be
+        # exercised locally before committing; this stdlib equivalent was tested
+        # instead, including a negative test (an injected bad slug and a bad
+        # path both produced exit 1 naming the offender). Swapping in the pinned
+        # action later is fine — it needs --include-fragments to cover the
+        # anchor case above, which is the whole point of this gate.
+        run: python3 tools/ci/linkcheck.py _pages
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

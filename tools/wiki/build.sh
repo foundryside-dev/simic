@@ -22,6 +22,39 @@ if ! command -v "$MKDOCS" >/dev/null 2>&1; then
   fi
 fi
 
+# CI installs requirements.txt exactly; a local build resolves whatever mkdocs
+# is on PATH. Without this check the two could silently diverge and produce
+# different sites from the same commit while --strict still passed.
+check_pin() {
+  local dist="$1" want actual
+  want="$(sed -n "s/^${dist}==//p" requirements.txt)"
+  [ -n "$want" ] || return 0
+  actual="$("$PYTHON" - "$dist" <<'PY' 2>/dev/null || true
+import importlib.metadata, sys
+try:
+    print(importlib.metadata.version(sys.argv[1]))
+except importlib.metadata.PackageNotFoundError:
+    pass
+PY
+)"
+  if [ -z "$actual" ]; then
+    echo "build.sh: $dist is not installed — pip install -r requirements.txt" >&2
+    exit 1
+  fi
+  if [ "$actual" != "$want" ]; then
+    echo "build.sh: $dist $actual is installed but requirements.txt pins $want." >&2
+    echo "  CI builds against the pin, so this build would not match the deploy." >&2
+    echo "  Fix with: pip install -r $(pwd)/requirements.txt" >&2
+    echo "  Override deliberately with: WIKI_ALLOW_VERSION_DRIFT=1 ./build.sh" >&2
+    [ "${WIKI_ALLOW_VERSION_DRIFT:-}" = "1" ] || exit 1
+  fi
+}
+
+PYTHON="${PYTHON:-python3}"
+check_pin mkdocs
+check_pin mkdocs-material
+check_pin pymdown-extensions
+
 # --- Compile docs/design/assets/model.dsl to SVGs -------------------------
 # Structurizr CLI exports the views to PlantUML; PlantUML renders SVG with its
 # pure-Java layout engine (no graphviz dependency). Both jars are PINNED and
@@ -75,6 +108,11 @@ case "${1:-build}" in
     # --strict is also set in mkdocs.yml; passing it here too means an edited
     # config can't silently downgrade a broken link to a warning.
     "$MKDOCS" build --strict
+    # --strict validates links that came from MARKDOWN. Anything emitted as raw
+    # HTML bypasses mkdocs' relative-path pass entirely and is never checked —
+    # which is how twenty broken diagram images once shipped a clean build. This
+    # resolves every src/href in the built output against the tree.
+    "$PYTHON" check_links.py
     echo
     echo "wiki -> $(pwd)/build/site  ($(find build/site -name '*.html' | wc -l) pages)"
     ;;

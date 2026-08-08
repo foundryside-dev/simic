@@ -24,6 +24,9 @@
   --ink-950: oklch(0.145 0.020 225);
 
   --teal-400: oklch(0.780 0.110 175);
+  /* Ramp midpoint. No current consumer — kept so the ramp stays derivable, and
+     because the mark's fixed #0f9b8e sits beside it. Do not use it for text:
+     it measures 4.22:1 on --color-bg, which fails AA. */
   --teal-600: oklch(0.560 0.105 175);
   --teal-700: oklch(0.470 0.098 175);
 
@@ -34,7 +37,11 @@
   --color-bg:          light-dark(var(--ink-050), var(--ink-950));
   --color-bg-subtle:   light-dark(var(--ink-100), var(--ink-900));
   --color-bg-code:     light-dark(var(--ink-100), var(--ink-850));
-  --color-bg-note:     light-dark(oklch(0.965 0.020 175), oklch(0.235 0.030 195));
+  /* Tinted callout grounds. Each holds its family's hue on BOTH sides — teal
+     175 for the plain note, amber 85 for the status note — so a callout never
+     drifts off the three-hue palette when the theme flips. */
+  --color-bg-note:     light-dark(oklch(0.965 0.020 175), oklch(0.235 0.030 175));
+  --color-bg-note-status: light-dark(oklch(0.975 0.022 85), oklch(0.235 0.028 85));
 
   --color-text:        light-dark(var(--ink-900), var(--ink-100));
   --color-text-muted:  light-dark(var(--ink-500), var(--ink-300));
@@ -44,7 +51,6 @@
   --color-border-firm: light-dark(var(--ink-300), oklch(0.380 0.024 225));
 
   --color-accent:      light-dark(var(--teal-700), var(--teal-400));
-  --color-accent-quiet:light-dark(var(--teal-600), oklch(0.660 0.080 175));
   --color-warn:        light-dark(var(--amber-700), var(--amber-400));
 
   --color-link:        var(--color-accent);
@@ -75,8 +81,12 @@
   --radius: 4px;
 }
 
-/* Explicit reader override, should one ever be wired up. light-dark() does
-   the rest, so no palette is duplicated. */
+/* Hook for an explicit reader override, should one ever be wired up. NOTHING
+   SETS data-theme TODAY: the site ships zero JavaScript, so it is
+   system-preference-only in practice. Kept because it costs two lines and
+   light-dark() does the rest — but see the diagram block below, which cannot
+   follow a [data-theme] override and would need reworking alongside a toggle.
+   Do not describe this site as three-state theming; it is not. */
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"]  { color-scheme: dark; }
 
@@ -210,6 +220,44 @@ h2 {
 h3 { font-size: var(--text-h3); margin-top: var(--space-5); }
 h4 { font-size: 1rem; margin-top: var(--space-4); }
 
+/* --- Heading permalinks ---------------------------------------------------
+   Every h2/h3 carries an id, and several pages link across to those fragments,
+   but a reader had no way to DISCOVER one. The marker is a real anchor (not a
+   ::before on the heading) so it is keyboard reachable and copyable; the
+   heading text itself stays plain text, so screen readers announce the heading
+   rather than a link. Revealed on hover of the heading, and on focus of the
+   marker itself — never hidden from keyboard users.
+   -------------------------------------------------------------------------- */
+.hlink {
+  margin-left: 0.4em;
+  font-family: var(--font-code);
+  font-weight: 400;
+  color: var(--color-accent);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+h2:hover > .hlink,
+h3:hover > .hlink,
+.hlink:focus-visible { opacity: 1; }
+
+/* Coarse pointers get no hover, so never hide it from them. */
+@media (hover: none) {
+  .hlink { opacity: 0.55; }
+}
+
+/* --- Citations into the design wiki --------------------------------------
+   Authority citations are links to /design/, not inert text. The <code> inside
+   keeps the mono "file path as citation" voice but takes the link colour. */
+.cite { text-decoration-thickness: 1px; }
+.cite code {
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.cite:hover code { color: inherit; }
+
 p, ul, ol, dl { margin: 0 0 var(--space-3); }
 ul, ol { padding-left: 1.35rem; }
 li { margin-bottom: var(--space-2); }
@@ -265,7 +313,7 @@ strong { color: var(--color-heading); font-weight: 650; }
   margin-bottom: var(--space-1);
 }
 .note--status {
-  background: light-dark(oklch(0.975 0.022 85), oklch(0.235 0.028 75));
+  background: var(--color-bg-note-status);
   border-left-color: var(--color-warn);
 }
 .note--status .note__label { color: var(--color-warn); }
@@ -294,13 +342,31 @@ blockquote cite {
 /* --- Diagrams -------------------------------------------------------------
    Mermaid sources live in tools/diagrams/*.mmd (shared with the PDF pipeline)
    and are PRE-RENDERED into assets/diagrams/ by `tools/diagrams/render.sh site`
-   — the mermaid runtime is never shipped. Each diagram has a
-   light and a dark SVG; the pair is swapped below on the same rules the colour
-   tokens use, so `prefers-color-scheme` AND the [data-theme] override both work.
+   — the mermaid runtime is never shipped. Each diagram has a light and a dark
+   SVG, selected by <picture><source media="screen and (prefers-color-scheme:
+   dark)"> with the light SVG as the <img> fallback.
+
+   Why <picture> and not two <img>s swapped in CSS: `display:none` does not stop
+   a fetch, so the CSS-swap version downloaded BOTH variants on every load —
+   96 KB of SVG on the landing page to show 48 KB. <picture> fetches one.
+
+   The cost of that choice: source selection happens in the layout engine, so a
+   [data-theme] class CANNOT override it. That is acceptable only because this
+   site has no theme toggle — it is system-preference-only by design (zero JS,
+   see the header of this file). If a toggle is ever added, the diagrams must
+   move back to a scripted swap; they will not follow [data-theme] on their own.
+
+   The `screen and` prefix on the source query is load-bearing: print does not
+   match it, so a reader in dark mode still prints the light diagram on white
+   paper, which is what the print block below used to force by hand.
 
    The <img> carries alt="" and the accessible name lives on .diagram__frame
-   (role="img" + aria-label) so exactly one name is exposed regardless of which
-   variant is displayed.
+   (role="img" + aria-label) so exactly one name is exposed.
+
+   .diagram__frame is a scroll container, so it takes tabindex="0" in the markup
+   — Chrome 127+ and Firefox make scrollers keyboard-reachable on their own, but
+   WebKit does not, and without it a Safari keyboard user cannot reach the part
+   of the diagram that is scrolled off.
 
    --dmin is set per diagram inline: the width below which the SVG stops
    shrinking and the frame scrolls instead, because a flowchart scaled to a
@@ -320,19 +386,6 @@ blockquote cite {
   min-width: var(--dmin, 0px);   /* beats max-width when the frame is narrower */
   margin-inline: auto;
 }
-
-/* Light is the default; dark swaps in exactly where the tokens do. */
-.diagram__img--dark { display: none; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .diagram__img--light { display: none; }
-  :root:not([data-theme="light"]) .diagram__img--dark  { display: block; }
-}
-
-:root[data-theme="dark"] .diagram__img--light { display: none; }
-:root[data-theme="dark"] .diagram__img--dark  { display: block; }
-:root[data-theme="light"] .diagram__img--light { display: block; }
-:root[data-theme="light"] .diagram__img--dark  { display: none; }
 
 /* --- Code ---------------------------------------------------------------- */
 code, kbd, samp {
@@ -507,6 +560,12 @@ a.card:hover {
   padding: 0;
   list-style: none;
 }
+/* inline-block + padding lifts the hit area to the 24px WCAG 2.2 SC 2.5.8
+   minimum; as bare inline links these measured 245x16 at 375px. */
+.sitefoot a {
+  display: inline-block;
+  padding-block: var(--space-1);
+}
 
 /* --- Motion -------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
@@ -523,11 +582,14 @@ a.card:hover {
   body { font-size: 11pt; }
   .contentwrap { max-width: none; padding: 0; }
   pre, .tablewrap { border-color: #999; page-break-inside: avoid; }
-  /* Always print the light diagram, whatever the screen theme was. */
-  .diagram__img--light { display: block !important; }
-  .diagram__img--dark  { display: none !important; }
+  /* The light diagram prints whatever the screen theme was: the <picture>
+     source query is `screen and (prefers-color-scheme: dark)`, which print
+     never matches, so it falls through to the light <img>. No override here. */
   .diagram__frame { overflow: visible; }
   .diagram__img { min-width: 0 !important; page-break-inside: avoid; }
+  .hlink { display: none; }
   a { color: inherit; text-decoration: underline; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+  /* Site-relative citations resolve against the deployed origin on paper. */
+  a[href^="/"]::after { content: " (simic.foundryside.dev" attr(href) ")"; font-size: 0.85em; }
 }

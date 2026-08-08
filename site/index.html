@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Simic — Counterfactual Generative Morphogenesis</title>
-<meta name="description" content="Simic is a lifecycle-driven neural training system in which new structure is generated from the live state of a host network, then causally screened against doing nothing. Design locked; pre-implementation.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20d='M8%201L14%208L8%2015L2%208Z'%20fill='%230f9b8e'/%3E%3C/svg%3E">
+<meta name="description" content="A lifecycle-driven neural training system: new structure is generated from the live state of a host network, then causally screened against doing nothing.">
+<link rel="canonical" href="https://simic.foundryside.dev/">
+<link rel="icon" href="assets/mark.svg">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Simic">
+<meta property="og:url" content="https://simic.foundryside.dev/">
+<meta property="og:title" content="Simic — Counterfactual Generative Morphogenesis">
+<meta property="og:description" content="A lifecycle-driven neural training system: new structure is generated from the live state of a host network, then causally screened against doing nothing.">
+<meta property="og:image" content="https://simic.foundryside.dev/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Simic — Counterfactual Generative Morphogenesis. Pre-implementation bootstrap.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://simic.foundryside.dev/assets/og-card.png">
+
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +35,7 @@
         <li><a href="architecture.html">Architecture</a></li>
         <li><a href="lineage.html">Why this design</a></li>
         <li><a href="/design/">Design docs</a></li>
-        <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
+        <li><a href="https://github.com/foundryside-dev/simic">Source</a></li>
       </ul>
     </nav>
   </div>
@@ -42,17 +56,20 @@
   </div>
 
   <div class="note note--status">
-    <span class="note__label">Project status</span>
+    <span class="note__label">Project status — as of 9 August 2026</span>
     <p>
-      <strong>Pre-implementation bootstrap.</strong> The design is complete and
-      locked — HLD v4.1, Namespec 1.0 — and a Python scaffold exists, but there
-      is <strong>no functional code yet</strong>. First engineering work is
-      Phase&nbsp;A: Namespec, Leyline contracts, and dependency boundaries.
-      Nothing on this site describes a running system or a measured result.
+      <strong>Pre-implementation bootstrap.</strong> The design is locked — HLD
+      v4.1, Namespec 1.0 — and <strong>under active design review</strong>, with
+      findings still open against it, including unresolved contract shapes. A
+      Python scaffold exists, but there is <strong>no functional code
+      yet</strong>. First
+      engineering work is Phase&nbsp;A: Namespec, Leyline contracts, and
+      dependency boundaries. Nothing on this site describes a running system or
+      a measured result.
     </p>
   </div>
 
-  <h2 id="the-idea">The idea</h2>
+  <h2 id="the-idea">The idea<a class="hlink" href="#the-idea" aria-label="Permalink to “The idea”">#</a></h2>
 
   <p>
     Growing a neural network at runtime raises four questions that existing
@@ -77,26 +94,29 @@
     lysed when it no longer does.
   </p>
 
-  <h3 id="the-loop">The loop, end to end</h3>
+  <h3 id="the-loop">The loop, end to end<a class="hlink" href="#the-loop" aria-label="Permalink to “The loop, end to end”">#</a></h3>
 
   <figure class="wide diagram">
-    <div class="diagram__frame" role="img" aria-label="Flowchart of the core loop. A task and data stream feeds Tolaria, which trains the Kasmina host. Nissa publishes the canonical TelemetryEnvelope, and the same envelope goes directly to both Narset — which decides whether and where to commission growth — and Momir, which designs candidate growth. Tamiyo authorises strategic resources to Narset. Narset emits a GrowthIntent, the assignment brief, from which Leyline and Kasmina resolve the legal GrowthRequest; that request also reaches Momir. Sarpadia may optionally supply bootstrap ancestry to Momir. Momir's design passes to Elesh, which conforms it, then Tezzeret, which compiles it, then Urabrask, which specifies QA while Tolaria executes the tests, and Urabrask then certifies the evidence. Augustin judges the candidate against no-op: on admit, Kasmina embodies the growth, and Emrakul later removes what Augustin judges no longer earns its place, acting only on an Augustin maintenance warrant; if no-op wins, the outcome is no intervention with policy utility exactly zero. Both outcomes feed Sarpadia, which retains every success, failure and abstention. Oona reveals the complete account.">
-      <img class="diagram__img diagram__img--light" src="assets/diagrams/core-loop-light.svg"
-           alt="" width="809" height="1801" style="--dmin: 600px">
-      <img class="diagram__img diagram__img--dark" src="assets/diagrams/core-loop-dark.svg"
-           alt="" width="809" height="1801" style="--dmin: 600px">
+    <div class="diagram__frame" tabindex="0" role="img" aria-label="Flowchart of the core loop. A task and data stream feeds Tolaria, which trains the Kasmina host. Nissa publishes the canonical TelemetryEnvelope, and the same envelope goes directly to both Narset — which decides whether and where to commission growth — and Momir, which designs candidate growth. Tamiyo authorises strategic resources to Narset. Narset emits a GrowthIntent, the assignment brief, from which Leyline and Kasmina resolve the legal GrowthRequest; that request also reaches Momir. Sarpadia may optionally supply bootstrap ancestry to Momir. Momir's design passes to Elesh, which conforms it, then Tezzeret, which compiles it, then Urabrask, which specifies QA while Tolaria executes the tests, and Urabrask then certifies the evidence. Augustin judges the candidate against no-op: on admit, Kasmina embodies the growth, and Emrakul later removes what Augustin judges no longer earns its place, acting only on an Augustin maintenance warrant; if no-op wins, the outcome is no intervention with policy utility exactly zero. Both outcomes feed Sarpadia, which retains every success, failure and abstention. Oona reveals the complete account.">
+      <picture>
+        <source srcset="assets/diagrams/core-loop-dark.svg"
+                media="screen and (prefers-color-scheme: dark)">
+        <img class="diagram__img" src="assets/diagrams/core-loop-light.svg"
+             alt="" width="888" height="1840" decoding="async" style="--dmin: 665px">
+      </picture>
     </div>
     <figcaption>
       The ordinary host-training loop and the growth loop share one execution
       reality, and the candidate pool is allowed to lose: the no-op branch is a
       measured outcome, not an error path. Source:
-      <code>docs/design/01-claim.md</code> §1, with the no-op outcome and the
-      maintenance warrant from <code>docs/design/04-architecture.md</code> §7.4
-      and INV-15, INV-16, INV-27.
+      <a class="cite" href="/design/01-claim/#1-executive-summary"><code>01-claim.md</code>
+      § Executive summary</a>, with the no-op outcome and the maintenance warrant
+      from <a class="cite" href="/design/04-architecture/#74-candidate-assurance-and-adjudication-loop"><code>04-architecture.md</code>
+      § Candidate assurance and adjudication</a> and INV-15, INV-16, INV-27.
     </figcaption>
   </figure>
 
-  <h2 id="counterfactuals">Why counterfactuals, not a reward function</h2>
+  <h2 id="counterfactuals">Why counterfactuals, not a reward function<a class="hlink" href="#counterfactuals" aria-label="Permalink to “Why counterfactuals, not a reward function”">#</a></h2>
 
   <p>
     Paired branches start from one snapshot and run over identical futures, so
@@ -115,7 +135,7 @@
     the subject of <a href="lineage.html">Why this design looks like this</a>.
   </p>
 
-  <h2 id="guarantees">Guarantees</h2>
+  <h2 id="guarantees">Guarantees<a class="hlink" href="#guarantees" aria-label="Permalink to “Guarantees”">#</a></h2>
 
   <p>
     The constitution defines 45 blocking invariants, cited throughout the design
@@ -167,7 +187,7 @@
     </li>
   </ul>
 
-  <h2 id="domains">Fourteen domains, one sentence</h2>
+  <h2 id="domains">Fourteen domains, one sentence<a class="hlink" href="#domains" aria-label="Permalink to “Fourteen domains, one sentence”">#</a></h2>
 
   <p>
     Authority is split across fourteen bounded domains with deliberately vivid
@@ -185,7 +205,9 @@
       longer earns continued tenancy. Sarpadia retains every precedent. Oona
       reveals the account.
     </p>
-    <cite>The canonical sentence — <code>docs/design/02-constitution.md</code> §5.3</cite>
+    <cite>The canonical sentence —
+      <a class="cite" href="/design/02-constitution/#53-the-canonical-sentence"><code>02-constitution.md</code>
+      § The canonical sentence</a></cite>
   </blockquote>
 
   <p>
@@ -206,7 +228,7 @@
     <a href="architecture.html">Read the architecture →</a>
   </p>
 
-  <h2 id="scope">What this is not</h2>
+  <h2 id="scope">What this is not<a class="hlink" href="#scope" aria-label="Permalink to “What this is not”">#</a></h2>
 
   <p>The initial implementation does not attempt:</p>
 
@@ -231,7 +253,8 @@
       construction, retrieval, random search, analytic construction, or static
       over-provisioning?
     </p>
-    <cite><code>docs/design/01-claim.md</code> §4</cite>
+    <cite><a class="cite" href="/design/01-claim/#4-non-goals"><code>01-claim.md</code>
+      § Non-goals</a></cite>
   </blockquote>
 
   <p>
@@ -240,37 +263,38 @@
     tested scale.
   </p>
 
-  <h2 id="where">Where the design lives</h2>
+  <h2 id="where">Where the design lives<a class="hlink" href="#where" aria-label="Permalink to “Where the design lives”">#</a></h2>
 
   <p>
     The canonical authority is the HLD chapter set in the repository, not this
-    site. Paths below are references into
-    <a href="https://github.com/foundryside-dev/simic" rel="noopener">the repository</a>.
+    site. Each chapter below is published on this domain at
+    <a href="/design/">/design/</a>, and the same paths locate it in
+    <a href="https://github.com/foundryside-dev/simic">the repository</a>.
   </p>
 
-  <div class="tablewrap">
+  <div class="tablewrap" tabindex="0">
     <table>
       <caption>Repository map</caption>
       <thead>
         <tr><th scope="col" class="name">Path</th><th scope="col">Contents</th></tr>
       </thead>
       <tbody>
-        <tr><td class="name">docs/design/00-INDEX.md</td><td>Entry point to the HLD chapter set, with reading paths</td></tr>
-        <tr><td class="name">docs/design/01-claim.md</td><td>Executive summary, problem statement, goals, non-goals, the first defensible claim</td></tr>
-        <tr><td class="name">docs/design/02-constitution.md</td><td>Naming constitution and the 45 blocking invariants</td></tr>
-        <tr><td class="name">docs/design/03-principles.md</td><td>Design principles and the architectural smell catalogue</td></tr>
-        <tr><td class="name">docs/design/04-architecture.md</td><td>System context, planes, and the control hierarchy</td></tr>
-        <tr><td class="name">docs/adr/</td><td>Architecture decision records</td></tr>
-        <tr><td class="name">docs/product/</td><td>Product workspace — vision, roadmap, metrics, decisions</td></tr>
-        <tr><td class="name">src/simic/</td><td>Target code layout: one package per domain (scaffold only, today)</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/">docs/design/00-INDEX.md</a></td><td>Entry point to the HLD chapter set, with reading paths</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/01-claim/">docs/design/01-claim.md</a></td><td>Executive summary, problem statement, goals, non-goals, the first defensible claim</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/02-constitution/">docs/design/02-constitution.md</a></td><td>Naming constitution and the 45 blocking invariants</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/03-principles/">docs/design/03-principles.md</a></td><td>Design principles and the architectural smell catalogue</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/04-architecture/">docs/design/04-architecture.md</a></td><td>System context, planes, and the control hierarchy</td></tr>
+        <tr><td class="name"><a class="cite" href="/design/decisions/">docs/adr/</a></td><td>Architecture decision records</td></tr>
+        <tr><td class="name"><a class="cite" href="https://github.com/foundryside-dev/simic/tree/main/docs/product">docs/product/</a></td><td>Product workspace — vision, roadmap, metrics, decisions</td></tr>
+        <tr><td class="name"><a class="cite" href="https://github.com/foundryside-dev/simic/tree/main/src/simic">src/simic/</a></td><td>Target code layout: one package per domain (scaffold only, today)</td></tr>
       </tbody>
     </table>
   </div>
 
   <p>
     Implementation follows Phases A–K, defined in
-    <code>docs/design/programme/phases.md</code>. Python is the working
-    language. The project is licensed Apache-2.0.
+    <a class="cite" href="/design/programme/phases/"><code>programme/phases.md</code></a>.
+    Python is the working language. The project is licensed Apache-2.0.
   </p>
 
 </div>
@@ -280,7 +304,7 @@
   <div class="sitefoot__inner">
     <p>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
     <ul>
-      <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">github.com/foundryside-dev/simic</a></li>
+      <li><a href="https://github.com/foundryside-dev/simic">github.com/foundryside-dev/simic</a></li>
       <li>HLD v4.1 · Namespec 1.0 — locked</li>
     </ul>
   </div>

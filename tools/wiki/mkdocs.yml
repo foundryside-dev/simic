@@ -34,15 +34,20 @@ theme:
   # third-party font request, no reader IPs handed to Google, one less thing
   # between the reader and the text.
   font: false
-  # The brand's teal diamond (the same mark the marketing site uses as its
-  # favicon). Staged from tools/wiki/assets/ by stage.py; assets/simic.css
-  # renders the header copy in ink-050 over the teal bar.
+  # The brand's teal diamond. Staged by stage.py from site/assets/mark.svg —
+  # the marketing site's own mark, not a second copy of it kept in step by
+  # hand. assets/simic.css renders it in ink-050 over the teal header bar.
   logo: assets/mark.svg
   favicon: assets/mark.svg
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.sections
+    # A section's own landing page IS the section header, rather than a child
+    # entry repeating its label — without this the sidebar read "Domains >
+    # Domains" and "Decisions > Decisions", and the three sections with no
+    # authored README had headers that linked nowhere.
+    - navigation.indexes
     - navigation.top
     - navigation.footer
     - toc.follow
@@ -51,8 +56,17 @@ theme:
     - content.action.edit
     - content.code.copy
   palette:
-    # Follows the reader's OS preference, with an explicit toggle — the same
-    # three-state model the marketing site uses.
+    # Three states: follow the OS, force light, force dark.
+    #
+    # This is NOT the marketing site's model, and the difference is deliberate.
+    # The pages at / ship zero JavaScript, so they have no toggle at all: they
+    # are two-state, driven purely by `prefers-color-scheme` through
+    # `light-dark()`. The wiki already runs JavaScript, so it can offer the
+    # explicit override a docs reader expects, and adds it as a third state on
+    # top of the same default. Both surfaces therefore agree on what an
+    # unconfigured reader sees; only the wiki lets them disagree with their OS.
+    # The colours behind all three states are the same site/style.css tokens,
+    # mapped in assets/simic.css.
     - media: "(prefers-color-scheme)"
       toggle:
         icon: material/brightness-auto
@@ -75,9 +89,34 @@ theme:
 # No `nav:` — the navigation is derived from the staged directory structure, so
 # adding a chapter to docs/design/ puts it in the wiki with no config change.
 # index.md (staged from 00-INDEX.md) is the landing page.
+#
+# Filename order is right for 01-..07- and wrong everywhere else: it listed the
+# fourteen domains alphabetically, contradicting reference/domains.md — a page
+# this same build generates — which lists them in §13.x order, the order of the
+# canonical sentence. hooks.py restores the canonical order in `on_nav`, reading
+# it from 00-INDEX.md's chapter map and the §13.x headings rather than from a
+# hand-written list here. Anything the canon does not mention still falls back
+# to filename order, so a new chapter needs no config change.
+hooks:
+  - hooks.py
 
 plugins:
-  - search
+  # `search` resolves to mkdocs' BUILT-IN plugin: mkdocs-material registers its
+  # own as `material/search` and does not override the stock name. The built-in
+  # tokenises on `[\s\-]+` only, which for this corpus meant `envelope` did not
+  # match `TelemetryEnvelope` and `growth intent` did not match `GrowthIntent` —
+  # a poor trade in a spec whose nouns are nearly all CamelCase identifiers.
+  - material/search:
+      # Material's default, plus the CamelCase boundary at the end.
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  # Downloads every external asset at build time and rewrites the references,
+  # so the published wiki makes NO third-party request — the marketing site's
+  # rule, now inherited. MathJax and mermaid are still pinned by version in
+  # overrides/main.html; this makes them local as well as pinned, which also
+  # retires the Subresource Integrity question (nothing is fetched at runtime
+  # to have integrity checked) and Material's own unpinned unpkg fallback.
+  # Cached under .cache/plugin/privacy, alongside the diagram jars.
+  - material/privacy
 
 markdown_extensions:
   - abbr
@@ -113,34 +152,59 @@ markdown_extensions:
 # Material's CSS custom properties — ink-225 structure, teal-175 emphasis,
 # amber-85 warnings, in both schemes. The stock teal/teal palette above stays
 # as the fallback if this sheet ever fails to load.
+#
+# The sheet also carries three things the token mapping alone did not cover,
+# each measured rather than eyeballed: the link hover/focus colour (Material
+# paints both with --md-accent-fg-color, which at teal-600 was 4.22:1 — below
+# AA, and *lower* than the resting link), the heading permalink (1.64:1, an
+# interactive control effectively invisible in light mode), and the compiled
+# diagrams (scrolling frames plus the light/dark pair, since the PlantUML
+# export is light-only and far wider than any text column).
 extra_css:
   - assets/simic.css
 
 extra_javascript:
-  # --- The wiki's two external dependencies. Both PINNED to exact versions. --
-  # The marketing pages at / make zero external requests; the wiki does not
-  # inherit that rule (JS is fine here), but drifting `@latest` URLs are still
-  # not acceptable. To remove these entirely, vendor both into assets/ and drop
-  # the CDN lines — see README.md for the recipe.
-  - assets/mathjax-config.js
-  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
-  # Loaded eagerly so Material does NOT lazy-load its own copy: the bundle
-  # hardcodes `https://unpkg.com/mermaid@11/dist/mermaid.min.js`, an unpinned
-  # major-version URL whose contents change under us. Its loader is guarded by
-  # `typeof mermaid == "undefined"`, so defining window.mermaid first makes it
-  # use this pinned build (verified: unpkg is never requested).
+  # All three are DEFERRED and all three end up LOCAL: material/privacy
+  # downloads the two pinned CDN files at build time and rewrites these src
+  # attributes to assets/external/, so the published pages make no third-party
+  # request. Deferred scripts execute in document order, so the config below
+  # still runs before MathJax; and Material's own bundle is not deferred, so it
+  # parses first, while its mermaid loader only fires from `document$` (on
+  # DOMContentLoaded) by which time our mermaid has run.
+  - path: assets/mathjax-config.js
+    defer: true
+  # tex-mml-SVG, not tex-mml-chtml. The CHTML build resolves its `woff-v2`
+  # fonts from a path it constructs at RUNTIME, relative to its own script URL
+  # — something no build-time vendoring step can discover, so privacy fetched
+  # the 1.2 MB script and none of its fonts, and the maths would have rendered
+  # with fallback metrics. The SVG build embeds every glyph as a path: 2.1 MB
+  # instead of 1.2 MB, zero font requests, and genuinely self-contained.
+  # (Verified: `grep -c woff` is 5 in the CHTML build and 0 in this one.)
+  - path: https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-svg.js
+    defer: true
+  # Loaded so Material does NOT lazy-load its own copy: the bundle hardcodes
+  # `https://unpkg.com/mermaid@11/dist/mermaid.min.js`, an unpinned major
+  # version. Its loader is guarded by `typeof mermaid == "undefined"`, so
+  # defining window.mermaid first makes it use this pinned build. privacy
+  # vendors the unpkg URL as well, so even that fallback is now local.
   #
-  # Nothing further is needed — Material calls mermaid.initialize({startOnLoad:
-  # false, themeCSS: ...}) itself and drives rendering, including the palette
-  # sync and the re-render after instant navigation. It renders into a CLOSED
-  # shadow root, so `document.querySelector('.mermaid svg')` is null even on a
-  # perfectly good render; check visually, not with a DOM query.
-  #
+  # Material calls mermaid.initialize() itself and drives rendering into a
+  # CLOSED shadow root — `document.querySelector('.mermaid svg')` is null even
+  # on a good render, so check it visually, not with a DOM query.
   # 04-architecture.md §7.1 carries the one ```mermaid fence in the chapters.
-  - https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js
+  - path: https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js
+    defer: true
 
 extra:
+  # The wiki is mounted at /design/ under the hand-written marketing pages, so
+  # "home" is the site root, not the wiki's own landing page. Without this the
+  # logo was a self-link and the wiki was a one-way trip: nothing in the chrome
+  # led back out to /. The HLD index remains the first entry in the nav.
+  homepage: https://simic.foundryside.dev/
   social:
+    - icon: material/home
+      link: https://simic.foundryside.dev/
+      name: Simic — project site
     - icon: fontawesome/brands/github
       link: https://github.com/foundryside-dev/simic
       name: Simic on GitHub
@@ -150,8 +214,16 @@ extra:
 # reach the published wiki.
 strict: true
 
+# Every level below is `warn`, and `strict: true` turns a warning into a failed
+# build — so these are all hard gates, including `anchors`: a link to a heading
+# that does not exist, on another page or this one, fails the deploy.
 validation:
   omitted_files: warn
-  absolute_links: ignore      # stage.py rewrites out-of-tree links to GitHub
+  # Was `ignore`, justified as "stage.py rewrites out-of-tree links to GitHub".
+  # It does — but to fully-qualified https:// URLs, which mkdocs never validates
+  # under any setting. This option governs root-relative `](/...)` links, of
+  # which the chapters have none, so ignoring it suppressed a check that could
+  # only ever have fired on a real mistake.
+  absolute_links: warn
   unrecognized_links: warn
   anchors: warn
