@@ -148,6 +148,59 @@ Withdrawal does not imply deletion. Academy-exact Tolaria, repeated acquisition 
 ---
 
 <!-- hld: source: v4.1 monolith lines 4273–4322 -->
+### 6.20 Armour and forward motion
+
+<!-- hld: added post-monolith (simic-00351db32e, 2026-08-08) -->
+
+The architecture is shaped by its predecessors' record
+(`01-claim.md#26-the-empirical-driver-the-predecessor-record`), and the
+shape follows one rule, stated by the owner: **where capability was
+validated, push forward; where the programme struggled, build armour.**
+
+**The armour** is every mechanism that makes a predecessor failure class
+unrepresentable rather than policed, and it faces in two directions,
+matching the two scar strata:
+
+- **Against silent telemetry fabrication** (stratum one — hallucinated
+  interfaces masked by defaulting access): strict Leyline schemas with
+  fail-closed compatibility (INV-24), validity masks and the
+  absent-is-never-zero rule (INV-38), Nissa's direct publication with no
+  editorial intermediary (INV-07), observation binding (INV-08), the
+  defaulting-access ban (ADR-0006), and the poison-pill negative-space
+  harness.
+- **Against learning-loop self-deception** (stratum two): no shaped-reward
+  authority anywhere on the constitutional path, the evidence/judgement
+  split and frozen thresholds (INV-18), complete negative retention and
+  grouped statistics (INV-31, INV-32), mandatory no-op comparison
+  (INV-15, INV-16), and blinding by construction (INV-37).
+
+None of it is speculative caution. Each piece traces to a specific,
+documented bleed: telemetry reads flooded with fabricated zeros, silently
+unlearnable actions, instruments that lied, schema seams that failed open,
+cohort statistics that manufactured conclusions, a reward whose optimum
+rewarded the wrong behaviour.
+
+**The forward motion** is what the record earned the right to attempt:
+telemetry-conditioned structural decisions are *proven* sufficient, and a
+clean measurement substrate is proven to carry real topological signal —
+so the design pushes from a fixed blueprint menu to generated growth
+(Momir), from shaped reward to measured counterfactuals (the branching
+engine), and from single-region caution toward strategic allocation
+(Tamiyo). The counterfactual engine is simultaneously both: armour against
+Goodhartable shaping, and the forward mechanism that makes generation
+adjudicable at all.
+
+Two standing obligations for future contributors:
+
+- **Do not strip armour to speed the forward motion, and do not restrict
+  the forward motion because the armour is heavy.** The armour is why the
+  forward signal exists; a "simplified" telemetry or contract path is the
+  first chapter of the predecessor post-mortem, rewritten.
+- **Armour must cite its scar.** Every defensive mechanism in this design
+  traces to a named failure class; a proposed new constraint that cannot
+  name the failure it prevents is bureaucracy, not armour, and should be
+  challenged on exactly that ground.
+
 ## Appendix A — Architectural Smell Catalogue
 
 | Observation | Likely smell |

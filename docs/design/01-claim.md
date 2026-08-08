@@ -4,11 +4,11 @@
 <!-- hld: source: v4.1 monolith lines 1–168 -->
 # High-Level Design: Counterfactual Generative Morphogenesis
 
-**Working architecture:** Simic Engine with Phyrexian Orthodoxy and independent adjudication  
-**Status:** Final repository-handoff target architecture  
-**Architecture version:** 4.1  
-**Namespec:** 1.0 — locked  
-**Supersedes:** Version 3.0, Version 2.0, and the temporary lettered subsystem design  
+**Working architecture:** Simic Engine with Phyrexian Orthodoxy and independent adjudication
+**Status:** Final repository-handoff target architecture
+**Architecture version:** 4.1
+**Namespec:** 1.0 — locked
+**Supersedes:** Version 3.0, Version 2.0, and the temporary lettered subsystem design
 **Working package root:** `src/simic/`; the umbrella project name remains separable from the subsystem names.
 
 ---
@@ -88,6 +88,13 @@ A uniform **Scaffold Withdrawal Pattern** governs how the architecture learns un
 
 ## 2. Problem Statement
 
+<!-- hld: §2.6 added post-monolith (simic-00351db32e, 2026-08-08) — the empirical driver -->
+
+Sections 2.1–2.5 describe the structural failure modes of fixed-blueprint
+morphogenesis. The proximate, empirical driver of this design is §2.6: the
+predecessor record — what the esper line proved, where it bled, and why the
+correct response was to replace the reward function rather than repair it.
+
 A fixed-blueprint morphogenetic controller must solve too many coupled decisions at once:
 
 - determine whether the host needs intervention;
@@ -129,6 +136,104 @@ A host that has trained with a component may become dependent on it. Removing th
 When generation, validation, screening, deployment, and retention are implemented in one intelligent controller, the system can no longer explain why an intervention succeeded or failed. It also becomes easy for one subsystem to approve its own work, modify evaluation criteria, or hide policy inside telemetry.
 
 This design addresses those failures by decomposing developmental intent, structural invention, structural legality, compilation, causal evaluation, embodiment, memory, and maintenance into separate authorities.
+
+### 2.6 The empirical driver: the predecessor record
+
+This architecture is the third incarnation of one research programme — early
+versions of the simic project (known as ESPER, then ESPER LITE) built the
+morphogenetic chassis this design retains, and their record is the reason
+for every major choice here.
+
+**What the predecessors proved.** Seed telemetry is *sufficient* for
+intelligent structural decisions: the information needed to choose useful
+interventions was demonstrably present in the host-side diagnostics. When
+the measurement path was clean, the controller found real topological
+signal — including independently rediscovering that a convolution-plus-
+normalisation structure outperformed a heavier convolution alternative
+(owner-recalled result, an attention-adjacent principle found from
+telemetry alone). The hypothesis was never the casualty.
+
+**Where they bled.** The scars are layered in two strata, and they defend
+different parts of this architecture.
+
+**Stratum one — telemetry-access corruption (the silent-zero era).** In one
+generation, machine-generated telemetry code contained *hallucinated
+interfaces* — plausible-looking accessors for fields that did not exist —
+and permissive defaulting access (`.get()` with a silent default) converted
+those hallucinations into zero-filled telemetry reads. The host signal
+existed; the read path fabricated zeros over it, and the reward read
+collapsed without a single error being raised. The failure mode deserves
+its precise name, because it is characteristic of AI-assisted engineering
+rather than ordinary bad code: **a model can hallucinate an interface and
+then use permissive access idioms to hide the hallucination behind silent
+defaults**. The predecessor response was severe enough to become tooling —
+a CI ban on defaulting telemetry access — and is constitutional here:
+typed `TelemetryEnvelope` contracts, `validity_mask`, *absent signal stays
+absent — never a fabricated zero* (INV-38, runtime policy P2), fail-closed
+typed compatibility (INV-24), direct Nissa publication (INV-07),
+observation binding (INV-08), the defaulting-access ban (ADR-0006), and
+the poison-pill acceptance harness.
+
+**Stratum two — learning-loop and instrument failures.** After telemetry
+access was hardened, the RL loop and its instruments still failed, in five
+recurring classes documented in the predecessor's working record:
+
+1. **Silent signal destruction in the learning plumbing.** An action-
+   probability floor made floor-bound actions' log-probabilities constants
+   — zero policy gradient — so ~94% of commit-class decisions could not
+   learn *despite a strong, correctly measured, monotonic reward*. The
+   signal existed; the optimiser could not receive it.
+2. **Instruments that lied.** A headline "entropy collapse" blocking a
+   causal read for weeks was a detector artifact (statistics over
+   structurally-zero placeholder steps); a companion alarm was a dead
+   false-negative; a key metric was mislabelled.
+3. **Fail-open schema seams.** A new metric key without a registered
+   reducer crashed every live run while the unit suite stayed green — the
+   second occurrence of that exact class. Hence evidence gates that run
+   the real pipeline, not only unit suites.
+4. **Over-read epidemics.** Seven over-reads in one diagnostic thread:
+   cohort statistics over mostly-unset fields, non-causal surrogates read
+   as causal, mismatched statistics manufacturing false effects, a
+   pre-registered discriminator that could not discriminate. Hence frozen
+   thresholds, complete negative retention (INV-31), grouped statistics
+   (INV-32), and the evidence/judgement split (INV-18).
+5. **Reward-optimum defects.** An unclipped dense attribution term running
+   ~100× over terminal scale made farming the shaping optimal; broken
+   potential-based-shaping telescoping and a lifecycle quirk made
+   commitment avoidance partly *structurally rational*. The policy was
+   never broken; the reward's optimum was wrong.
+
+The two strata are two distinct ways the system learned to lie — first
+through silent telemetry fabrication, then through learning-loop and
+statistical self-deception — and the armour is built in both directions
+accordingly.
+
+**The pivot, stated plainly.** The predecessors could not shape a reward to
+incentivise behaviour the reward provably contained. The uncharitable
+reading — "DRL didn't converge, so they built something more complicated" —
+is wrong. This design **replaces the reward function with measured
+counterfactuals**: paired branches from one snapshot over identical futures
+cancel ordinary-training variance, so the difference between branches *is*
+the intervention effect. That converts credit assignment into supervised
+learning — Momir becomes ranking over measured pools, Narset becomes
+per-step supervised classification against counterfactual labels, and
+Augustin becomes explicit adjudication rules. The genuinely irreducible RL
+shrinks to Tamiyo's allocation and Narset's timing. The counterfactual
+apparatus is therefore not overhead wrapped around a policy learner; **it
+is the machine that manufactures the supervision signal RL could not
+extract**, and the programme's cost model is honestly read as the price of
+that conversion.
+
+**Attribution honesty.** Part of the expected improvement over the
+predecessors — dense per-step labels, attributable failures — is a
+training-procedure win that could arguably have been retrofitted to the old
+system. The architecture's irreducible contributions are the ones that
+could not: generated (not selected) structure, separated authorities, and
+provider blindness. Claims in `01-claim.md` §28 should be read against this
+split.
+
+The design-level consequence of this record is the armour-and-forward-
+motion principle (`03-principles.md#620-armour-and-forward-motion`).
 
 ---
 
