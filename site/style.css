@@ -1,0 +1,485 @@
+/* ==========================================================================
+   Simic — static site stylesheet
+   Vanilla CSS. No build step, no framework, no external assets, no fonts to
+   fetch. Theme follows the reader's OS preference via color-scheme +
+   light-dark(); there is no toggle because the site ships zero JavaScript.
+   ========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Primitives -------------------------------------------------------
+     Simic reads blue-green. Hue 225 carries structure, hue 175 carries
+     emphasis. OKLCH so the light and dark ramps stay perceptually matched. */
+  --ink-050: oklch(0.985 0.004 225);
+  --ink-100: oklch(0.955 0.008 225);
+  --ink-200: oklch(0.905 0.012 225);
+  --ink-300: oklch(0.825 0.016 225);
+  /* ink-500 is the light-mode muted text; kept dark enough that muted text
+     clears WCAG AA (4.5:1) against --color-bg-subtle, not just --color-bg. */
+  --ink-500: oklch(0.495 0.024 225);
+  --ink-700: oklch(0.375 0.030 225);
+  --ink-850: oklch(0.235 0.026 225);
+  --ink-900: oklch(0.185 0.024 225);
+  --ink-950: oklch(0.145 0.020 225);
+
+  --teal-400: oklch(0.780 0.110 175);
+  --teal-600: oklch(0.560 0.105 175);
+  --teal-700: oklch(0.470 0.098 175);
+
+  --amber-400: oklch(0.800 0.105 85);
+  --amber-700: oklch(0.520 0.105 85);
+
+  /* --- Semantic tokens (one declaration each) --------------------------- */
+  --color-bg:          light-dark(var(--ink-050), var(--ink-950));
+  --color-bg-subtle:   light-dark(var(--ink-100), var(--ink-900));
+  --color-bg-code:     light-dark(var(--ink-100), var(--ink-850));
+  --color-bg-note:     light-dark(oklch(0.965 0.020 175), oklch(0.235 0.030 195));
+
+  --color-text:        light-dark(var(--ink-900), var(--ink-100));
+  --color-text-muted:  light-dark(var(--ink-500), var(--ink-300));
+  --color-heading:     light-dark(var(--ink-950), var(--ink-050));
+
+  --color-border:      light-dark(var(--ink-200), oklch(0.300 0.020 225));
+  --color-border-firm: light-dark(var(--ink-300), oklch(0.380 0.024 225));
+
+  --color-accent:      light-dark(var(--teal-700), var(--teal-400));
+  --color-accent-quiet:light-dark(var(--teal-600), oklch(0.660 0.080 175));
+  --color-warn:        light-dark(var(--amber-700), var(--amber-400));
+
+  --color-link:        var(--color-accent);
+  --color-link-hover:  color-mix(in oklch, var(--color-link) 72%, var(--color-text) 28%);
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+               Arial, sans-serif;
+  --font-code: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Fira Code",
+               Menlo, Consolas, "Liberation Mono", monospace;
+
+  --text-h1: clamp(2rem, 1.45rem + 2.6vw, 3.1rem);
+  --text-h2: clamp(1.35rem, 1.18rem + 0.8vw, 1.75rem);
+  --text-h3: clamp(1.08rem, 1.02rem + 0.3vw, 1.22rem);
+
+  /* --- Spacing (8px base) ----------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+  --space-7: 4.5rem;
+
+  /* --- Layout ------------------------------------------------------------ */
+  --measure: 46rem;      /* prose column */
+  --page: 62rem;         /* wide elements: tables, diagrams */
+  --radius: 4px;
+}
+
+/* Explicit reader override, should one ever be wired up. light-dark() does
+   the rest, so no palette is duplicated. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+/* --- Reset-ish ----------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-underline-offset: 0.15em;
+}
+
+img, svg { max-width: 100%; height: auto; }
+
+/* --- Skip link ----------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -3.5rem;
+  z-index: 10;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-firm);
+  border-radius: var(--radius);
+  transition: top 120ms ease-out;
+}
+.skip-link:focus { top: var(--space-2); }
+
+/* --- Focus --------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --- Links --------------------------------------------------------------- */
+a { color: var(--color-link); text-decoration-thickness: 1px; }
+a:hover { color: var(--color-link-hover); }
+
+/* --- Page frame ---------------------------------------------------------- */
+.masthead {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+}
+
+.masthead__inner,
+.contentwrap,
+.sitefoot__inner {
+  max-width: var(--page);
+  margin-inline: auto;
+  padding-inline: var(--space-3);
+}
+
+.masthead__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-3);
+}
+
+.wordmark {
+  font-family: var(--font-code);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-heading);
+  text-decoration: none;
+}
+.wordmark::before {
+  content: "◈ ";
+  color: var(--color-accent);
+}
+.wordmark:hover { color: var(--color-accent); }
+
+.sitenav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.94rem;
+}
+.sitenav a {
+  text-decoration: none;
+  color: var(--color-text-muted);
+  padding-block: var(--space-1);
+  border-bottom: 2px solid transparent;
+}
+.sitenav a:hover { color: var(--color-accent); }
+.sitenav a[aria-current="page"] {
+  color: var(--color-heading);
+  border-bottom-color: var(--color-accent);
+}
+
+/* --- Main column --------------------------------------------------------- */
+main { display: block; }
+
+.contentwrap {
+  padding-block: var(--space-6) var(--space-7);
+}
+
+/* Prose is narrower than the page; wide blocks opt out with .wide. */
+.contentwrap > * { max-width: var(--measure); }
+.contentwrap > .wide,
+.contentwrap > .cardgrid,
+.contentwrap > .pagehead { max-width: none; }
+
+/* --- Headings ------------------------------------------------------------ */
+h1, h2, h3, h4 {
+  color: var(--color-heading);
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0 0 var(--space-3);
+}
+h1 { font-size: var(--text-h1); letter-spacing: -0.02em; }
+h2 {
+  font-size: var(--text-h2);
+  margin-top: var(--space-6);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+h3 { font-size: var(--text-h3); margin-top: var(--space-5); }
+h4 { font-size: 1rem; margin-top: var(--space-4); }
+
+p, ul, ol, dl { margin: 0 0 var(--space-3); }
+ul, ol { padding-left: 1.35rem; }
+li { margin-bottom: var(--space-2); }
+li > ul, li > ol { margin-top: var(--space-2); }
+
+strong { color: var(--color-heading); font-weight: 650; }
+
+/* --- Page head ----------------------------------------------------------- */
+.pagehead { margin-bottom: var(--space-5); }
+.pagehead h1 { margin-bottom: var(--space-2); }
+
+.tagline {
+  font-family: var(--font-code);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  color: var(--color-accent);
+  margin-bottom: var(--space-4);
+}
+
+.lede {
+  max-width: var(--measure);
+  font-size: 1.12rem;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.crumb {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+.crumb a { color: var(--color-text-muted); }
+.crumb a:hover { color: var(--color-accent); }
+
+/* --- Callouts ------------------------------------------------------------ */
+.note {
+  max-width: var(--measure);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-note);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+}
+.note > :last-child { margin-bottom: 0; }
+.note__label {
+  display: block;
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: var(--space-1);
+}
+.note--status {
+  background: light-dark(oklch(0.975 0.022 85), oklch(0.235 0.028 75));
+  border-left-color: var(--color-warn);
+}
+.note--status .note__label { color: var(--color-warn); }
+
+/* --- Quotes -------------------------------------------------------------- */
+blockquote {
+  margin: var(--space-4) 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  border-left: 3px solid var(--color-border-firm);
+  color: var(--color-text);
+}
+blockquote > :last-child { margin-bottom: 0; }
+
+blockquote.canon {
+  border-left-color: var(--color-accent);
+  font-size: 1.03rem;
+}
+blockquote cite {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: 0.85rem;
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+/* --- Code ---------------------------------------------------------------- */
+code, kbd, samp {
+  font-family: var(--font-code);
+  font-size: 0.9em;
+}
+
+:not(pre) > code {
+  background: var(--color-bg-code);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0.08em 0.32em;
+  overflow-wrap: break-word;
+}
+
+pre {
+  max-width: var(--page);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-code);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+figure { margin: var(--space-4) 0; max-width: var(--page); }
+figure > pre { margin-top: 0; }
+figcaption {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: var(--space-2);
+}
+
+/* --- Tables -------------------------------------------------------------- */
+.tablewrap {
+  max-width: var(--page);
+  margin: var(--space-4) 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  min-width: 34rem;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+caption {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+thead th {
+  color: var(--color-heading);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-bg-subtle);
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.name, th.name {
+  font-family: var(--font-code);
+  color: var(--color-heading);
+  white-space: nowrap;
+}
+
+/* --- Definition-ish invariant list --------------------------------------- */
+.spine {
+  max-width: var(--measure);
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+.spine > li {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+  margin: 0;
+}
+.spine > li:last-child { border-bottom: 1px solid var(--color-border); }
+.spine b {
+  display: block;
+  color: var(--color-heading);
+  font-weight: 650;
+}
+.inv {
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+/* --- Card grid ----------------------------------------------------------- */
+.cardgrid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin: var(--space-4) 0 var(--space-5);
+  padding: 0;
+  list-style: none;
+}
+.cardgrid > li { margin: 0; }
+
+.card {
+  display: block;
+  height: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+}
+a.card:hover {
+  border-color: var(--color-accent);
+  color: inherit;
+}
+.card h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  color: var(--color-accent);
+}
+.card p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+}
+
+/* --- Two-column split (armour / forward, healthy / smelly) --------------- */
+.split {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  max-width: var(--page);
+  margin: var(--space-4) 0;
+}
+.split > section > :first-child { margin-top: 0; }
+
+/* --- Footer -------------------------------------------------------------- */
+.sitefoot {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+.sitefoot__inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  justify-content: space-between;
+  padding-block: var(--space-4);
+}
+.sitefoot p { margin: 0; }
+.sitefoot ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* --- Motion -------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Print --------------------------------------------------------------- */
+@media print {
+  :root { color-scheme: light; }
+  .masthead, .sitefoot, .skip-link { display: none; }
+  body { font-size: 11pt; }
+  .contentwrap { max-width: none; padding: 0; }
+  pre, .tablewrap { border-color: #999; page-break-inside: avoid; }
+  a { color: inherit; text-decoration: underline; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
+}

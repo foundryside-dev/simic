@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simic — Counterfactual Generative Morphogenesis</title>
+<meta name="description" content="Simic is a lifecycle-driven neural training system in which new structure is generated from the live state of a host network, then causally screened against doing nothing. Design locked; pre-implementation.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20d='M8%201L14%208L8%2015L2%208Z'%20fill='%230f9b8e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <a class="wordmark" href="index.html">simic</a>
+    <nav class="sitenav" aria-label="Primary">
+      <ul>
+        <li><a href="index.html" aria-current="page">Overview</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="lineage.html">Why this design</a></li>
+        <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="contentwrap">
+
+  <div class="pagehead">
+    <h1>Simic</h1>
+    <p class="tagline">Counterfactual Generative Morphogenesis</p>
+    <p class="lede">
+      New neural structure is <strong>generated from the live state of a host
+      network</strong> — not selected from a fixed menu of human-authored
+      blueprints — then causally screened against doing nothing. Measured
+      counterfactuals instead of a reward function.
+    </p>
+  </div>
+
+  <div class="note note--status">
+    <span class="note__label">Project status</span>
+    <p>
+      <strong>Pre-implementation bootstrap.</strong> The design is complete and
+      locked — HLD v4.1, Namespec 1.0 — and a Python scaffold exists, but there
+      is <strong>no functional code yet</strong>. First engineering work is
+      Phase&nbsp;A: Namespec, Leyline contracts, and dependency boundaries.
+      Nothing on this site describes a running system or a measured result.
+    </p>
+  </div>
+
+  <h2 id="the-idea">The idea</h2>
+
+  <p>
+    Growing a neural network at runtime raises four questions that existing
+    systems tend to blur together: <em>what</em> new structure to add,
+    <em>whether</em> it is structurally sound, <em>whether</em> it actually
+    helps, and <em>who</em> gets to decide. Simic separates those concerns
+    constitutionally.
+  </p>
+
+  <p>
+    Structure is designed from live host telemetry; verified and canonicalised;
+    compiled without semantic change; tested in flash-cloned counterfactual
+    branches that share an identical future with the mainline; and admitted only
+    if it beats a <strong>mandatory no-op alternative</strong> under a
+    provider-blind judge. Everything — including failures, rejected pools, and
+    no-op wins — is retained as history.
+  </p>
+
+  <p>
+    Admitted structure is never permanent by default: it matures behind the
+    host, blends in reversibly, must keep earning its tenancy, and is sedated or
+    lysed when it no longer does.
+  </p>
+
+  <h3 id="the-loop">The loop, in one block</h3>
+
+  <figure class="wide">
+<pre role="img" aria-label="Pipeline diagram. A task and data stream feeds Tolaria, which trains the Kasmina host. Nissa publishes one canonical TelemetryEnvelope, independently, to both Narset — which decides whether and where to commission growth — and Momir, which receives the same uncaptioned evidence directly. Tamiyo authorises strategic resources. Narset emits a narrow GrowthIntent, the assignment brief. Leyline and Kasmina deterministically resolve the legal GrowthRequest. Sarpadia may supply temporary bootstrap ancestry or ordinary precedent. Momir designs, then Elesh conforms, then Tezzeret compiles. Urabrask specifies QA and Tolaria executes the tests. Urabrask certifies the evidence. Augustin judges candidate versus no-op. Kasmina embodies an admitted growth. Emrakul later removes what no longer earns its place. Every success, failure, abstention and lineage is retained in Sarpadia. Oona reveals the complete account."><code>Task and data stream
+        ↓
+Tolaria trains the Kasmina host
+        ↓
+Nissa publishes one canonical TelemetryEnvelope
+        ├──→ Narset  decides whether and where to commission growth
+        └──→ Momir   receives the same uncaptioned evidence directly
+        ↓
+Tamiyo authorises strategic resources
+        ↓
+Narset emits a narrow GrowthIntent — the assignment brief
+        ↓
+Leyline and Kasmina deterministically resolve the legal GrowthRequest
+        ↓
+Sarpadia may supply temporary bootstrap ancestry or ordinary precedent
+        ↓
+Momir designs → Elesh conforms → Tezzeret compiles
+        ↓
+Urabrask specifies QA; Tolaria executes the tests
+        ↓
+Urabrask certifies the evidence
+        ↓
+Augustin judges candidate versus no-op
+        ↓
+Kasmina embodies an admitted growth
+        ↓
+Emrakul later removes what no longer earns its place
+        ↓
+Every success, failure, abstention and lineage is retained in Sarpadia
+        ↓
+Oona reveals the complete account</code></pre>
+    <figcaption>
+      The ordinary host-training loop and the growth loop share one execution
+      reality. Source: <code>docs/design/01-claim.md</code> §1.
+    </figcaption>
+  </figure>
+
+  <h2 id="counterfactuals">Why counterfactuals, not a reward function</h2>
+
+  <p>
+    Paired branches start from one snapshot and run over identical futures, so
+    ordinary-training variance cancels and the difference between branches
+    <em>is</em> the intervention effect. That converts credit assignment into
+    supervised learning: ranking over measured pools, per-step classification
+    against counterfactual labels, and explicit adjudication rules. The
+    genuinely irreducible reinforcement learning shrinks to strategic
+    allocation and tactical timing.
+  </p>
+
+  <p>
+    The counterfactual apparatus is therefore not overhead wrapped around a
+    policy learner — <strong>it is the machine that manufactures the supervision
+    signal</strong>. That choice was forced by a documented record, which is
+    the subject of <a href="lineage.html">Why this design looks like this</a>.
+  </p>
+
+  <h2 id="guarantees">Guarantees</h2>
+
+  <p>
+    The constitution defines 45 blocking invariants, cited throughout the design
+    as <code>INV-nn</code>. The spine:
+  </p>
+
+  <ul class="spine">
+    <li>
+      <b>Determinism <span class="inv">INV-05</span></b>
+      Identical snapshot plus identical future data produces bitwise-identical
+      traces under the Academy execution profile. Non-exact profiles carry
+      measured uncertainty instead of pretending.
+    </li>
+    <li>
+      <b>Doing nothing is a real competitor <span class="inv">INV-15, INV-16</span></b>
+      Every admission and tenancy review includes a measured no-intervention
+      branch with policy utility exactly zero. The whole candidate pool may lose
+      to it.
+    </li>
+    <li>
+      <b>Tail risk cannot be bought <span class="inv">INV-45</span></b>
+      Admission is lexicographic: the tail-risk veto is adjudicated before any
+      utility comparison, and no measured benefit can offset it.
+    </li>
+    <li>
+      <b>Evidence and judgement never mix <span class="inv">INV-17, INV-18, INV-37</span></b>
+      Urabrask certifies evidence but cannot issue verdicts; Augustin decides but
+      cannot touch tests. Neither ever sees candidate provenance — blinding is by
+      construction, meaning the fields are absent rather than ignored.
+    </li>
+    <li>
+      <b>No influence without a warrant <span class="inv">INV-26, INV-27</span></b>
+      Kasmina cannot raise a growth above zero influence, and Emrakul cannot
+      retire committed structure, without a valid Augustin warrant.
+    </li>
+    <li>
+      <b>Absent signal stays absent <span class="inv">INV-38</span></b>
+      Invariant breaches fail loudly and visibly. No silent fallback fabricates
+      valid-looking state, and a missing telemetry field never becomes a zero.
+    </li>
+    <li>
+      <b>Complete history <span class="inv">INV-31, INV-36</span></b>
+      Sarpadia is append-only and keeps failures, rejected pools, no-op wins and
+      abstentions — never winners-only.
+    </li>
+    <li>
+      <b>Observability is inert <span class="inv">INV-35</span></b>
+      Disconnecting Oona cannot change training.
+    </li>
+  </ul>
+
+  <h2 id="domains">Fourteen domains, one sentence</h2>
+
+  <p>
+    Authority is split across fourteen bounded domains with deliberately vivid
+    codenames. The names are not decoration: they act as an architecture linter,
+    because a subsystem acting contrary to its verb is exercising authority it
+    must not have.
+  </p>
+
+  <blockquote class="canon">
+    <p>
+      Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
+      Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
+      compiled result in Tolaria. Augustin judges the resulting evidence under
+      Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no
+      longer earns continued tenancy. Sarpadia retains every precedent. Oona
+      reveals the account.
+    </p>
+    <cite>The canonical sentence — <code>docs/design/02-constitution.md</code> §5.3</cite>
+  </blockquote>
+
+  <p>
+    The architecture deliberately resembles a newsroom, because both must keep
+    observation, assignment, authorship, standards, production, fact-checking,
+    publication judgement and archive on separate desks. The load-bearing
+    routing rule:
+  </p>
+
+  <blockquote>
+    <p>
+      <strong>Nissa sends the photograph directly to the designer. Narset sends
+      only the assignment brief.</strong>
+    </p>
+  </blockquote>
+
+  <p>
+    <a href="architecture.html">Read the architecture →</a>
+  </p>
+
+  <h2 id="scope">What this is not</h2>
+
+  <p>The initial implementation does not attempt:</p>
+
+  <ul>
+    <li>unrestricted source-code generation, or arbitrary whole-network rewriting;</li>
+    <li>autonomous modification of the training runtime;</li>
+    <li>unbounded or Turing-complete growth grammars;</li>
+    <li>learned control of every lifecycle and economy parameter from the outset;</li>
+    <li>simultaneous growth across many regions before single-region reliability exists;</li>
+    <li>continual learning without forgetting as a guaranteed property;</li>
+    <li>replacement of ordinary host optimisation;</li>
+    <li>or proof that generated growth is superior at every scale.</li>
+  </ul>
+
+  <p>The first defensible claim is narrower:</p>
+
+  <blockquote>
+    <p>
+      Given a typed insertion contract and a measured host deficit, can the
+      system generate, verify, compile, causally screen, and safely integrate a
+      useful constrained growth more quickly and reliably than comparable online
+      construction, retrieval, random search, analytic construction, or static
+      over-provisioning?
+    </p>
+    <cite><code>docs/design/01-claim.md</code> §4</cite>
+  </blockquote>
+
+  <p>
+    A negative generative result remains scientifically useful if the
+    architecture cleanly shows that some simpler alternative dominates at the
+    tested scale.
+  </p>
+
+  <h2 id="where">Where the design lives</h2>
+
+  <p>
+    The canonical authority is the HLD chapter set in the repository, not this
+    site. Paths below are references into
+    <a href="https://github.com/foundryside-dev/simic" rel="noopener">the repository</a>.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Repository map</caption>
+      <thead>
+        <tr><th scope="col" class="name">Path</th><th scope="col">Contents</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">docs/design/00-INDEX.md</td><td>Entry point to the HLD chapter set, with reading paths</td></tr>
+        <tr><td class="name">docs/design/01-claim.md</td><td>Executive summary, problem statement, goals, non-goals, the first defensible claim</td></tr>
+        <tr><td class="name">docs/design/02-constitution.md</td><td>Naming constitution and the 45 blocking invariants</td></tr>
+        <tr><td class="name">docs/design/03-principles.md</td><td>Design principles and the architectural smell catalogue</td></tr>
+        <tr><td class="name">docs/design/04-architecture.md</td><td>System context, planes, and the control hierarchy</td></tr>
+        <tr><td class="name">docs/adr/</td><td>Architecture decision records</td></tr>
+        <tr><td class="name">docs/product/</td><td>Product workspace — vision, roadmap, metrics, decisions</td></tr>
+        <tr><td class="name">src/simic/</td><td>Target code layout: one package per domain (scaffold only, today)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Implementation follows Phases A–K, defined in
+    <code>docs/design/programme/phases.md</code>. Python is the working
+    language. The project is licensed Apache-2.0.
+  </p>
+
+</div>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot__inner">
+    <p>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
+    <ul>
+      <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">github.com/foundryside-dev/simic</a></li>
+      <li>HLD v4.1 · Namespec 1.0 — locked</li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why this design — Simic</title>
+<meta name="description" content="The empirical driver behind Simic: two strata of documented failure, the pivot from shaped reward to measured counterfactuals, and the armour-and-forward-motion rule.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20d='M8%201L14%208L8%2015L2%208Z'%20fill='%230f9b8e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <a class="wordmark" href="index.html">simic</a>
+    <nav class="sitenav" aria-label="Primary">
+      <ul>
+        <li><a href="index.html">Overview</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="lineage.html" aria-current="page">Why this design</a></li>
+        <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<div class="contentwrap">
+
+  <div class="pagehead">
+    <p class="crumb"><a href="index.html">Overview</a> › Why this design</p>
+    <h1>Why this design looks like this</h1>
+    <p class="lede">
+      Almost nothing in Simic is speculative caution. Each defensive mechanism
+      traces to a specific, documented failure — and each forward step is
+      something the record earned the right to attempt.
+    </p>
+  </div>
+
+  <h2 id="the-record">The record this design answers</h2>
+
+  <p>
+    Simic is the third incarnation of one research programme. Early versions of
+    the simic project (known as esper) built the morphogenetic chassis this
+    design retains — reversible slots, staged maturation, lifecycle states — and
+    that working record is the proximate reason for every major choice made
+    here. Whatever succeeds is Simic; the earlier work is history flowing
+    backward into that name, not a separate identity.
+  </p>
+
+  <p>
+    The record is documented in full at
+    <code>docs/design/01-claim.md</code> §2.6, and the principle it produces is
+    <code>docs/design/03-principles.md</code> §6.20.
+  </p>
+
+  <h2 id="proved">What the record proved</h2>
+
+  <p>
+    <strong>Seed telemetry is sufficient for intelligent structural
+    decisions.</strong> The information needed to choose useful interventions
+    was demonstrably present in the host-side diagnostics. When the measurement
+    path was clean, the controller found real topological signal — including
+    independently rediscovering that a convolution-plus-normalisation structure
+    outperformed a heavier convolution alternative, an attention-adjacent
+    principle found from telemetry alone. That last result is
+    <em>owner-recalled</em> rather than re-derived from a preserved artefact, and
+    is recorded that way in the design.
+  </p>
+
+  <p>
+    The hypothesis was never the casualty. That matters, because it determines
+    which parts of the programme get pushed forward and which get armoured.
+  </p>
+
+  <h2 id="strata">Where it bled: two strata</h2>
+
+  <p>
+    The scars are layered, and they defend different parts of this architecture.
+    Collapsing them into a single story loses information in both directions.
+  </p>
+
+  <h3 id="stratum-one">Stratum one — telemetry-access corruption</h3>
+
+  <p>
+    In one generation, machine-generated telemetry code contained
+    <strong>hallucinated interfaces</strong>: plausible-looking accessors for
+    fields that did not exist. Permissive defaulting access — a lookup with a
+    silent fallback value — converted those hallucinations into zero-filled
+    telemetry reads. The host signal existed; the read path fabricated zeros over
+    it, and the reward read collapsed without a single error being raised.
+  </p>
+
+  <p>
+    The failure mode deserves its precise name, because it is characteristic of
+    AI-assisted engineering rather than ordinary bad code:
+  </p>
+
+  <blockquote class="canon">
+    <p>
+      <strong>A model can hallucinate an interface, then use permissive access
+      idioms to hide the hallucination behind silent defaults.</strong>
+    </p>
+  </blockquote>
+
+  <p>
+    The response at the time was severe enough to become tooling — a CI ban on
+    defaulting telemetry access. In Simic it is constitutional: typed
+    <code>TelemetryEnvelope</code> contracts, a <code>validity_mask</code>, the
+    rule that <em>absent signal stays absent and is never a fabricated zero</em>
+    (INV-38), fail-closed typed compatibility (INV-24), direct publication from
+    Nissa with no editorial intermediary (INV-07), observation binding (INV-08),
+    the defaulting-access ban (ADR-0006), and a poison-pill acceptance harness.
+  </p>
+
+  <h3 id="stratum-two">Stratum two — learning-loop and instrument failures</h3>
+
+  <p>
+    After telemetry access was hardened, the reinforcement-learning loop and its
+    instruments still failed, in five recurring classes documented in the
+    working record:
+  </p>
+
+  <ol>
+    <li>
+      <strong>Silent signal destruction in the learning plumbing.</strong> An
+      action-probability floor made floor-bound actions' log-probabilities
+      constant — zero policy gradient — so a large share of commit-class
+      decisions could not learn <em>despite a strong, correctly measured,
+      monotonic reward</em>. The signal existed; the optimiser could not receive
+      it.
+    </li>
+    <li>
+      <strong>Instruments that lied.</strong> A headline “entropy collapse” that
+      blocked a causal read for weeks turned out to be a detector artifact —
+      statistics computed over structurally-zero placeholder steps. A companion
+      alarm was a dead false-negative, and a key metric was mislabelled.
+    </li>
+    <li>
+      <strong>Fail-open schema seams.</strong> A new metric key without a
+      registered reducer crashed every live run while the unit suite stayed
+      green — the second occurrence of that exact class. Hence evidence gates
+      that run the real pipeline, not only unit suites.
+    </li>
+    <li>
+      <strong>Over-read epidemics.</strong> Cohort statistics computed over
+      mostly-unset fields; non-causal surrogates read as causal; mismatched
+      statistics manufacturing false effects; a pre-registered discriminator that
+      could not discriminate. Hence frozen thresholds, complete negative
+      retention (INV-31), grouped statistics (INV-32), and the
+      evidence/judgement split (INV-18).
+    </li>
+    <li>
+      <strong>Reward-optimum defects.</strong> An unclipped dense attribution
+      term ran far over terminal scale, making farming the shaping optimal;
+      broken potential-based-shaping telescoping and a lifecycle quirk made
+      commitment avoidance partly <em>structurally rational</em>. The policy was
+      never broken. The reward's optimum was wrong.
+    </li>
+  </ol>
+
+  <p>
+    The two strata are two distinct ways a system learns to lie — first through
+    silent telemetry fabrication, then through learning-loop and statistical
+    self-deception. The armour is built in both directions accordingly.
+  </p>
+
+  <h2 id="pivot">The pivot, stated plainly</h2>
+
+  <p>
+    The earlier work could not shape a reward to incentivise behaviour the reward
+    provably contained. The uncharitable reading — <em>“deep RL didn't converge,
+    so they built something more complicated”</em> — is wrong.
+  </p>
+
+  <p>
+    This design <strong>replaces the reward function with measured
+    counterfactuals</strong>. Paired branches from one snapshot over identical
+    futures cancel ordinary-training variance, so the difference between branches
+    <em>is</em> the intervention effect. That converts credit assignment into
+    supervised learning: Momir becomes ranking over measured pools, Narset
+    becomes per-step supervised classification against counterfactual labels, and
+    Augustin becomes explicit adjudication rules. The genuinely irreducible
+    reinforcement learning shrinks to Tamiyo's allocation and Narset's timing.
+  </p>
+
+  <p>
+    The counterfactual apparatus is therefore not overhead wrapped around a
+    policy learner. <strong>It is the machine that manufactures the supervision
+    signal the reward could not deliver</strong> — and the programme's cost is
+    honestly read as the price of that conversion.
+  </p>
+
+  <h2 id="attribution">Attribution honesty</h2>
+
+  <div class="note">
+    <span class="note__label">Read the claims against this</span>
+    <p>
+      Part of the expected improvement — dense per-step labels, attributable
+      failures — is a training-procedure win that could arguably have been
+      retrofitted to the earlier system. The architecture's irreducible
+      contributions are the ones that could not: <strong>generated (not
+      selected) structure, separated authorities, and provider
+      blindness.</strong> The success criteria in
+      <code>docs/design/01-claim.md</code> §28 should be read against that split.
+    </p>
+  </div>
+
+  <h2 id="armour">Armour and forward motion</h2>
+
+  <p>
+    The whole shape follows one rule, stated by the owner:
+  </p>
+
+  <blockquote class="canon">
+    <p>
+      <strong>Where capability was validated, push forward; where the programme
+      struggled, build armour.</strong>
+    </p>
+    <cite><code>docs/design/03-principles.md</code> §6.20</cite>
+  </blockquote>
+
+  <div class="split">
+    <section>
+      <h3>The armour</h3>
+      <p>
+        Every mechanism that makes a documented failure class
+        <em>unrepresentable</em> rather than policed. It faces in two
+        directions, matching the two strata.
+      </p>
+      <p><strong>Against silent telemetry fabrication:</strong> strict Leyline
+      schemas with fail-closed compatibility (INV-24), validity masks and the
+      absent-is-never-zero rule (INV-38), Nissa's direct publication with no
+      editorial intermediary (INV-07), observation binding (INV-08), the
+      defaulting-access ban (ADR-0006), and the poison-pill negative-space
+      harness.</p>
+      <p><strong>Against learning-loop self-deception:</strong> no shaped-reward
+      authority anywhere on the constitutional path, the evidence/judgement split
+      and frozen thresholds (INV-18), complete negative retention and grouped
+      statistics (INV-31, INV-32), mandatory no-op comparison (INV-15, INV-16),
+      and blinding by construction (INV-37).</p>
+    </section>
+    <section>
+      <h3>The forward motion</h3>
+      <p>
+        What the record earned the right to attempt. Telemetry-conditioned
+        structural decisions are <em>proven</em> sufficient, and a clean
+        measurement substrate is proven to carry real topological signal.
+      </p>
+      <p>So the design pushes from a fixed blueprint menu to generated growth
+      (Momir); from shaped reward to measured counterfactuals (the branching
+      engine); and from single-region caution toward strategic allocation
+      (Tamiyo).</p>
+      <p>The counterfactual engine is simultaneously both: armour against
+      Goodhartable shaping, and the forward mechanism that makes generation
+      adjudicable at all.</p>
+    </section>
+  </div>
+
+  <h3 id="obligations">Two standing obligations</h3>
+
+  <ul class="spine">
+    <li>
+      <b>Do not strip armour to speed the forward motion, and do not restrict the
+      forward motion because the armour is heavy.</b>
+      The armour is why the forward signal exists. A “simplified” telemetry or
+      contract path is the first chapter of the post-mortem, rewritten.
+    </li>
+    <li>
+      <b>Armour must cite its scar.</b>
+      Every defensive mechanism in this design traces to a named failure class. A
+      proposed new constraint that cannot name the failure it prevents is
+      bureaucracy, not armour, and should be challenged on exactly that ground.
+    </li>
+  </ul>
+
+  <ul class="cardgrid">
+    <li>
+      <a class="card" href="architecture.html">
+        <h3>The architecture →</h3>
+        <p>Fourteen bounded domains, the canonical sentence, the newsroom routing rule, and the sentence test used as a lint.</p>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="index.html#guarantees">
+        <h3>The guarantees →</h3>
+        <p>The invariant spine each piece of armour is written into — cited as INV-nn throughout the design.</p>
+      </a>
+    </li>
+  </ul>
+
+</div>
+</main>
+
+<footer class="sitefoot">
+  <div class="sitefoot__inner">
+    <p>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
+    <ul>
+      <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">github.com/foundryside-dev/simic</a></li>
+      <li>HLD v4.1 · Namespec 1.0 — locked</li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>

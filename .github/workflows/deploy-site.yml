@@ -1,0 +1,52 @@
+# Deploy the static simic site (site/) to GitHub Pages.
+#
+# The site is plain HTML/CSS with no build step — the artifact IS the site/
+# directory. Deploys to simic.foundryside.dev (custom domain set in the repo's
+# Pages settings; DNS is a CNAME to foundryside-dev.github.io, matching the
+# other Weft-family subdomains).
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; don't cancel a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure Pages
+        # Pin the Pages source to GitHub Actions (build_type=workflow); enables
+        # Pages if needed. Without this, deploy-pages fails when the repo is
+        # still set to "Deploy from a branch".
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -61,9 +61,32 @@
         "source": "github",
         "repo": "tachyon-beep/skillpacks"
       }
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      }
+    },
+    "claude-code-plugins": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/anthropics/claude-code.git"
+      }
     }
   },
   "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "superpowers@claude-plugins-official": true,
+    "commit-commands@claude-code-plugins": true,
+    "code-review@claude-code-plugins": true,
+    "pr-review-toolkit@claude-code-plugins": true,
+    "skill-creator@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "lyra-ux-designer@foundryside-marketplace": true,
+    "lyra-site-designer@foundryside-marketplace": true,
+    "axiom-devops-engineering@foundryside-marketplace": true,
     "axiom-audit-pipelines@foundryside-marketplace": true,
     "axiom-determinism-and-replay@foundryside-marketplace": true,
     "axiom-embedded-database@foundryside-marketplace": true,
@@ -76,9 +99,10 @@
     "axiom-solution-architect@foundryside-marketplace": true,
     "axiom-static-analysis-engineering@foundryside-marketplace": true,
     "axiom-system-archaeologist@foundryside-marketplace": true,
+    "axiom-system-architect@foundryside-marketplace": true,
     "axiom-tensor-compiler-engineering@foundryside-marketplace": true,
     "lyra-tui-designer@foundryside-marketplace": true,
-        "meta-sme-protocol@foundryside-marketplace": true,
+    "meta-sme-protocol@foundryside-marketplace": true,
     "muna-document-designer@foundryside-marketplace": true,
     "muna-panel-review@foundryside-marketplace": true,
     "muna-technical-writer@foundryside-marketplace": true,
@@ -88,9 +112,11 @@
     "yzmir-counterfactual-statistics@foundryside-marketplace": true,
     "yzmir-deep-rl@foundryside-marketplace": true,
     "yzmir-dynamic-architectures@foundryside-marketplace": true,
+    "yzmir-ml-production@foundryside-marketplace": true,
     "yzmir-morphogenetic-rl@foundryside-marketplace": true,
     "yzmir-neural-architectures@foundryside-marketplace": true,
     "yzmir-pytorch-engineering@foundryside-marketplace": true,
+    "yzmir-simulation-foundations@foundryside-marketplace": true,
     "yzmir-structure-synthesis@foundryside-marketplace": true,
     "yzmir-systems-thinking@foundryside-marketplace": true,
     "yzmir-training-optimization@foundryside-marketplace": true
