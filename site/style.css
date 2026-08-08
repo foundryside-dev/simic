@@ -53,8 +53,8 @@
   /* --- Typography ------------------------------------------------------- */
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
                Arial, sans-serif;
-  --font-code: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Fira Code",
-               Menlo, Consolas, "Liberation Mono", monospace;
+  --font-code: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+               "Liberation Mono", monospace;
 
   --text-h1: clamp(2rem, 1.45rem + 2.6vw, 3.1rem);
   --text-h2: clamp(1.35rem, 1.18rem + 0.8vw, 1.75rem);

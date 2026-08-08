@@ -34,6 +34,11 @@ theme:
   # third-party font request, no reader IPs handed to Google, one less thing
   # between the reader and the text.
   font: false
+  # The brand's teal diamond (the same mark the marketing site uses as its
+  # favicon). Staged from tools/wiki/assets/ by stage.py; assets/simic.css
+  # renders the header copy in ink-050 over the teal bar.
+  logo: assets/mark.svg
+  favicon: assets/mark.svg
   features:
     - navigation.instant
     - navigation.tracking
@@ -103,6 +108,13 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+
+# Simic design tokens (site/style.css is the ground truth) mapped onto
+# Material's CSS custom properties — ink-225 structure, teal-175 emphasis,
+# amber-85 warnings, in both schemes. The stock teal/teal palette above stays
+# as the fallback if this sheet ever fails to load.
+extra_css:
+  - assets/simic.css
 
 extra_javascript:
   # --- The wiki's two external dependencies. Both PINNED to exact versions. --

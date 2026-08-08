@@ -1,0 +1,152 @@
+/* ==========================================================================
+   Simic design tokens applied to the Material theme.
+
+   The token values are copied from site/style.css — the ground truth for the
+   whole brand (see the design-system project, .claude/skills/simic-design/).
+   Hue 225 ("ink") carries structure, hue 175 (teal) carries emphasis, hue 85
+   (amber) is the sole warning colour. This file maps those tokens onto
+   Material's CSS custom properties for both colour schemes; Material's own
+   chrome (icons, shadows, layout) is left alone — the no-shadow rule applies
+   to the marketing site surface, not the wiki.
+
+   Loaded via extra_css, so equal-specificity rules here win over the theme's
+   by source order.
+   ========================================================================== */
+
+:root {
+  /* --- Primitives (verbatim from site/style.css) ------------------------- */
+  --simic-ink-050: oklch(0.985 0.004 225);
+  --simic-ink-100: oklch(0.955 0.008 225);
+  --simic-ink-200: oklch(0.905 0.012 225);
+  --simic-ink-300: oklch(0.825 0.016 225);
+  --simic-ink-500: oklch(0.495 0.024 225);
+  --simic-ink-700: oklch(0.375 0.030 225);
+  --simic-ink-850: oklch(0.235 0.026 225);
+  --simic-ink-900: oklch(0.185 0.024 225);
+  --simic-ink-950: oklch(0.145 0.020 225);
+
+  --simic-teal-400: oklch(0.780 0.110 175);
+  --simic-teal-600: oklch(0.560 0.105 175);
+  --simic-teal-700: oklch(0.470 0.098 175);
+
+  --simic-amber-400: oklch(0.800 0.105 85);
+  --simic-amber-700: oklch(0.520 0.105 85);
+
+  /* --- Type: the same system stacks the site uses ------------------------ */
+  --md-text-font: system-ui, -apple-system, "Segoe UI", Roboto,
+                  "Helvetica Neue", Arial, sans-serif;
+  --md-code-font: ui-monospace, "SFMono-Regular", Menlo, Consolas,
+                  "Liberation Mono", monospace;
+}
+
+/* --- Header and footer: one brand chrome in both schemes ------------------
+   The :is() clause matches whether or not data-md-color-primary is present;
+   it exists to lift each block to two attribute-selectors of specificity,
+   because palette.css sets e.g. --md-typeset-a-color from compound
+   [data-md-color-scheme=slate][data-md-color-primary=teal] rules that would
+   otherwise beat a single-attribute override regardless of source order. */
+[data-md-color-scheme="default"]:is([data-md-color-primary], :not([data-md-color-primary])),
+[data-md-color-scheme="slate"]:is([data-md-color-primary], :not([data-md-color-primary])) {
+  /* The header carries the site's light-mode accent in both schemes; the
+     text on it is ink-050, never pure white. */
+  --md-primary-fg-color: var(--simic-teal-700);
+  --md-primary-fg-color--light: var(--simic-teal-600);
+  --md-primary-fg-color--dark: oklch(0.400 0.090 175);
+  --md-primary-bg-color: var(--simic-ink-050);
+  --md-primary-bg-color--light: oklch(0.985 0.004 225 / 0.7);
+
+  --md-footer-bg-color: var(--simic-ink-900);
+  --md-footer-bg-color--dark: var(--simic-ink-950);
+  --md-footer-fg-color: var(--simic-ink-050);
+  --md-footer-fg-color--light: oklch(0.985 0.004 225 / 0.7);
+  --md-footer-fg-color--lighter: oklch(0.985 0.004 225 / 0.45);
+}
+
+/* --- Light: the site's light palette -------------------------------------- */
+[data-md-color-scheme="default"]:is([data-md-color-primary], :not([data-md-color-primary])) {
+  --md-default-bg-color: var(--simic-ink-050);
+  --md-default-fg-color: var(--simic-ink-900);
+  --md-default-fg-color--light: var(--simic-ink-500);
+  --md-default-fg-color--lighter: var(--simic-ink-300);
+  --md-default-fg-color--lightest: var(--simic-ink-100);
+
+  --md-typeset-color: var(--simic-ink-900);
+  --md-typeset-a-color: var(--simic-teal-700);
+
+  --md-accent-fg-color: var(--simic-teal-600);
+  --md-accent-fg-color--transparent: oklch(0.560 0.105 175 / 0.1);
+
+  --md-code-bg-color: var(--simic-ink-100);
+  --md-code-fg-color: var(--simic-ink-850);
+
+  --md-typeset-table-color: var(--simic-ink-200);
+  --md-typeset-table-color--light: oklch(0.905 0.012 225 / 0.5);
+
+  /* Simic-side semantics used by the admonition rules below. */
+  --simic-accent: var(--simic-teal-700);
+  --simic-warn: var(--simic-amber-700);
+}
+
+/* --- Dark: the site's dark palette ---------------------------------------- */
+[data-md-color-scheme="slate"]:is([data-md-color-primary], :not([data-md-color-primary])) {
+  --md-default-bg-color: var(--simic-ink-950);
+  --md-default-fg-color: var(--simic-ink-100);
+  --md-default-fg-color--light: var(--simic-ink-300);
+  --md-default-fg-color--lighter: var(--simic-ink-500);
+  --md-default-fg-color--lightest: var(--simic-ink-900);
+
+  --md-typeset-color: var(--simic-ink-100);
+  --md-typeset-a-color: var(--simic-teal-400);
+
+  --md-accent-fg-color: oklch(0.660 0.080 175);
+  --md-accent-fg-color--transparent: oklch(0.660 0.080 175 / 0.12);
+
+  --md-code-bg-color: var(--simic-ink-850);
+  --md-code-fg-color: var(--simic-ink-100);
+
+  --md-typeset-table-color: oklch(0.300 0.020 225);
+  --md-typeset-table-color--light: oklch(0.300 0.020 225 / 0.6);
+
+  --simic-accent: var(--simic-teal-400);
+  --simic-warn: var(--simic-amber-400);
+}
+
+/* --- The mark -------------------------------------------------------------
+   assets/mark.svg is the teal diamond; on the teal header it renders as
+   ink-050, the same trick the wiki UI kit uses. The favicon keeps the teal. */
+.md-header__button.md-logo img,
+.md-nav__button.md-logo img {
+  filter: brightness(0) invert(0.98);
+}
+
+/* --- Admonitions -----------------------------------------------------------
+   Two spines only, per the brand: teal carries notes and emphasis, amber is
+   the sole warning colour. Material's per-type blues/greens/purples are all
+   collapsed onto those two. The :is() lists keep specificity equal to the
+   theme's per-type rules so source order decides.
+   ========================================================================== */
+.md-typeset :is(.admonition, details)[class] {
+  border-color: var(--simic-accent);
+}
+.md-typeset :is(.admonition, details) > :is(.admonition-title, summary) {
+  background-color: color-mix(in oklch, var(--simic-accent) 10%, transparent);
+}
+.md-typeset :is(.admonition, details) > :is(.admonition-title, summary)::before {
+  background-color: var(--simic-accent);
+}
+
+/* The warning family switches to the amber spine. */
+.md-typeset :is(.admonition, details):is(.warning, .caution, .attention,
+    .failure, .fail, .missing, .danger, .error, .bug) {
+  border-color: var(--simic-warn);
+}
+.md-typeset :is(.admonition, details):is(.warning, .caution, .attention,
+    .failure, .fail, .missing, .danger, .error, .bug)
+    > :is(.admonition-title, summary) {
+  background-color: color-mix(in oklch, var(--simic-warn) 10%, transparent);
+}
+.md-typeset :is(.admonition, details):is(.warning, .caution, .attention,
+    .failure, .fail, .missing, .danger, .error, .bug)
+    > :is(.admonition-title, summary)::before {
+  background-color: var(--simic-warn);
+}

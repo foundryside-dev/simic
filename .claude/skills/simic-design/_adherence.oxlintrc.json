@@ -1,0 +1,214 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/content/**",
+              "components/data/**",
+              "components/navigation/**",
+              "ui_kits/website/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CanonQuote'] > JSXAttribute > JSXIdentifier[name!=/^(?:canon|cite|children|key|ref|className|style|children)$/]",
+        "message": "<CanonQuote> doesn't accept that prop. Declared props: canon, cite, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CardItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|body|href|key|ref|className|style|children)$/]",
+        "message": "<CardItem> doesn't accept that prop. Declared props: title, body, href."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DataTable'] > JSXAttribute > JSXIdentifier[name!=/^(?:caption|columns|rows|key|ref|className|style|children)$/]",
+        "message": "<DataTable> doesn't accept that prop. Declared props: caption, columns, rows."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Diagram'] > JSXAttribute > JSXIdentifier[name!=/^(?:lightSrc|darkSrc|label|caption|minWidth|key|ref|className|style|children)$/]",
+        "message": "<Diagram> doesn't accept that prop. Declared props: lightSrc, darkSrc, label, caption, minWidth."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Masthead'] > JSXAttribute > JSXIdentifier[name!=/^(?:current|items|key|ref|className|style|children)$/]",
+        "message": "<Masthead> doesn't accept that prop. Declared props: current, items."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Note'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|status|children|key|ref|className|style|children)$/]",
+        "message": "<Note> doesn't accept that prop. Declared props: label, status, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PageHead'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|tagline|lede|crumb|key|ref|className|style|children)$/]",
+        "message": "<PageHead> doesn't accept that prop. Declared props: title, tagline, lede, crumb."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SpineItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|inv|body|key|ref|className|style|children)$/]",
+        "message": "<SpineItem> doesn't accept that prop. Declared props: title, inv, body."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Split'] > JSXAttribute > JSXIdentifier[name!=/^(?:left|right|key|ref|className|style|children)$/]",
+        "message": "<Split> doesn't accept that prop. Declared props: left, right."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "CanonQuote": {
+        "replaces": []
+      },
+      "CardItem": {
+        "replaces": []
+      },
+      "DataTable": {
+        "replaces": []
+      },
+      "Diagram": {
+        "replaces": []
+      },
+      "Masthead": {
+        "replaces": []
+      },
+      "Note": {
+        "replaces": []
+      },
+      "PageHead": {
+        "replaces": []
+      },
+      "SiteFooter": {
+        "replaces": []
+      },
+      "SpineItem": {
+        "replaces": []
+      },
+      "Split": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--amber-400",
+      "--amber-700",
+      "--color-accent",
+      "--color-accent-quiet",
+      "--color-bg",
+      "--color-bg-code",
+      "--color-bg-note",
+      "--color-bg-note-status",
+      "--color-bg-subtle",
+      "--color-border",
+      "--color-border-firm",
+      "--color-heading",
+      "--color-link",
+      "--color-link-hover",
+      "--color-text",
+      "--color-text-muted",
+      "--color-warn",
+      "--font-body",
+      "--font-code",
+      "--ink-050",
+      "--ink-100",
+      "--ink-200",
+      "--ink-300",
+      "--ink-500",
+      "--ink-700",
+      "--ink-850",
+      "--ink-900",
+      "--ink-950",
+      "--measure",
+      "--page",
+      "--radius",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--teal-400",
+      "--teal-600",
+      "--teal-700",
+      "--text-h1",
+      "--text-h2",
+      "--text-h3"
+    ],
+    "tokenKinds": {
+      "--ink-050": "color",
+      "--ink-100": "color",
+      "--ink-200": "color",
+      "--ink-300": "color",
+      "--ink-500": "color",
+      "--ink-700": "color",
+      "--ink-850": "color",
+      "--ink-900": "color",
+      "--ink-950": "color",
+      "--teal-400": "color",
+      "--teal-600": "color",
+      "--teal-700": "color",
+      "--amber-400": "color",
+      "--amber-700": "color",
+      "--color-bg": "color",
+      "--color-bg-subtle": "color",
+      "--color-bg-code": "color",
+      "--color-bg-note": "color",
+      "--color-bg-note-status": "color",
+      "--color-text": "font",
+      "--color-text-muted": "font",
+      "--color-heading": "color",
+      "--color-border": "color",
+      "--color-border-firm": "color",
+      "--color-accent": "color",
+      "--color-accent-quiet": "color",
+      "--color-warn": "color",
+      "--color-link": "color",
+      "--color-link-hover": "color",
+      "--font-body": "font",
+      "--font-code": "font",
+      "--text-h1": "font",
+      "--text-h2": "font",
+      "--text-h3": "font",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-7": "spacing",
+      "--measure": "spacing",
+      "--page": "spacing",
+      "--radius": "radius"
+    },
+    "fontFamilies": []
+  }
+}
