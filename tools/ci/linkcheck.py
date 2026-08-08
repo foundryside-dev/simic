@@ -9,6 +9,8 @@ the deploy must not depend on third-party availability.
 The fragment half is the point: the marketing pages cite the design wiki by
 deep link, and mkdocs slugs change when a heading is reworded. A silent 404
 inside our own domain is exactly what --strict buys on the wiki side.
+
+Usage: linkcheck.py <pages-dir>
 """
 
 import html
@@ -16,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-root = Path(sys.argv[1] if len(sys.argv) > 1 else "_pages")
+root = Path(sys.argv[1])
 pages = sorted(root.glob("*.html"))
 if not pages:
     sys.exit(f"linkcheck: no root pages found under {root}")
@@ -38,14 +40,13 @@ def ids_of(path: Path) -> set[str]:
 def target_file(url: str, page: Path) -> Path:
     base = root if url.startswith("/") else page.parent
     p = (base / url.lstrip("/")).resolve()
-    # A directory URL (/design/, /design/01-claim/) serves its index.html.
+    # A directory URL (/design/, /design/01-claim/) serves index.html.
     return p / "index.html" if p.is_dir() else p
 
 
 broken, external, checked = [], set(), 0
 for page in pages:
-    text = page.read_text(encoding="utf-8")
-    for raw in ATTR.findall(text):
+    for raw in ATTR.findall(page.read_text(encoding="utf-8")):
         url = html.unescape(raw.split()[0] if " " in raw else raw).strip()
         if not url or url.startswith(("http://", "https://", "mailto:", "data:", "//")):
             if url.startswith(("http://", "https://")):
@@ -55,12 +56,11 @@ for page in pages:
         path_part, _, frag = url.partition("#")
         tgt = target_file(path_part, page) if path_part else page
         if not tgt.is_file():
-            broken.append(f"{page.name}: {url} -> missing {tgt.relative_to(root.resolve())}")
-            continue
-        if frag and frag not in ids_of(tgt):
-            broken.append(f'{page.name}: {url} -> no id="{frag}" in {tgt.relative_to(root.resolve())}')
+            broken.append(f"{page.name}: {url} -> missing file")
+        elif frag and frag not in ids_of(tgt):
+            broken.append(f'{page.name}: {url} -> no id="{frag}"')
 
-print(f"linkcheck: {len(pages)} root pages, {checked} internal links checked, {len(external)} external links listed (not fetched)")
+print(f"linkcheck: {len(pages)} root pages, {checked} internal links checked, {len(external)} external listed (not fetched)")
 for url in sorted(external):
     print(f"  external: {url}")
 if broken:

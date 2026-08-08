@@ -1,9 +1,9 @@
 {
   "theme": "base",
   "htmlLabels": false,
-  "fontFamily": "Arial, Helvetica, 'Liberation Sans', sans-serif",
+  "fontFamily": "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   "themeVariables": {
-    "fontFamily": "Arial, Helvetica, 'Liberation Sans', sans-serif",
+    "fontFamily": "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     "fontSize": "15px",
     "background": "transparent",
     "primaryColor": "#ebf1f4",

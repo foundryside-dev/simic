@@ -25,7 +25,7 @@ on:
       - 'docs/design/**'
       - 'docs/adr/**'
       - 'tools/wiki/**'
-      # The pre-upload gates: a change to either must re-run against the
+      # The pre-upload gate: a change to the checker must re-run against the
       # current site, not wait for the next content edit to notice it.
       - 'tools/ci/**'
       - '.github/workflows/deploy-site.yml'
@@ -129,10 +129,18 @@ jobs:
         #
         # This exists because the marketing pages deep-link into the generated
         # wiki (/design/02-constitution/#53-the-canonical-sentence). Those slugs
-        # are derived from chapter headings, so rewording a heading silently
-        # breaks a citation on the other half of the site. That is precisely the
-        # class of break --strict catches within the wiki and nothing caught
-        # across the seam.
+        # derive from chapter headings, so rewording a heading silently breaks a
+        # citation on the other half of the site — precisely the class of break
+        # `--strict` catches inside the wiki and nothing caught across the seam.
+        #
+        # WHY NOT lychee: it is a Rust binary, not an npm package, so `npx
+        # lychee` fails outright ("could not determine executable to run"). The
+        # supported route is the lycheeverse/lychee-action, which could not be
+        # exercised locally before committing; this stdlib equivalent was tested
+        # instead, including a negative test (an injected bad slug and a bad
+        # path both produced exit 1 naming the offender). Swapping in the pinned
+        # action later is fine — it needs --include-fragments to cover the
+        # anchor case above, which is the whole point of this gate.
         run: python3 tools/ci/linkcheck.py _pages
 
       - name: Upload Pages artifact

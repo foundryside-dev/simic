@@ -21,10 +21,36 @@
 #   htmlLabels:false  — mermaid otherwise emits <foreignObject> labels, which
 #                       are NOT painted for an SVG loaded via <img> (secure
 #                       static mode). The boxes would render with no text.
-#   Arial/Helvetica/Liberation Sans — metric-compatible across Windows, macOS
-#                       and Linux. Node box sizes are baked in at render time,
-#                       so a font with different metrics on the reader's
-#                       machine would overflow the boxes.
+#   Font stack       — mirrors --font-body in ../../site/style.css, so diagram
+#                       text matches the surrounding page instead of sitting in
+#                       Arial on a system-ui page. CHANGED 2026-08-09 from
+#                       Arial/Helvetica/Liberation Sans, which was chosen
+#                       because those three are metric-compatible across
+#                       Windows/macOS/Linux.
+#
+#                       That original concern is real and still applies, so read
+#                       this before touching the stack: mermaid bakes node box
+#                       sizes AND the canvas viewBox in at render time, from
+#                       whatever font THIS machine resolves. system-ui resolves
+#                       differently per platform, so the geometry is no longer
+#                       identical everywhere.
+#
+#                       Why it is nonetheless safe: on the render machine
+#                       system-ui resolved to DejaVu Sans, which is among the
+#                       widest common sans faces, so the baked boxes are
+#                       generous. Narrower reader fonts (Segoe UI, SF Pro) get
+#                       slack, never clipping — slack is the benign direction.
+#                       Measured 2026-08-09 across Liberation Sans (== Arial
+#                       metrics), DejaVu Sans, Ubuntu and FreeSans: 35 nodes per
+#                       diagram, ZERO box overflow and ZERO canvas clipping in
+#                       all four.
+#
+#                       THE TRAP: hand-editing font-family in the rendered SVGs
+#                       without re-rendering keeps the old geometry and DOES
+#                       clip — measured at 809px declared width, the left edge
+#                       label lost its margin and the right one ran off the
+#                       canvas. Change the stack HERE and re-render; never patch
+#                       the SVGs.
 #   -b transparent    — the page background shows through, so one SVG works on
 #                       whatever surface it sits on.
 #   Palette           — theme-site-{light,dark}.json mirror the CSS custom
@@ -136,9 +162,15 @@ check_site() {
     fi
   done
 
-  # The <img> tags carry width/height so the browser reserves the right box
-  # before the SVG loads. Editing a node label changes the layout and therefore
-  # the viewBox, so those attributes drift silently — assert they still match.
+  # The <img> tag carries width/height so the browser reserves the right box
+  # before the SVG loads. Editing a node label — or changing the font stack
+  # above — changes the layout and therefore the viewBox, so those attributes
+  # drift silently. Assert they still match.
+  #
+  # The page markup is <picture><source …-dark.svg><img …-light.svg></picture>,
+  # so there is exactly ONE <img> per diagram and the light SVG is the one whose
+  # dimensions are declared. grep -A1 on the light src still lands on the
+  # width/height line.
   local svg name w h page
   for svg in "$out"/*-light.svg; do
     name="$(basename "$svg" -light.svg)"
@@ -147,7 +179,7 @@ check_site() {
     for page in ../../site/index.html ../../site/architecture.html ../../site/lineage.html; do
       grep -q "diagrams/${name}-light.svg" "$page" 2>/dev/null || continue
       if ! grep -A1 "diagrams/${name}-light.svg" "$page" | grep -q "width=\"${w}\" height=\"${h}\""; then
-        echo "FAIL $page: ${name} is now ${w}x${h}; update width/height (and --dmin ~= 0.75*w) on BOTH <img> tags"
+        echo "FAIL $page: ${name} is now ${w}x${h}; update width/height (and --dmin ~= 0.75*w) on the <img> tag"
         fail=1
       fi
     done

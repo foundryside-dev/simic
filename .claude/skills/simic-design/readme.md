@@ -49,7 +49,22 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 
 **Motion**: essentially none. One 120ms ease-out transition (skip link). `prefers-reduced-motion` kills everything. Do not add animation.
 
-**Dark mode**: not an afterthought — every token is a `light-dark()` pair; diagrams swap variants; print forces light.
+**Dark mode**: not an afterthought — every token is a `light-dark()` pair; diagrams ship as light/dark pairs selected by `<picture>`; print falls back to light.
+
+<!-- CORRECTION (2026-08-09, static-site review M6). The paragraphs above are
+     hand-corrected and now DIVERGE from the upstream SPA export, whose
+     descriptors still assert a three-state toggle on the marketing site. That
+     export is currently unrecoverable (the 33 component/token/ui_kit files
+     were never committed — see the Index warning), so the divergence cannot be
+     resolved by re-syncing today. When the project IS re-exported, re-apply:
+       1. marketing site is TWO-state (system preference only, zero JS);
+          `[data-theme]` is an unreached hook. Only the wiki is three-state.
+       2. diagrams select via <picture> + `media="screen and
+          (prefers-color-scheme: dark)"`, so they cannot follow `[data-theme]`
+          at all, and print falls through to the light variant with no override.
+     Verified against site/style.css and site/*.html on 2026-08-09. -->
+
+
 
 ## ICONOGRAPHY
 
