@@ -40,7 +40,12 @@ and its relatives, unrepresentable by construction.
    illegal states unrepresentable rather than policed.
 2. **Silent-default elimination** — explicit nullability and validity
    masks; absent ≠ zero; fail-loud on unmeasured fields; no tolerant
-   readers that paper over drift. (The Esper killer; give it its own sheet.)
+   readers that paper over drift; typed accessors only, with untyped
+   defaulting access (`.get()`-with-default) CI-banned on contract paths
+   per ADR-0006 — including the named AI-engineering failure mode it
+   exists to kill: a model hallucinating an interface and hiding it
+   behind permissive access idioms. (The Esper stratum-one killer; give
+   it its own sheet.)
 3. **Schema versioning and evolution** — any change in meaning, width,
    basis, normalisation or provenance is a new schema version; typed
    compatibility fails closed (INV-24); no legacy shims or

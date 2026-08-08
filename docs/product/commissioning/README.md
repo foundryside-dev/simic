@@ -18,7 +18,7 @@ when a prompt is re-issued.
 | yzmir-structure-synthesis | **Landed** (v0.1.0) | None — domains unchanged. |
 | axiom-tensor-compiler-engineering | **Landed** (v0.1.0) | None — domains unchanged. |
 | axiom-contract-engineering | **Re-commissioned 2026-08-08** | Owner is commissioning from the consolidated prompt in `axiom-contract-engineering.md` (supersedes the in-flight build and the delta-brief approach for this pack) |
-| yzmir-training-state-engineering | **In flight** | Apply `yzmir-training-state-engineering.md` — scope addition, not just re-citation |
+| yzmir-training-state-engineering | **In flight** | Apply `yzmir-training-state-engineering.md` — scope addition, not just re-citation. Applied form ready 2026-08-08: `yzmir-training-state-engineering-updated-prompt.md` (original prompt recovered from the 2026-08-07 drafting session + brief applied, all citations verified against `docs/design/`, plus further drift fixed: TrialPlan→`TestPlan`, Phase C→Phases B/D, v2.0 invariant numbers remapped). Relay that file upstream, or re-issue from it if the in-flight build is superseded |
 
 Next commission after the in-flight pair lands (PDR-0011): Nissa telemetry /
 representation diagnostics — the one agent domain with zero pack coverage.
