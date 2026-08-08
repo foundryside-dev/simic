@@ -132,9 +132,23 @@
    led back to /. Styled as quiet chrome, not a call to action: it is a
    breadcrumb for readers who landed on a chapter from a search engine.
    ========================================================================== */
+/* The bar's background is scheme-INDEPENDENT (near-black in both), so its
+   foregrounds must be too. Two traps, both of which shipped and both of which
+   only showed up in the light scheme:
+
+   1. Material's `.md-banner__inner` carries `md-typeset`, so `.md-typeset a`
+      (0,1,1) beat a bare `.simic-upbar` (0,1,0) and painted the link with
+      --md-typeset-a-color — teal-700 in light, i.e. a DARK teal on a near-black
+      bar: 2.91:1. Hence the `.md-banner` prefix below, which wins on
+      specificity and stops the link tracking the page's link colour.
+   2. The footer alpha tokens (--md-footer-fg-color--light/--lighter) are 0.7
+      and 0.45 alpha over the bar: 3.79:1. Replaced with opaque ink steps.
+
+   Measured on ink-900 (#06151b): teal-400 9.74:1, ink-300 10.87:1. Both clear
+   AA in both schemes because neither value moves with the scheme. */
 .md-banner {
   background: var(--simic-ink-900);
-  color: var(--md-footer-fg-color--light);
+  color: var(--simic-ink-300);
   font-size: 0.7rem;
 }
 
@@ -146,20 +160,20 @@
   margin-block: 0.4rem;
 }
 
-.simic-upbar {
+.md-banner .simic-upbar {
   color: var(--simic-teal-400);
   font-weight: 600;
 }
 
-.simic-upbar:hover,
-.simic-upbar:focus {
+.md-banner .simic-upbar:hover,
+.md-banner .simic-upbar:focus {
   text-decoration: underline;
 }
 
 .simic-upbar__arrow { margin-right: 0.2em; }
 
 /* Drops out first when the header gets tight; the link is what must survive. */
-.simic-upbar__here { color: var(--md-footer-fg-color--lighter); }
+.md-banner .simic-upbar__here { color: var(--simic-ink-300); }
 
 @media screen and (max-width: 44.9375em) {
   .simic-upbar__here { display: none; }
@@ -220,15 +234,23 @@
   border-color: var(--simic-ink-300);
 }
 
-/* --- Heading permalinks ---------------------------------------------------
-   `toc.permalink: true` exists so every heading is deep-linkable, but Material
-   colours the ¶ with --md-default-fg-color--lighter, which this sheet maps to
-   ink-300: 1.64:1 against the page in light mode, i.e. an interactive control
-   effectively invisible (WCAG 1.4.11 asks 3:1). Fixed here rather than by
-   moving the token, because Material also uses --lighter as a BACKGROUND and
-   border colour in ~20 other rules, where a darker value would be wrong.
-   ink-500 gives 5.83:1 light, ink-300 gives 11.56:1 dark. */
-.md-typeset .headerlink {
+/* --- Faint interactive controls -------------------------------------------
+   Material paints two icon controls with --md-default-fg-color--lighter, which
+   this sheet maps to ink-300: 1.64:1 against the page in light mode. Both are
+   interactive, so WCAG 1.4.11 asks 3:1 and they were nowhere near it.
+
+     .headerlink            the heading anchor `¶` — the whole point of
+                            toc.permalink: true is that headings are
+                            deep-linkable, which a control nobody can see is not
+     .md-content__button    the "Edit this page" pencil — the C1 fix made these
+                            links CORRECT; this makes them visible
+
+   Fixed per-control rather than by remapping the token, because Material also
+   uses --lighter as a background and border colour in ~20 other rules where a
+   darker value would be wrong. --light gives 5.83:1 in light, 11.53:1 in dark
+   (both measured in-browser from computed styles). */
+.md-typeset .headerlink,
+.md-content__button.md-icon {
   color: var(--md-default-fg-color--light);
 }
 

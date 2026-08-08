@@ -56,21 +56,42 @@ NAV_ORDER = HERE / "build" / "nav-order.json"
 # prescribes for generated files.
 EDIT_REMAP = {
     "index.md": "00-INDEX.md",  # staged from 00-INDEX.md by stage.py transform 1
-    # Section landings staged from an authored README.md, so the pencil has to
-    # go back to the README rather than to a non-existent index.md.
-    "domains/index.md": "domains/README.md",
-    "decisions/index.md": "../adr/README.md",
 }
 EDIT_PREFIX_REMAP = {
     "decisions/": "../adr/",  # staged from docs/adr/ by transform 7
 }
 
 
+def _authored_index_remap(order: dict[str, list[str]]) -> dict[str, str]:
+    """`<section>/index.md` -> the authored README it was staged from.
+
+    Derived from the set stage.py exports, never hand-listed here: a literal
+    copy would be a second statement of the same fact, and the day someone adds
+    `ops/README.md` the copy would be stale — the pencil on `/design/ops/` would
+    point at a `docs/design/ops/index.md` that does not exist, i.e. C1's
+    new-file-editor defect, returned for that one page with nothing to catch it.
+    """
+    remap = {}
+    for section in order.get("authored_sections", []):
+        source = f"{section}/README.md"
+        # Sections staged in from elsewhere resolve through the same prefix map
+        # the chapters use, so the pencil follows the file, not the mount point.
+        for prefix, replacement in EDIT_PREFIX_REMAP.items():
+            if source.startswith(prefix):
+                source = replacement + source[len(prefix) :]
+                break
+        remap[f"{section}/index.md"] = source
+    return remap
+
+
 def on_files(files: Any, config: Any) -> Any:
     """Point every edit link at a path that actually exists, or at nothing."""
-    # Generated pages are listed by stage.py rather than pattern-matched here,
-    # so a new generated page cannot quietly reacquire a broken edit link.
-    generated = set(_load_order()["generated"])
+    # Both sets come from stage.py rather than being pattern-matched or
+    # hand-listed here, so neither a new generated page nor a new authored
+    # section index can quietly reacquire a broken edit link.
+    order = _load_order()
+    generated = set(order["generated"])
+    remap = {**EDIT_REMAP, **_authored_index_remap(order)}
     for f in files:
         src = f.src_uri
         if not src.endswith(".md"):
@@ -78,8 +99,8 @@ def on_files(files: Any, config: Any) -> Any:
         if src in generated:
             f.edit_uri = None
             continue
-        if src in EDIT_REMAP:
-            f.edit_uri = EDIT_REMAP[src]
+        if src in remap:
+            f.edit_uri = remap[src]
             continue
         for prefix, replacement in EDIT_PREFIX_REMAP.items():
             if src.startswith(prefix):
@@ -131,7 +152,50 @@ def _sort(items: Any, order: list[str]) -> None:
             _sort(item.children, order)
 
 
+def _flatten_pages(items: Any) -> list[Any]:
+    """Every page under `items`, in nav order, depth-first."""
+    pages = []
+    for item in items:
+        if item.is_page:
+            pages.append(item)
+        elif getattr(item, "children", None):
+            pages.extend(_flatten_pages(item.children))
+    return pages
+
+
+def _relink(nav: Any) -> None:
+    """Rebuild `nav.pages` and the prev/next/parent links from the sorted tree.
+
+    mkdocs computes these in `get_navigation()`, which runs BEFORE `on_nav` —
+    so re-sorting `nav.items` alone left the footer Previous/Next walking the
+    old filename order while the sidebar showed the canonical one. Two surfaces
+    of the same reading order, disagreeing: the exact defect on_nav exists to
+    fix, one click away.
+
+    Reimplemented here rather than importing mkdocs' `_get_by_type` /
+    `_add_previous_and_next_links` / `_add_parent_links`: those are private
+    symbols with no stability guarantee, and the logic is a three-line walk.
+    `build.sh` pinning mkdocs would make the import tolerable, but not needing
+    the pin to hold is better. `nav.pages` also feeds sitemap.xml, where the
+    order is cosmetic.
+    """
+    pages = _flatten_pages(nav.items)
+    nav.pages = pages
+    bookends: list[Any] = [None, *pages, None]
+    for previous, page, following in zip(bookends[:-2], pages, bookends[2:], strict=True):
+        page.previous_page, page.next_page = previous, following
+
+    def set_parents(items: Any, parent: Any = None) -> None:
+        for item in items:
+            item.parent = parent
+            if getattr(item, "children", None):
+                set_parents(item.children, item)
+
+    set_parents(nav.items)
+
+
 def on_nav(nav: Any, config: Any, files: Any) -> Any:
     """Reorder the derived nav into the order the chapters themselves declare."""
     _sort(nav.items, _load_order()["order"])
+    _relink(nav)
     return nav

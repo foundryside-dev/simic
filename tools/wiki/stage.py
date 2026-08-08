@@ -239,7 +239,7 @@ def add_front_matter(text: str, title: str) -> str:
     return f"---\ntitle: {title}\n---\n\n{text}"
 
 
-def rewrite(text: str, depth: int) -> str:
+def rewrite(text: str, depth: int, authored_sections: tuple[str, ...] = ()) -> str:
     """Rewrite links in one staged file. `depth` = directories below SOURCE."""
 
     # 1. 00-INDEX.md -> index.md, at any relative depth.
@@ -253,7 +253,7 @@ def rewrite(text: str, depth: int) -> str:
     #     rename in links too. No chapter links to one today (they name the
     #     file in inline code, which is left alone), but --strict would fail
     #     the build the day one does, and the fix belongs here.
-    for directory in AUTHORED_SECTION_INDEX:
+    for directory in authored_sections:
         text = re.sub(rf"\]\(([^)]*{directory}/)README\.md", r"](\1index.md", text)
 
     # 2. Links that climb out of docs/design/ -> GitHub.
@@ -648,32 +648,61 @@ def gen_diagrams_page() -> str:
             # four-space indent that syntax needs makes python-markdown treat the
             # figure as inline content and wrap it in a <p>. Same element and
             # class pymdownx.details would emit, so the theme styles it
-            # identically.
+            # identically. `markdown` on it too: md_in_html only descends into
+            # elements that carry the attribute, so without it the nested
+            # figure's markdown would ship as literal text.
             legend = diagram_figure(f"{title} key", legends[key], sizes[f"{key}-key"], f"Legend for {title}.")
-            lines.append(f'<details class="info">\n<summary>Key</summary>\n{legend}</details>\n')
+            lines.append(f'<details class="info" markdown>\n<summary>Key</summary>\n{legend}</details>\n')
     return "\n".join(lines)
 
 
 def diagram_figure(title: str, filename: str, size: tuple[int, int], description: str) -> str:
     """One diagram as a framed light plate.
 
+    The image and the full-size link are written as MARKDOWN inside
+    `markdown="span"` containers, not as raw `<img>`/`<a>` tags. This is a
+    correctness requirement, not a style preference: mkdocs' relative-path
+    treeprocessor rewrites asset paths only in markdown-derived elements, and
+    python-markdown restores raw HTML blocks *after* that pass — so a raw
+    `src="../assets/..."` is emitted verbatim and, under `use_directory_urls`,
+    resolves one directory too shallow and 404s. Markdown paths are rewritten
+    to the correct depth, and would also be caught by `--strict` if the target
+    went missing, which raw HTML never is.
+
+    `markdown="span"` rather than bare `markdown`: block mode wraps the image
+    in a `<p>`, and leaves a `markdown`-less `<figcaption>` unprocessed. Span
+    mode gives the same markup with correct paths and no wrapper.
+
     `alt=""` on the image with the accessible name on the frame (role="img" +
     aria-label), so exactly ONE name is exposed — the same split the marketing
     site uses. The name is the view's own description from model.dsl, which is
     a real sentence about what the diagram shows, rather than the view key
-    repeated from the heading above it."""
+    repeated from the heading above it. `tabindex="0"` makes the scrolling
+    frame keyboard-operable (WCAG 2.1.1) — without it a keyboard-only reader
+    could not pan a 3792px diagram at all.
+
+    `role="img"` on a focusable element is a known tension (`role="group"` is
+    the tidier pairing), but this is deliberately the same shape
+    `site/architecture.html` uses for its own `.diagram__frame` and
+    `.tablewrap`: one convention across both halves of the site beats two
+    defensible ones. Verified in-browser: the frame takes focus and ArrowRight
+    scrolls it.
+    """
     width, height = size
     label = description or title
     dmin = min(width, DIAGRAM_MIN_WIDTH)
     src = f"../assets/diagrams/{filename}"
+    attrs = f'{{ .simic-diagram__img width="{width}" height="{height}" style="--dmin: {dmin}px" }}'
     return (
-        f'<figure class="simic-diagram">\n'
-        f'<div class="simic-diagram__frame" role="img" aria-label="{escape_attr(label)}">\n'
-        f'<img alt="" class="simic-diagram__img" src="{src}" '
-        f'height="{height}" style="--dmin: {dmin}px" width="{width}">\n'
+        # `markdown` on the figure so md_in_html descends into it at all; the
+        # children carry `markdown="span"` so their contents are parsed inline.
+        f'<figure class="simic-diagram" markdown>\n'
+        f'<div class="simic-diagram__frame" role="img" tabindex="0" '
+        f'aria-label="{escape_attr(label)}" markdown="span">\n'
+        f"![]({src}){attrs}\n"
         f"</div>\n"
-        f'<figcaption><a href="{src}">Open {title} full size ({width}&times;{height})</a>'
-        f"</figcaption>\n"
+        f'<figcaption markdown="span">'
+        f"[Open {title} full size ({width}&times;{height})]({src})</figcaption>\n"
         f"</figure>\n"
     )
 
@@ -764,11 +793,23 @@ def gen_domains_page() -> str:
 SECTION_INSERTS = {"decisions/": "appendices/"}  # section -> insert before this one
 SECTION_TAIL = ["reference/"]
 
-# Sections whose landing page is an AUTHORED chapter, staged as index.md.
-AUTHORED_SECTION_INDEX = ("domains", ADR_STAGED_DIR)
 
-# Sections that get a GENERATED landing page, because no chapter serves as one.
-GENERATED_SECTION_INDEX = ("appendices", "ops", "programme", "reference")
+# Which sections get which kind of landing page is DERIVED from the staged
+# tree, not listed here: a section directory with an authored README.md has its
+# README staged as index.md, and one without gets a generated contents page.
+# A hardcoded list would mean a new section directory in docs/design/ silently
+# 404s at /design/<new>/ with navigation.indexes linking its header nowhere —
+# the m9 defect, reintroduced with no build failure to catch it.
+def classify_sections() -> tuple[list[str], list[str]]:
+    """(authored, generated) section directories, from the staged tree."""
+    authored: list[str] = []
+    generated: list[str] = []
+    for directory in sorted(p for p in STAGED.iterdir() if p.is_dir()):
+        if directory.name == "assets" or not any(directory.glob("*.md")):
+            continue
+        (authored if (directory / "README.md").is_file() else generated).append(directory.name)
+    return authored, generated
+
 
 CHAPTER_MAP_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 
@@ -795,7 +836,7 @@ def parse_chapter_map() -> list[str]:
     return paths
 
 
-def build_nav_order(domain_order: list[str]) -> dict[str, list[str]]:
+def build_nav_order(domain_order: list[str], authored_sections: list[str]) -> dict[str, list[str]]:
     """A flat, canonical ordering of every nav entry, for hooks.py's on_nav.
 
     Anything the canon does not mention is simply absent from this list and
@@ -804,7 +845,7 @@ def build_nav_order(domain_order: list[str]) -> dict[str, list[str]]:
     """
     # The chapter map names `domains/README.md`; staging renames it to
     # index.md, so follow that here or the landing page sorts as unknown.
-    mapped = [re.sub(r"/README\.md$", "/index.md", p) if p.split("/")[0] in AUTHORED_SECTION_INDEX else p for p in parse_chapter_map()]
+    mapped = [re.sub(r"/README\.md$", "/index.md", p) if p.split("/")[0] in authored_sections else p for p in parse_chapter_map()]
     order: list[str] = ["index.md"]
     sections: list[str] = []
     per_section: dict[str, list[str]] = {}
@@ -925,29 +966,36 @@ def main() -> int:
     # they get the same mechanical titles and link handling as the chapters.
     generate_reference(invariants)
 
-    # Landing pages for the sections that have no authored README. Without one
-    # `/design/appendices/` 404s and `navigation.indexes` has nothing to link
-    # the section header to.
-    # The two sections with an AUTHORED landing chapter get it as an explicit
-    # index.md. mkdocs already treats README.md as a section index, so no
-    # published URL moves (`/design/domains/` either way) — this just stops the
-    # tree depending on that convenience and makes all six sections uniform.
-    # hooks.py maps the edit link back to the real README.
-    for directory in AUTHORED_SECTION_INDEX:
-        readme = STAGED / directory / "README.md"
-        if readme.is_file():
-            readme.rename(STAGED / directory / "index.md")
+    # Every section gets a landing page, or `/design/<section>/` 404s and
+    # navigation.indexes leaves the section header linking nowhere. Which kind
+    # each section gets is derived from the staged tree, so a NEW section
+    # directory is handled without touching this file.
+    authored_sections, generated_sections = classify_sections()
+
+    # An authored landing chapter is staged as an explicit index.md. mkdocs
+    # already treats README.md as a section index, so no published URL moves
+    # (`/design/domains/` either way) — this just stops the tree depending on
+    # that convenience and makes every section uniform. hooks.py maps the edit
+    # link back to the real README, using the list exported below.
+    for directory in authored_sections:
+        (STAGED / directory / "README.md").rename(STAGED / directory / "index.md")
 
     chapter_map = parse_chapter_map()
-    for directory in GENERATED_SECTION_INDEX:
+    for directory in generated_sections:
         (STAGED / directory / "index.md").write_text(gen_section_index(directory, chapter_map), encoding="utf-8")
         GENERATED_PAGES.append(f"{directory}/index.md")
 
-    # Build metadata for hooks.py — the canonical nav order and the set of
-    # generated pages. Written into build/ rather than the staged tree: it is
-    # metadata, not a page.
-    metadata = build_nav_order([r[4] for r in parse_domain_roster()])
+    # Build metadata for hooks.py — the canonical nav order, the generated
+    # pages, and the sections whose index came from a README. hooks.py needs
+    # that last set to point the edit pencil back at the README; deriving it
+    # here and exporting it means the two files cannot disagree, where a
+    # hand-mirrored copy in hooks.py would silently resurrect the C1 defect
+    # (pencil -> a path that does not exist -> GitHub's new-file editor) the
+    # day someone adds an ops/README.md. Written into build/ rather than the
+    # staged tree: it is metadata, not a page.
+    metadata = build_nav_order([r[4] for r in parse_domain_roster()], authored_sections)
     metadata["generated"] = sorted(GENERATED_PAGES)
+    metadata["authored_sections"] = authored_sections
     NAV_ORDER.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     count = 0
@@ -955,7 +1003,7 @@ def main() -> int:
         rel = md.relative_to(STAGED)
         depth = len(rel.parts) - 1
         original = md.read_text(encoding="utf-8")
-        updated = rewrite(original, depth)
+        updated = rewrite(original, depth, tuple(authored_sections))
         # Transform 8: invariant anchors on the staged constitution, then
         # citation linkification everywhere (both presentation-only).
         if rel.as_posix() == "02-constitution.md":

@@ -108,6 +108,11 @@ case "${1:-build}" in
     # --strict is also set in mkdocs.yml; passing it here too means an edited
     # config can't silently downgrade a broken link to a warning.
     "$MKDOCS" build --strict
+    # --strict validates links that came from MARKDOWN. Anything emitted as raw
+    # HTML bypasses mkdocs' relative-path pass entirely and is never checked —
+    # which is how twenty broken diagram images once shipped a clean build. This
+    # resolves every src/href in the built output against the tree.
+    "$PYTHON" check_links.py
     echo
     echo "wiki -> $(pwd)/build/site  ($(find build/site -name '*.html' | wc -l) pages)"
     ;;
