@@ -31,9 +31,20 @@ Three transforms, each with a reason:
     mkdocs resolves `extra_javascript`/`extra_css` relative to `docs_dir`, so
     they have to live inside the staged tree.
 
-Everything else — the `<!-- hld: ... -->` provenance comments, the
-`[<- HLD index]` breadcrumbs, `\\(...\\)` and `$$...$$` math, the mermaid fence
-in 04-architecture.md — is left untouched and handled by mkdocs config.
+5.  `TEMPLATE-lld.md` is dropped from the staged tree.
+    It is authoring scaffolding (the Tier 2 LLD header template), not a
+    chapter: publishing it gave the wiki a nav entry full of angle-bracket
+    placeholders. The index's chapter map mentions it as inline code only,
+    so nothing links to it; readers who need it find it in the repo.
+
+6.  The `[<- HLD index]` breadcrumb line is stripped from every chapter.
+    It exists for people reading the markdown on GitHub; in the wiki the
+    nav, tabs and logo already do that job, so it rendered as a stray
+    dangling link at the top of all 34 pages.
+
+Everything else — the `<!-- hld: ... -->` provenance comments, `\\(...\\)` and
+`$$...$$` math, the mermaid fence in 04-architecture.md — is left untouched
+and handled by mkdocs config.
 """
 
 from __future__ import annotations
@@ -96,6 +107,10 @@ def rewrite(text: str, depth: int) -> str:
     # 1. 00-INDEX.md -> index.md, at any relative depth.
     text = re.sub(r"\]\(((?:\.\./)*)00-INDEX\.md", r"](\1index.md", text)
 
+    # 1b. Drop the GitHub-reading breadcrumb line (transform 6 above). Matched
+    #     after the index rewrite so both source spellings are one pattern.
+    text = re.sub(r"(?m)^\[← HLD index\]\([^)]*\)\s*\n", "", text)
+
     # 2. Links that climb out of docs/design/ -> GitHub.
     #    A link is out-of-tree when it has more `../` than the file has depth.
     def to_github(m: re.Match[str]) -> str:
@@ -128,6 +143,11 @@ def main() -> int:
     else:
         print("stage.py: 00-INDEX.md missing — /design/ will have no landing page", file=sys.stderr)
         return 1
+
+    # Transform 5: authoring scaffolding is not a chapter.
+    template = STAGED / "TEMPLATE-lld.md"
+    if template.exists():
+        template.unlink()
 
     count = 0
     for md in sorted(STAGED.rglob("*.md")):
