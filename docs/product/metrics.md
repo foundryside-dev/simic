@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-09 (session 8 checkpoint)
+# Metrics — Simic             Last read: 2026-08-09 (session 9 checkpoint)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 38 open / 12 closed — flat across session 7 (2026-08-09), whose effort went to the ADR-0007 wiki-projection work (outside the burn-down; simic-dd5a578332 closed but not hld-review-labelled). One flat session; second consecutive flat session re-arms the pacing warning. 22 days to the pacing date | 2026-08-09 (session 8 checkpoint) |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 38 open / 12 closed — flat across session 9 (2026-08-09), an owner-directed static-content quality session (PDR-0018, outside the burn-down). **Second consecutive flat session: the pacing warning session 8 armed now FIRES.** 22 days to the pacing date needs ~1.7 closures per working day; next DECIDE must either resume wave:1 closures or re-plan the date by PDR (PDR-0005: a fired signal must fire, never drift silently) | 2026-08-09 (session 9 checkpoint) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)

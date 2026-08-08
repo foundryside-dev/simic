@@ -1,47 +1,55 @@
-# Current State — Simic        Checkpoint: 2026-08-09 (session 8)
+# Current State — Simic        Checkpoint: 2026-08-09 (session 9)
 
 ## The bet right now
-Design hardening — the hld-review burn-down (38 → 0 by 2026-08-31, pacing
-signal) — plus the ADR-0002 information-management regime
-(simic-357c92664c), now three sessions unstarted against PDR-0010's
-alongside-not-displacing intent. Public face live and current:
-https://simic.foundryside.dev with the wiki at /design/ now carrying
-staged ADRs, generated reference registries, and the linkified INV/ADR
-citation spine (ADR-0007, PDR-0017).
+Design hardening — the hld-review burn-down (38 → 0 by 2026-08-31,
+pacing signal) — plus the ADR-0002 information-management regime
+(simic-357c92664c), now four sessions unstarted. **The pacing warning has
+fired**: two consecutive flat sessions (7 and 9 did wiki/site work, 8 was
+checkpoint-only); ~1.7 closures per working day needed to make the date.
+Public face live, hardened and now deploy-gated: https://simic.foundryside.dev
+with the wiki at /design/ (PDR-0018, PR #2 merged 6df7e7a).
 
 ## In flight
 - Nothing claimed. Six wave:1 items remain; simic-d6ea02f9a9 (containment
-  owner) stays the natural next — ADR-0004/0005 both route seams to it.
-  Critical path: simic-0bf2c40dec → simic-38a07fad39.
-- Commissioning: neither pack has landed — axiom-contract-engineering and
-  yzmir-training-state are both absent from the session skill roster
-  (verified 2026-08-09). The training-state applied prompt
-  (commissioning/yzmir-training-state-engineering-updated-prompt.md)
-  still awaits owner relay upstream.
-- simic-357c92664c (implement ADR-0002) ready, unstarted. John is the
-  sole signing actor, so the plainweave seeding needs owner presence at
-  the gate regardless of who stages it.
+  owner) stays the natural next. Critical path: simic-0bf2c40dec →
+  simic-38a07fad39.
+- simic-42e575b93c (NEW, blocked-on-owner): recover or reconstruct the 33
+  missing simic-design design-system files — fork decided by whether the
+  claude.ai project survives (PDR-0019, proposed).
+- Commissioning: both packs still absent from the session roster; the
+  training-state applied prompt still awaits owner relay upstream
+  (carried since session 6).
+- simic-357c92664c (implement ADR-0002) ready, unstarted; plainweave
+  seeding needs owner presence at the gate.
 
 ## Open questions / blocked-on-owner
-- Relay the training-state updated prompt to its upstream session
-  (owner-reachable only; carried since session 6).
-- Nothing new escalated: session 8 was RESUME → ORIENT → CHECKPOINT
-  only; session 7's pushes were owner-directed (ADR-0007 deciders line,
-  PDR-0017).
+- PDR-0019: does the SimicDesignSystem_5a908e project survive anywhere in
+  your claude.ai/design UI? (Decides re-export vs reconstruction.)
+- Watch the first post-merge Pages deploy: it carries both the new deploy
+  gates (PDR-0018) AND the dependabot pymdown-extensions 10.21→11.0.1
+  bump (PR #1, merged after PR #2, untested together). Gate failures are
+  loud, not silent; local wiki builds will fail the version-drift gate
+  until `pip install -U -r tools/wiki/requirements.txt`.
+- Pacing warning fired (metrics.md): next DECIDE resumes wave:1 closures
+  or re-plans the 2026-08-31 date by PDR — silent drift is the one
+  disallowed outcome.
+- Tooling, for upstream relay: `filigree issue-list --status open` exited
+  144 and ignored the status filter (CLI path; MCP unaffected). Wardline's
+  taint gate is inert on this repo (0 declared trust boundaries — green
+  means "nothing to check" until boundaries are annotated).
 
 ## Last checkpoint did
-- PDR-0017: reconciled the uncheckpointed 2026-08-09 session — ADR-0007
-  wiki-projection regime, Structurizr model of the 14 domains,
-  simic-dd5a578332 closed verified. Process note recorded: ADR-tier
-  sessions should close with a checkpoint.
-- Metrics: burn-down read flat at 38 (session 7 effort went to the
-  derivation programme, not the burn-down); one flat session, a second
-  consecutive one re-arms the pacing warning; 22 days to 2026-08-31.
-- No bet changed horizon; roadmap untouched; tracker already true.
+- PDR-0018 (accepted): recorded the owner-directed static-content review →
+  implementation → merge (5 commits, 2 review gates, 2 Criticals caught
+  pre-merge) and the durable deploy/build gates; public copy honesty fix.
+- PDR-0019 (proposed): design-system recovery fork, owner-gated; tracker
+  item simic-42e575b93c created.
+- Metrics: burn-down read flat at 38 — second consecutive flat session,
+  pacing warning FIRED.
+- No bet changed horizon; roadmap untouched.
 
 ## Next session, start here
-DECIDE was not run this session. Session 8's ORIENT proposal stands:
-claim simic-d6ea02f9a9 (containment accountability) to resume wave:1
-closures — the burn-down needs ~1.7 closures per working day to make the
-pacing date — and stage the simic-357c92664c plainweave seeding for
-owner sign-off in the same session if capacity allows.
+Answer the pacing warning first: claim simic-d6ea02f9a9 and resume wave:1
+closures, or re-plan the burn-down date by PDR. Check the post-merge
+deploy status before any wiki/site work. PDR-0019's owner question can be
+answered in passing and unblocks simic-42e575b93c.
