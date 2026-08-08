@@ -53,3 +53,4 @@ appendices/good-bad-sentences.md        # App C good/bad sentences
 appendices/glossary.md                  # App D plain-English glossary
 appendices/newsroom.md                  # App E newsroom principle
 appendices/scaffold-pattern.md          # App F scaffold withdrawal pattern
+appendices/caveman-mode.md              # App G caveman mode (non-normative, post-monolith)
