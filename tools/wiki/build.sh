@@ -22,6 +22,52 @@ if ! command -v "$MKDOCS" >/dev/null 2>&1; then
   fi
 fi
 
+# --- Compile docs/design/assets/model.dsl to SVGs -------------------------
+# Structurizr CLI exports the views to PlantUML; PlantUML renders SVG with its
+# pure-Java layout engine (no graphviz dependency). Both jars are PINNED and
+# cached in .cache/ (gitignored) — first run downloads them, later runs are
+# offline. The staged wiki fails without these SVGs: no silent fallback.
+STRUCTURIZR_VERSION="2025.11.09"
+PLANTUML_VERSION="1.2026.6"
+CACHE=".cache"
+SCLI_DIR="$CACHE/structurizr-cli-$STRUCTURIZR_VERSION"
+PLANTUML_JAR="$CACHE/plantuml-$PLANTUML_VERSION.jar"
+
+if ! command -v java >/dev/null 2>&1; then
+  echo "build.sh: java not found — needed to compile model.dsl diagrams" >&2
+  exit 1
+fi
+
+mkdir -p "$CACHE"
+if [ ! -d "$SCLI_DIR" ]; then
+  echo "fetching structurizr-cli v$STRUCTURIZR_VERSION ..."
+  curl -fsSL -o "$CACHE/structurizr-cli.zip" \
+    "https://github.com/structurizr/cli/releases/download/v$STRUCTURIZR_VERSION/structurizr-cli.zip"
+  unzip -q -o "$CACHE/structurizr-cli.zip" -d "$SCLI_DIR"
+  rm "$CACHE/structurizr-cli.zip"
+fi
+SCLI_SH="$SCLI_DIR/structurizr.sh"
+if [ ! -f "$SCLI_SH" ]; then
+  echo "build.sh: no structurizr.sh launcher under $SCLI_DIR" >&2
+  exit 1
+fi
+if [ ! -f "$PLANTUML_JAR" ]; then
+  echo "fetching plantuml v$PLANTUML_VERSION ..."
+  curl -fsSL -o "$PLANTUML_JAR" \
+    "https://github.com/plantuml/plantuml/releases/download/v$PLANTUML_VERSION/plantuml-$PLANTUML_VERSION.jar"
+fi
+
+rm -rf build/diagrams
+mkdir -p build/diagrams
+bash "$SCLI_SH" export \
+  -workspace ../../docs/design/assets/model.dsl \
+  -format plantuml -output build/diagrams
+# -Playout=smetana: PlantUML's bundled layout engine, so the render is
+# reproducible and dependency-free wherever the wiki builds.
+java -Djava.awt.headless=true -jar "$PLANTUML_JAR" \
+  -tsvg -Playout=smetana build/diagrams/*.puml
+echo "diagrams -> build/diagrams ($(find build/diagrams -name '*.svg' | wc -l) SVGs)"
+
 python3 stage.py
 
 case "${1:-build}" in

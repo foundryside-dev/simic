@@ -35,4 +35,6 @@ _pages/
 
 # Generated build outputs of the doc/diagram pipelines
 tools/wiki/build/
+# Pinned structurizr-cli/plantuml jars fetched by tools/wiki/build.sh
+tools/wiki/.cache/
 tools/diagrams/build/

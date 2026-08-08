@@ -36,11 +36,12 @@ links and `#anchor` fragments are both validated.
 | `requirements.txt` | Pinned mkdocs + plugins |
 | `overrides/partials/source.html` | Material partial override — drops the api.github.com call |
 | `assets/mathjax-config.js` | Copied into the staged tree; configures MathJax delimiters |
-| `build.sh` | Stage, then build or serve |
+| `build.sh` | Compile diagrams, stage, then build or serve |
+| `../../docs/design/assets/model.dsl` | Structurizr model of the 14 domains — canonical, reviewed with chapter edits |
 
 ## What stage.py does, and why
 
-`docs/design/` is written for humans reading the repo, not for mkdocs. Four
+`docs/design/` is written for humans reading the repo, not for mkdocs. The
 transforms bridge the gap, all on a throwaway copy:
 
 1. **`00-INDEX.md` → `index.md`**, with every link to it rewritten. mkdocs
@@ -60,10 +61,52 @@ transforms bridge the gap, all on a throwaway copy:
    stay in sequence.
 4. **Support assets copied in**, because mkdocs resolves `extra_javascript`
    relative to `docs_dir`.
+5. **The Tier 1 ADRs staged in as `decisions/`** (ADR-0007). `docs/adr/`
+   stays the canonical home; the staged copies make the ADRs browsable,
+   searchable and strict-validated, with `../adr/` links from chapters
+   rewritten to in-wiki links instead of GitHub escapes. `TEMPLATE.md` is
+   dropped; nav labels keep the number ("ADR-0004 Lexicographic admission").
+6. **Citation linkification** (ADR-0007, render-only). Plain-text `INV-nn`
+   and `ADR-nnnn` citations become links: each §18 invariant gets an
+   `#inv-nn` anchor injected into the *staged* constitution (attr_list, so
+   `--strict` validates the deep links), and ADR citations point at the
+   staged pages. Code fences, inline code, HTML comments and
+   self-references are left alone; the canonical files keep plain text per
+   the citation convention.
 
 Everything else is left exactly as written: the `<!-- hld: ... -->` provenance
 comments (they render as nothing), the `[← HLD index]` breadcrumbs, the
 `\(...\)` and `$$...$$` maths, and the mermaid fence in `04-architecture.md`.
+
+## The generated `reference/` section
+
+Beyond the transforms, `stage.py` *generates* four pages that exist only in
+the staged tree, never in `docs/design/` — pure projections, so they cannot
+drift from the chapters they are scraped from:
+
+| Page | Scraped from |
+|---|---|
+| `reference/diagrams.md` | The SVGs compiled from `docs/design/assets/model.dsl` (view descriptions come from the DSL) |
+| `reference/invariants.md` | The 45 blocking invariants in `02-constitution.md` §18, labelled `INV-nn` as the chapters cite them |
+| `reference/contracts.md` | The `### 9.x` contract headings in `05-leyline-contracts.md`, linked to their anchors |
+| `reference/domains.md` | The `### 13.x Name — Epithet` heading of each `domains/*.md` chapter |
+
+The scrapers fail the build on surprises (non-contiguous invariant numbering, a
+domain chapter without its heading) rather than publishing a partial registry.
+
+## Compiled diagrams
+
+`build.sh` exports every view in `docs/design/assets/model.dsl` with the
+Structurizr CLI and renders SVGs with PlantUML (`-Playout=smetana`, PlantUML's
+bundled layout engine, so no graphviz dependency). Both jars are **pinned by
+version** and cached in `.cache/` (git-ignored): the first build downloads
+them, every later build is offline.
+
+The model serves the decided design, never the other way around: it is a
+transcription of `04-architecture.md` §7.1/§7.5/§10 and the domain chapters,
+and `stage.py` **fails the build** if its container identifiers stop matching
+`docs/design/domains/*.md` exactly. If a diagram and a chapter disagree, the
+chapter wins and the model is wrong — fix `model.dsl`.
 
 ## Navigation
 
@@ -103,6 +146,7 @@ not the default. It is a one-config-change decision, not a rewrite.
 The mermaid diagram in `04-architecture.md` §7.1 has fourteen nodes and forty-
 odd edges; Material scales it to the content column, where the labels get
 small. Leaving it that way is deliberate — the chapter is the source of truth
-and the fence stays a fence. If it ever needs to be legible at a glance, the
-fix is to pre-render it through `tools/diagrams/` (which already does exactly
-this for the marketing site) and have `stage.py` swap the fence for the image.
+and the fence stays a fence. The legible-at-a-glance rendering of the same
+architecture now lives on the generated diagrams page (`reference/diagrams.md`),
+compiled from `model.dsl` — including focused subset views that the single
+mermaid diagram cannot provide.

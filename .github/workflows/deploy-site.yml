@@ -20,8 +20,10 @@ on:
     paths:
       - 'site/**'
       # The wiki is generated from the chapters, so a chapter edit must
-      # redeploy even when nothing under site/ changed.
+      # redeploy even when nothing under site/ changed. ADRs are staged
+      # into the wiki too (ADR-0007), so they share the trigger.
       - 'docs/design/**'
+      - 'docs/adr/**'
       - 'tools/wiki/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
@@ -64,10 +66,29 @@ jobs:
       - name: Install wiki build dependencies
         run: pip install -r tools/wiki/requirements.txt
 
+      - name: Set up Java
+        # build.sh compiles docs/design/assets/model.dsl to SVGs via the
+        # pinned structurizr-cli and plantuml jars; pin the JDK too rather
+        # than leaning on whatever the runner image ships.
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache diagram toolchain
+        # The pinned jars build.sh downloads on first run (~15 MB). Keyed on
+        # build.sh because that is where the versions are pinned.
+        uses: actions/cache@v4
+        with:
+          path: tools/wiki/.cache
+          key: wiki-diagram-jars-${{ hashFiles('tools/wiki/build.sh') }}
+
       - name: Build the design-docs wiki
-        # build.sh stages docs/design/ into a throwaway copy, applies the
-        # render-only transforms, and runs `mkdocs build --strict` — so a broken
-        # cross-reference between chapters fails the deploy instead of shipping.
+        # build.sh compiles the Structurizr model to SVGs, stages docs/design/
+        # into a throwaway copy (plus the generated reference/ registries),
+        # applies the render-only transforms, and runs `mkdocs build --strict`
+        # — so a broken cross-reference between chapters fails the deploy
+        # instead of shipping.
         run: ./tools/wiki/build.sh
 
       - name: Assemble the Pages artifact
