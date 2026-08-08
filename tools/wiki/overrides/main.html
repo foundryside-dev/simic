@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{#-
+  A way back out to the marketing site.
+
+  The wiki is mounted at /design/ under the hand-written pages at /, but
+  nothing in Material's chrome led back there: every link in the header, nav
+  and footer pointed either deeper into the wiki or out to GitHub, so a reader
+  who arrived on a chapter from a search engine had no route to the project's
+  own front page.
+
+  `extra.homepage` (set in mkdocs.yml) already repoints the logo, but a logo is
+  a convention, not an affordance — nothing about it says where it goes. This
+  bar says so in words. It uses Material's `announce` block rather than forking
+  partials/header.html, so the override surface stays one small template
+  instead of a ~90-line partial that has to be re-diffed on every Material
+  upgrade (the maintenance cost already carried by partials/source.html).
+
+  Deliberately NOT dismissible: `announce.dismiss` would hide it behind a
+  localStorage flag, and this is navigation, not an announcement.
+-#}
+{% block announce %}
+  <a class="simic-upbar" href="https://simic.foundryside.dev/">
+    <span class="simic-upbar__arrow" aria-hidden="true">&larr;</span>
+    Simic project site
+  </a>
+  <span class="simic-upbar__here">Design documentation &mdash; the canonical HLD chapter set</span>
+{% endblock %}
