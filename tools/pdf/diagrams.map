@@ -1,0 +1,40 @@
+# Maps a mermaid block embedded in a design chapter to the pre-rendered diagram
+# asset that should be used in its place.
+#
+#   <content-digest> <asset-stem>
+#
+# The digest is sha256 of the mermaid block's source, truncated to 12 hex
+# characters — build.sh logs it as the cache filename when it renders a block
+# locally (`[diagram] <digest>.png`). The stem is a filename stem in the
+# pre-rendered diagram directory (default tools/diagrams/build/pdf/, override
+# with SIMIC_DIAGRAM_DIR), without extension.
+#
+# WHY THIS FILE EXISTS
+#
+# tools/diagrams/ names its sources semantically — core-loop, observation-loop,
+# assurance-loop — and those .mmd files are hand-authored decompositions, not
+# copies of the mermaid block embedded in docs/design/04-architecture.md. So
+# nothing matches automatically: not a content hash, not a positional index.
+#
+# Claiming that a hand-authored diagram faithfully replaces a chapter's own
+# diagram is an editorial judgement about the design, not something this pipeline
+# may infer. It is therefore recorded here, explicitly and reviewably, and left
+# for the chapter owner to confirm.
+#
+# WITHOUT AN ENTRY the pipeline still works: it renders the chapter's own block
+# locally with mmdc (PNG at 3x) and places it on a landscape page. The mapping is
+# an upgrade to the shared tooling's print-themed vector output, not a dependency.
+#
+# PENDING OWNER DECISION
+#
+# 04-architecture.md §7.1 currently embeds one 20-node flowchart whose labels are
+# small even on a full landscape page. tools/diagrams/core-loop.mmd is a cleaner
+# rendering of the same end-to-end flow and reads considerably better. If the
+# owner confirms they are equivalent for the HLD's purposes, uncomment the line
+# below once `render.sh pdf` is implemented and emits core-loop into the
+# pre-rendered directory:
+#
+# 8b061607f5ad core-loop
+#
+# If instead the chapter's flowchart should be split to match the three shared
+# diagrams, that is a docs/design/ change and this file stays empty.

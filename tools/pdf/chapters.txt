@@ -1,0 +1,55 @@
+# Chapter order for the consolidated Simic HLD PDF.
+#
+# Order follows the v4.1 monolith section order via the §-to-file concordance
+# table in docs/design/00-INDEX.md. The chapters carry their own monolith
+# section numbers in their headings (## 18., ### 13.11), so this ordering is
+# what makes the numbering read consecutively in the assembled document.
+#
+# Format: one path per line, relative to docs/design/. Blank lines and lines
+# starting with '#' are ignored. The trailing comment on each line records the
+# monolith sections that chapter covers.
+#
+# Deliberately excluded:
+#   00-INDEX.md     — site/repo navigation; its role is filled by the PDF's ToC.
+#   TEMPLATE-lld.md — an empty header template for Tier 2 LLDs, not HLD content.
+
+01-claim.md                             # §1–§4 exec summary, problem, goals, non-goals; §28–§29 success criteria, final statement
+02-constitution.md                      # §5 naming constitution; §18 the 45 invariants; App B one-line namespec invariants
+03-principles.md                        # §6 design principles; App A smell catalogue
+04-architecture.md                      # §7–§8 planes and subsystem map; §10 end-to-end flow
+05-leyline-contracts.md                 # §9 core contract shapes
+06-growth-model.md                      # §11–§12 growth model, lifecycle and transition authority
+
+# §13 — detailed subsystem specifications. The README carries the §13 preamble
+# (level 2); each domain chapter is a §13.n subsection (level 3). Ordered by
+# section number, which is infrastructure-first then agents per the constitution.
+domains/README.md                       # §13 grouping preamble
+domains/leyline.md                      # §13.1
+domains/tolaria.md                      # §13.2
+domains/sarpadia.md                     # §13.3 + §15 Sarpadia data model
+domains/tamiyo.md                       # §13.4
+domains/narset.md                       # §13.5
+domains/nissa.md                        # §13.6
+domains/momir.md                        # §13.7
+domains/elesh.md                        # §13.8
+domains/tezzeret.md                     # §13.9
+domains/urabrask.md                     # §13.10
+domains/augustin.md                     # §13.11
+domains/kasmina.md                      # §13.12
+domains/emrakul.md                      # §13.13
+domains/oona.md                         # §13.14
+
+07-counterfactual-engine.md             # §14 counterfactual execution, QA, adjudication
+programme/curriculum.md                 # §16 curriculum and scaffold withdrawal
+programme/learning.md                   # §17 learning responsibilities
+ops/observability.md                    # §19 observability
+ops/repo-structure.md                   # §20 target codebase structure; §30 repository handoff
+programme/evaluation.md                 # §21–§22 testing, evaluation
+ops/migration.md                        # §23 migration
+programme/phases.md                     # §24–§25 MVS, implementation phases A–K
+programme/risks-and-open-decisions.md   # §26–§27 risks, open decisions
+
+appendices/good-bad-sentences.md        # App C good/bad sentences
+appendices/glossary.md                  # App D plain-English glossary
+appendices/newsroom.md                  # App E newsroom principle
+appendices/scaffold-pattern.md          # App F scaffold withdrawal pattern

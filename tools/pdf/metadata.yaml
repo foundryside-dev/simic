@@ -1,0 +1,46 @@
+# Document metadata for the consolidated Simic HLD PDF.
+#
+# Consumed by pandoc via --metadata-file and surfaced on the cover page, the
+# colophon, the running header/footer, and the PDF's XMP metadata.
+#
+# `date` is deliberately absent: build.sh injects it from the last git commit
+# touching docs/design/, so a clean checkout reproduces the same PDF. Override
+# with SIMIC_PDF_DATE=YYYY-MM-DD.
+
+title: "Simic"
+subtitle: "Counterfactual Generative Morphogenesis"
+
+# Document identity — rendered on the cover and in the running footer.
+doctype: "High-Level Design"
+version: "4.1"
+namespec: "1.0 — locked"
+status: "Canonical design authority"
+
+# Short form for the running header, where the full title will not fit.
+shorttitle: "Simic HLD"
+
+author: "tachyon-beep"
+license: "Apache-2.0"
+repo: "https://github.com/foundryside-dev/simic"
+site: "https://simic.foundryside.dev"
+
+keywords: "neural architecture search, morphogenetic training, counterfactual evaluation, generative architecture, machine learning systems design"
+
+lang: "en"
+region: "GB"
+
+# Cover-page abstract. Kept in metadata rather than sourced from 01-claim.md so
+# that the cover's framing can be tuned without touching the design chapters.
+abstract: |
+  A lifecycle-driven neural training system in which new computational
+  structure is generated from the live state of a host network — not selected
+  from a fixed menu of human-authored blueprints — then conformed, compiled,
+  QA-tested in matched counterfactual branches, adjudicated against doing
+  nothing, embodied reversibly under warrant, and eventually retired.
+
+# Shown in small print at the foot of the cover page.
+notice: |
+  This document is the canonical design authority for the Simic project. It is
+  decomposed into standalone chapters under docs/design/ per ADR-0001; this PDF
+  is a generated consolidation of those chapters in monolith section order and
+  is never itself edited by hand.
