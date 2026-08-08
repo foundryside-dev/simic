@@ -1,0 +1,11 @@
+# Build dependencies for the generated design-docs wiki (tools/wiki/build.sh).
+#
+# Pinned so CI reproduces the local build. These are the direct dependencies;
+# pip resolves the transitive set. If you need byte-for-byte reproducibility
+# later, regenerate this with `pip-compile --generate-hashes` and install with
+# `pip install --require-hashes`.
+#
+# Versions match what the wiki was developed and verified against.
+mkdocs==1.6.1
+mkdocs-material==9.7.4
+pymdown-extensions==10.21

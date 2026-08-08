@@ -291,6 +291,49 @@ blockquote cite {
   color: var(--color-text-muted);
 }
 
+/* --- Diagrams -------------------------------------------------------------
+   Mermaid sources live in tools/diagrams/*.mmd (shared with the PDF pipeline)
+   and are PRE-RENDERED into assets/diagrams/ by `tools/diagrams/render.sh site`
+   — the mermaid runtime is never shipped. Each diagram has a
+   light and a dark SVG; the pair is swapped below on the same rules the colour
+   tokens use, so `prefers-color-scheme` AND the [data-theme] override both work.
+
+   The <img> carries alt="" and the accessible name lives on .diagram__frame
+   (role="img" + aria-label) so exactly one name is exposed regardless of which
+   variant is displayed.
+
+   --dmin is set per diagram inline: the width below which the SVG stops
+   shrinking and the frame scrolls instead, because a flowchart scaled to a
+   380px viewport has ~6px text. Legibility beats fitting.
+   -------------------------------------------------------------------------- */
+.diagram { margin: var(--space-4) 0; max-width: var(--page); }
+
+.diagram__frame {
+  overflow-x: auto;
+  padding-block: var(--space-2);
+}
+
+.diagram__img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  min-width: var(--dmin, 0px);   /* beats max-width when the frame is narrower */
+  margin-inline: auto;
+}
+
+/* Light is the default; dark swaps in exactly where the tokens do. */
+.diagram__img--dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .diagram__img--light { display: none; }
+  :root:not([data-theme="light"]) .diagram__img--dark  { display: block; }
+}
+
+:root[data-theme="dark"] .diagram__img--light { display: none; }
+:root[data-theme="dark"] .diagram__img--dark  { display: block; }
+:root[data-theme="light"] .diagram__img--light { display: block; }
+:root[data-theme="light"] .diagram__img--dark  { display: none; }
+
 /* --- Code ---------------------------------------------------------------- */
 code, kbd, samp {
   font-family: var(--font-code);
@@ -480,6 +523,11 @@ a.card:hover {
   body { font-size: 11pt; }
   .contentwrap { max-width: none; padding: 0; }
   pre, .tablewrap { border-color: #999; page-break-inside: avoid; }
+  /* Always print the light diagram, whatever the screen theme was. */
+  .diagram__img--light { display: block !important; }
+  .diagram__img--dark  { display: none !important; }
+  .diagram__frame { overflow: visible; }
+  .diagram__img { min-width: 0 !important; page-break-inside: avoid; }
   a { color: inherit; text-decoration: underline; }
   a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; }
 }

@@ -1,0 +1,18 @@
+%% Observation and commissioning loop — architecture.html
+%% Source: docs/design/04-architecture.md §7.3.
+%% Rendered by build.sh; do not hand-edit the generated SVGs.
+flowchart TD
+    OBS["Nissa observes Snapshot S<br/>at decision point T"] --> ENV["TelemetryEnvelope O"]
+
+    ENV -->|"published directly"| NAR["Narset<br/>commission work? where?<br/>under what class?"]
+    ENV -->|"published directly"| MOM["Momir<br/>what structure would address<br/>this observed state?"]
+
+    TAM["Tamiyo"] -->|"StrategicEnvelope E"| NAR
+    NAR -->|"GrowthIntent I"| RES
+    KAS["Kasmina"] -->|"RegionContract R"| RES
+    LEY["Leyline"] -->|"GrammarProfile G"| RES
+    ENV -.->|"observation identity"| RES
+
+    RES["Pure request resolution<br/>O, E, I, R, G → Q"] -->|"GrowthRequest Q"| MOM
+
+    class ENV accent

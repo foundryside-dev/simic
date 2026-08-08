@@ -1,0 +1,36 @@
+%% Simic core loop — index.html
+%% Source: docs/design/01-claim.md §1 (the shared execution reality).
+%% Rendered by build.sh; do not hand-edit the generated SVGs.
+flowchart TD
+    DATA["Task and data stream"] --> TOL["Tolaria<br/>trains the Kasmina host"]
+    TOL --> NIS["Nissa publishes the<br/>canonical TelemetryEnvelope"]
+
+    NIS -->|"same envelope, published directly"| NAR["Narset<br/>whether and where<br/>to commission growth"]
+    NIS -->|"same envelope, published directly"| MOM["Momir<br/>designs candidate growth"]
+
+    TAM["Tamiyo<br/>authorises strategic resources"] --> NAR
+    NAR -->|"GrowthIntent<br/>the assignment brief"| RES["Leyline and Kasmina resolve<br/>the legal GrowthRequest"]
+    RES --> MOM
+    SARB["Sarpadia<br/>optional bootstrap ancestry"] -.-> MOM
+
+    MOM --> ELE["Elesh conforms"]
+    ELE --> TEZ["Tezzeret compiles"]
+    TEZ --> URA["Urabrask specifies QA<br/>Tolaria executes the tests"]
+    URA --> CERT["Urabrask certifies<br/>the evidence"]
+    CERT --> AUG{"Augustin judges<br/>candidate versus no-op"}
+
+    AUG -->|"admit"| KAS["Kasmina embodies<br/>the admitted growth"]
+    AUG -->|"no-op wins"| NOOP["No intervention<br/>policy utility exactly zero"]
+
+    %% INV-27: Emrakul acts only on an Augustin maintenance warrant. Do not
+    %% shorten this label to "Emrakul removes ..." — that draws Emrakul
+    %% retiring committed structure on its own authority, which it cannot.
+    KAS --> EMR["Emrakul removes what Augustin<br/>judges no longer earns its place"]
+    AUG -.->|"maintenance warrant"| EMR
+
+    KAS --> SAR["Sarpadia retains every<br/>success, failure, abstention"]
+    NOOP --> SAR
+    EMR --> SAR
+    SAR --> OON["Oona reveals<br/>the complete account"]
+
+    class NOOP accent

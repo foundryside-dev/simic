@@ -1,0 +1,145 @@
+# Generated design-docs wiki — simic.foundryside.dev/design/
+#
+# docs_dir is a STAGED COPY of docs/design/ produced by stage.py, never
+# docs/design/ itself. The chapters are the canonical authority (ADR-0001) and
+# are not edited to suit the renderer: rendering problems are solved here or in
+# stage.py. The wiki is a projection — edit a chapter, re-render, it follows.
+#
+# Build with ./build.sh (which stages first). Running `mkdocs build` directly
+# will fail or serve a stale tree unless stage.py has been run.
+
+site_name: Simic — High-Level Design
+site_description: >-
+  The canonical HLD chapter set for Simic (Counterfactual Generative
+  Morphogenesis) — v4.1, Namespec 1.0, locked.
+site_url: https://simic.foundryside.dev/design/
+site_author: tachyon-beep
+copyright: Licensed Apache-2.0
+
+repo_url: https://github.com/foundryside-dev/simic
+repo_name: foundryside-dev/simic
+# Points at the real chapters, not the staged copy — "edit this page" must land
+# on the source of truth.
+edit_uri: edit/main/docs/design/
+
+docs_dir: build/src
+site_dir: build/site
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: en
+  # Material otherwise pulls Roboto from fonts.googleapis.com/fonts.gstatic.com
+  # on every page load. `false` falls back to the system font stack: no
+  # third-party font request, no reader IPs handed to Google, one less thing
+  # between the reader and the text.
+  font: false
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+    - content.code.copy
+  palette:
+    # Follows the reader's OS preference, with an explicit toggle — the same
+    # three-state model the marketing site uses.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+# No `nav:` — the navigation is derived from the staged directory structure, so
+# adding a chapter to docs/design/ puts it in the wiki with no config change.
+# index.md (staged from 00-INDEX.md) is the landing page.
+
+plugins:
+  - search
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Link to this section
+  # The chapters use \( ... \) and $$ ... $$; generic mode emits the markup
+  # assets/mathjax-config.js expects.
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        # 04-architecture.md §7.1 already carries a ```mermaid fence, and more
+        # may follow. mkdocs-material renders these client-side; the chapters'
+        # text diagrams stay text, per the source-of-truth rule.
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  # --- The wiki's two external dependencies. Both PINNED to exact versions. --
+  # The marketing pages at / make zero external requests; the wiki does not
+  # inherit that rule (JS is fine here), but drifting `@latest` URLs are still
+  # not acceptable. To remove these entirely, vendor both into assets/ and drop
+  # the CDN lines — see README.md for the recipe.
+  - assets/mathjax-config.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+  # Loaded eagerly so Material does NOT lazy-load its own copy: the bundle
+  # hardcodes `https://unpkg.com/mermaid@11/dist/mermaid.min.js`, an unpinned
+  # major-version URL whose contents change under us. Its loader is guarded by
+  # `typeof mermaid == "undefined"`, so defining window.mermaid first makes it
+  # use this pinned build (verified: unpkg is never requested).
+  #
+  # Nothing further is needed — Material calls mermaid.initialize({startOnLoad:
+  # false, themeCSS: ...}) itself and drives rendering, including the palette
+  # sync and the re-render after instant navigation. It renders into a CLOSED
+  # shadow root, so `document.querySelector('.mermaid svg')` is null even on a
+  # perfectly good render; check visually, not with a DOM query.
+  #
+  # 04-architecture.md §7.1 carries the one ```mermaid fence in the chapters.
+  - https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.min.js
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/foundryside-dev/simic
+      name: Simic on GitHub
+  generator: false
+
+# Turn mkdocs' warnings into build failures so a broken cross-reference cannot
+# reach the published wiki.
+strict: true
+
+validation:
+  omitted_files: warn
+  absolute_links: ignore      # stage.py rewrites out-of-tree links to GitHub
+  unrecognized_links: warn
+  anchors: warn

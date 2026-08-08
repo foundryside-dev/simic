@@ -20,6 +20,7 @@
         <li><a href="index.html" aria-current="page">Overview</a></li>
         <li><a href="architecture.html">Architecture</a></li>
         <li><a href="lineage.html">Why this design</a></li>
+        <li><a href="/design/">Design docs</a></li>
         <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
       </ul>
     </nav>
@@ -76,43 +77,22 @@
     lysed when it no longer does.
   </p>
 
-  <h3 id="the-loop">The loop, in one block</h3>
+  <h3 id="the-loop">The loop, end to end</h3>
 
-  <figure class="wide">
-<pre role="img" aria-label="Pipeline diagram. A task and data stream feeds Tolaria, which trains the Kasmina host. Nissa publishes one canonical TelemetryEnvelope, independently, to both Narset — which decides whether and where to commission growth — and Momir, which receives the same uncaptioned evidence directly. Tamiyo authorises strategic resources. Narset emits a narrow GrowthIntent, the assignment brief. Leyline and Kasmina deterministically resolve the legal GrowthRequest. Sarpadia may supply temporary bootstrap ancestry or ordinary precedent. Momir designs, then Elesh conforms, then Tezzeret compiles. Urabrask specifies QA and Tolaria executes the tests. Urabrask certifies the evidence. Augustin judges candidate versus no-op. Kasmina embodies an admitted growth. Emrakul later removes what no longer earns its place. Every success, failure, abstention and lineage is retained in Sarpadia. Oona reveals the complete account."><code>Task and data stream
-        ↓
-Tolaria trains the Kasmina host
-        ↓
-Nissa publishes one canonical TelemetryEnvelope
-        ├──→ Narset  decides whether and where to commission growth
-        └──→ Momir   receives the same uncaptioned evidence directly
-        ↓
-Tamiyo authorises strategic resources
-        ↓
-Narset emits a narrow GrowthIntent — the assignment brief
-        ↓
-Leyline and Kasmina deterministically resolve the legal GrowthRequest
-        ↓
-Sarpadia may supply temporary bootstrap ancestry or ordinary precedent
-        ↓
-Momir designs → Elesh conforms → Tezzeret compiles
-        ↓
-Urabrask specifies QA; Tolaria executes the tests
-        ↓
-Urabrask certifies the evidence
-        ↓
-Augustin judges candidate versus no-op
-        ↓
-Kasmina embodies an admitted growth
-        ↓
-Emrakul later removes what no longer earns its place
-        ↓
-Every success, failure, abstention and lineage is retained in Sarpadia
-        ↓
-Oona reveals the complete account</code></pre>
+  <figure class="wide diagram">
+    <div class="diagram__frame" role="img" aria-label="Flowchart of the core loop. A task and data stream feeds Tolaria, which trains the Kasmina host. Nissa publishes the canonical TelemetryEnvelope, and the same envelope goes directly to both Narset — which decides whether and where to commission growth — and Momir, which designs candidate growth. Tamiyo authorises strategic resources to Narset. Narset emits a GrowthIntent, the assignment brief, from which Leyline and Kasmina resolve the legal GrowthRequest; that request also reaches Momir. Sarpadia may optionally supply bootstrap ancestry to Momir. Momir's design passes to Elesh, which conforms it, then Tezzeret, which compiles it, then Urabrask, which specifies QA while Tolaria executes the tests, and Urabrask then certifies the evidence. Augustin judges the candidate against no-op: on admit, Kasmina embodies the growth, and Emrakul later removes what Augustin judges no longer earns its place, acting only on an Augustin maintenance warrant; if no-op wins, the outcome is no intervention with policy utility exactly zero. Both outcomes feed Sarpadia, which retains every success, failure and abstention. Oona reveals the complete account.">
+      <img class="diagram__img diagram__img--light" src="assets/diagrams/core-loop-light.svg"
+           alt="" width="809" height="1801" style="--dmin: 600px">
+      <img class="diagram__img diagram__img--dark" src="assets/diagrams/core-loop-dark.svg"
+           alt="" width="809" height="1801" style="--dmin: 600px">
+    </div>
     <figcaption>
       The ordinary host-training loop and the growth loop share one execution
-      reality. Source: <code>docs/design/01-claim.md</code> §1.
+      reality, and the candidate pool is allowed to lose: the no-op branch is a
+      measured outcome, not an error path. Source:
+      <code>docs/design/01-claim.md</code> §1, with the no-op outcome and the
+      maintenance warrant from <code>docs/design/04-architecture.md</code> §7.4
+      and INV-15, INV-16, INV-27.
     </figcaption>
   </figure>
 

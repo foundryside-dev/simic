@@ -1,9 +1,17 @@
-# Deploy the static simic site (site/) to GitHub Pages.
+# Deploy simic.foundryside.dev to GitHub Pages.
 #
-# The site is plain HTML/CSS with no build step — the artifact IS the site/
-# directory. Deploys to simic.foundryside.dev (custom domain set in the repo's
-# Pages settings; DNS is a CNAME to foundryside-dev.github.io, matching the
-# other Weft-family subdomains).
+# The published site is two artifacts of different classes, assembled here:
+#
+#   /          site/ verbatim — three hand-written marketing pages, plain
+#              HTML/CSS with no build step, zero JavaScript and zero external
+#              requests. Diagrams are pre-rendered SVGs committed under
+#              site/assets/diagrams/ (regenerate with tools/diagrams/render.sh).
+#   /design/   the design-docs wiki, GENERATED from docs/design/ by mkdocs
+#              (tools/wiki/). Never hand-written: edit a chapter, and the wiki
+#              follows on the next deploy. JavaScript is fine in this half.
+#
+# Custom domain is set in the repo's Pages settings; DNS is a CNAME to
+# foundryside-dev.github.io, matching the other Weft-family subdomains.
 name: Deploy site
 
 on:
@@ -11,6 +19,10 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      # The wiki is generated from the chapters, so a chapter edit must
+      # redeploy even when nothing under site/ changed.
+      - 'docs/design/**'
+      - 'tools/wiki/**'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
@@ -42,10 +54,45 @@ jobs:
         with:
           enablement: true
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tools/wiki/requirements.txt
+
+      - name: Install wiki build dependencies
+        run: pip install -r tools/wiki/requirements.txt
+
+      - name: Build the design-docs wiki
+        # build.sh stages docs/design/ into a throwaway copy, applies the
+        # render-only transforms, and runs `mkdocs build --strict` — so a broken
+        # cross-reference between chapters fails the deploy instead of shipping.
+        run: ./tools/wiki/build.sh
+
+      - name: Assemble the Pages artifact
+        # site/ at the root, the generated wiki mounted at /design/. Guard the
+        # inputs: an empty or missing half would silently publish a broken site.
+        run: |
+          set -euo pipefail
+          test -f site/index.html            || { echo "site/index.html missing"; exit 1; }
+          test -f tools/wiki/build/site/index.html || { echo "wiki build produced no index"; exit 1; }
+
+          rm -rf _pages
+          mkdir -p _pages
+          cp -r site/. _pages/
+          test ! -e _pages/design || { echo "site/design would collide with the wiki mount"; exit 1; }
+          mkdir -p _pages/design
+          cp -r tools/wiki/build/site/. _pages/design/
+
+          echo "assembled: $(find _pages -type f | wc -l) files"
+          echo "  root pages:  $(find _pages -maxdepth 1 -name '*.html' | wc -l)"
+          echo "  wiki pages:  $(find _pages/design -name '*.html' | wc -l)"
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _pages
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -1,0 +1,25 @@
+{#-
+  Override of material/partials/source.html.
+
+  Identical to the stock partial except that `data-md-component="source"` is
+  removed. That attribute is what makes Material's bundle call
+  https://api.github.com/repos/<owner>/<repo> on every page load to fetch star
+  and fork counts. We keep the repository link and icon; we drop the request.
+
+  Reasons: it sends every reader's IP to the GitHub API for a decoration nobody
+  asked for, it 404s and logs a console error whenever the repo is private or
+  has no releases, and star counts are not information this wiki exists to
+  convey.
+
+  If a future Material release changes the stock partial, re-diff against
+  material/templates/partials/source.html and re-apply the single deletion.
+-#}
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository">
+    {{ config.repo_name }}
+  </div>
+</a>

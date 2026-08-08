@@ -15,8 +15,15 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        # Generated diagram SVGs are byte-exact mmdc output; "fixing" them here
+        # would churn against every re-render (tools/diagrams/render.sh).
+        exclude: ^site/assets/diagrams/
       - id: end-of-file-fixer
+        exclude: ^site/assets/diagrams/
       - id: check-yaml
+        # mkdocs.yml uses the standard `!!python/name:` superfences tag, which
+        # safe-load cannot parse; mkdocs itself validates this file (--strict).
+        exclude: ^tools/wiki/mkdocs\.yml$
       - id: check-toml
       - id: check-added-large-files
         # 3 MB ceiling: admits the published HLD PDF (docs/assets/simic-hld.pdf,

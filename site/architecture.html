@@ -20,6 +20,7 @@
         <li><a href="index.html">Overview</a></li>
         <li><a href="architecture.html" aria-current="page">Architecture</a></li>
         <li><a href="lineage.html">Why this design</a></li>
+        <li><a href="/design/">Design docs</a></li>
         <li><a href="https://github.com/foundryside-dev/simic" rel="noopener">Source</a></li>
       </ul>
     </nav>
@@ -226,21 +227,13 @@
 
   <h3 id="observation-loop">Observation and commissioning</h3>
 
-  <figure class="wide">
-<pre role="img" aria-label="Sequence diagram. Nissa observes Snapshot S at decision point T and publishes TelemetryEnvelope O, independently, to both Narset — asking whether work should be commissioned, where, and under what class — and Momir, asking what structure would address this observed state. Tamiyo supplies StrategicEnvelope E. Narset emits GrowthIntent I referencing O and E. Kasmina supplies RegionContract R. Leyline supplies a compatible GrammarProfile G. Pure request resolution maps the tuple O, E, I, R, G to GrowthRequest Q. Momir then receives O and Q separately."><code>Nissa observes Snapshot S at decision point T
-        ↓
-Nissa publishes TelemetryEnvelope O
-        ├──→ Narset: should work be commissioned, where, under what class?
-        └──→ Momir:  what structure would address this observed state?
-
-Tamiyo supplies StrategicEnvelope E
-Narset emits GrowthIntent I referencing O and E
-Kasmina supplies RegionContract R
-Leyline supplies a compatible GrammarProfile G
-        ↓
-pure request resolution: (O, E, I, R, G) → GrowthRequest Q
-        ↓
-Momir receives O and Q separately</code></pre>
+  <figure class="wide diagram">
+    <div class="diagram__frame" role="img" aria-label="Flowchart of the observation and commissioning loop. Nissa observes Snapshot S at decision point T and produces TelemetryEnvelope O. O is published directly to both Narset — asking whether work should be commissioned, where, and under what class — and Momir, asking what structure would address this observed state. Four inputs converge on a pure request resolution step: Narset's GrowthIntent I, Tamiyo's StrategicEnvelope E reaching Narset, Kasmina's RegionContract R, and Leyline's GrammarProfile G, with envelope O also bound in as the observation identity. Resolution maps the tuple O, E, I, R, G to GrowthRequest Q, which reaches Momir separately from O.">
+      <img class="diagram__img diagram__img--light" src="assets/diagrams/observation-loop-light.svg"
+           alt="" width="870" height="587" style="--dmin: 650px">
+      <img class="diagram__img diagram__img--dark" src="assets/diagrams/observation-loop-dark.svg"
+           alt="" width="870" height="587" style="--dmin: 650px">
+    </div>
     <figcaption>
       The two Nissa arrows are independent publications of the same observation
       identity — Narset is not a telemetry proxy. Momir rejects any call whose
@@ -252,21 +245,13 @@ Momir receives O and Q separately</code></pre>
 
   <h3 id="assurance-loop">Assurance and adjudication</h3>
 
-  <figure class="wide">
-<pre role="img" aria-label="Sequence diagram. A Tezzeret artefact goes to Urabrask, which builds a blinded TestPlan. Tolaria restores a common snapshot and executes candidate branches, controls, and a mandatory no-op. Urabrask verifies runtime conformance, certifies the measurements, and emits a QualityReport. Augustin applies eligibility, then the tail-risk veto, then utility policy, and returns one of: admit one, reject, defer, require retest, or no-op."><code>Tezzeret artefact
-        ↓
-Urabrask builds a blinded TestPlan
-        ↓
-Tolaria restores a common Snapshot and executes:
-        candidate branches + controls + mandatory no-op
-        ↓
-Urabrask verifies runtime conformance and certifies measurements
-        ↓
-QualityReport
-        ↓
-Augustin applies eligibility, then the tail-risk veto, then utility policy
-        ↓
-ADMIT one / REJECT / DEFER / REQUIRE_RETEST / NO_OP</code></pre>
+  <figure class="wide diagram">
+    <div class="diagram__frame" role="img" aria-label="Flowchart of the assurance and adjudication loop. A Tezzeret artefact goes to Urabrask, which builds a blinded TestPlan. Tolaria restores one common snapshot and fans out into three matched branches run over an identical future: candidate branches, controls, and a mandatory no-op. All three return to Urabrask, which verifies conformance and certifies the measurements, producing a QualityReport. Augustin then applies eligibility, then the tail-risk veto, then utility policy, and returns one of: admit one, reject, defer, require retest, or no-op.">
+      <img class="diagram__img diagram__img--light" src="assets/diagrams/assurance-loop-light.svg"
+           alt="" width="572" height="797" style="--dmin: 430px">
+      <img class="diagram__img diagram__img--dark" src="assets/diagrams/assurance-loop-dark.svg"
+           alt="" width="572" height="797" style="--dmin: 430px">
+    </div>
     <figcaption>
       Paired branches begin from the same complete snapshot and receive the same
       future minibatches. The tail-risk veto is adjudicated before any utility
@@ -361,24 +346,36 @@ Oona changed the learning rate directly.</code></pre>
     must not import agent policy or encode agent-specific preferences.
   </p>
 
-  <figure class="wide">
-<pre role="img" aria-label="Dependency edges and their verdicts. Healthy: urabrask to tolaria protocol; augustin to leyline contracts; momir to the sarpadia retrieval API; nissa to the leyline telemetry schema; narset to the leyline GrowthIntent schema. Suspect: tolaria to augustin policy; sarpadia to momir training code. Prohibited: leyline to narset implementation; narset to momir graph grammar implementation; momir to narset hidden state."><code>urabrask → tolaria protocol                 healthy
-augustin → leyline contracts                healthy
-momir    → sarpadia retrieval API           healthy
-nissa    → leyline telemetry schema         healthy
-narset   → leyline GrowthIntent schema      healthy
+  <div class="tablewrap">
+    <table>
+      <caption>Dependency edges and their verdicts</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="name">From</th>
+          <th scope="col" class="name">To</th>
+          <th scope="col">Verdict</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">urabrask</td><td class="name">tolaria protocol</td><td>Healthy</td></tr>
+        <tr><td class="name">augustin</td><td class="name">leyline contracts</td><td>Healthy</td></tr>
+        <tr><td class="name">momir</td><td class="name">sarpadia retrieval API</td><td>Healthy</td></tr>
+        <tr><td class="name">nissa</td><td class="name">leyline telemetry schema</td><td>Healthy</td></tr>
+        <tr><td class="name">narset</td><td class="name">leyline GrowthIntent schema</td><td>Healthy</td></tr>
+        <tr><td class="name">tolaria</td><td class="name">augustin policy</td><td>Suspect</td></tr>
+        <tr><td class="name">sarpadia</td><td class="name">momir training code</td><td>Suspect</td></tr>
+        <tr><td class="name">leyline</td><td class="name">narset implementation</td><td>Prohibited</td></tr>
+        <tr><td class="name">narset</td><td class="name">momir graph grammar implementation</td><td>Prohibited</td></tr>
+        <tr><td class="name">momir</td><td class="name">narset hidden state</td><td>Prohibited</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-tolaria  → augustin policy                  suspect
-sarpadia → momir training code              suspect
-leyline  → narset implementation            prohibited
-narset   → momir graph grammar impl.        prohibited
-momir    → narset hidden state              prohibited</code></pre>
-    <figcaption>
-      Namespec 1.0 is locked. Changing a codename or moving an authority between
-      names requires an architecture decision record, because it changes package
-      paths, telemetry names, tests, and the shared responsibility grammar.
-    </figcaption>
-  </figure>
+  <p>
+    Namespec 1.0 is locked. Changing a codename or moving an authority between
+    names requires an architecture decision record, because it changes package
+    paths, telemetry names, tests, and the shared responsibility grammar.
+  </p>
 
   <ul class="cardgrid">
     <li>
