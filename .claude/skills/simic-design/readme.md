@@ -82,15 +82,36 @@ Do not introduce icon sets, emoji, or drawn illustrations. When an icon urge str
 > metadata files were committed (`6e74997`). The 33 files listed below under
 > `tokens/`, `components/`, `guidelines/` and `ui_kits/` are **absent from this
 > directory** and are not gitignored — they were never committed. `styles.css`
-> is therefore four dangling `@import`s and loads nothing.
+> was therefore four dangling `@import`s loading nothing; it has since been
+> flattened locally (see its provenance header).
 >
 > Until the export is completed, **treat `site/style.css` in the repo as the
-> token source of truth** (it always was — see the note above) and read
-> `_ds_manifest.json` for the resolved token values, which it carries inline.
-> Do not hand-author replacements for the files below: they exist in the
-> upstream Claude Design project `SimicDesignSystem_5a908e` and re-exporting or
-> pulling them (`DesignSync`) is the fix. Do not edit this Index to match the
-> disk either — the gap is the record of what is missing.
+> token source of truth** (it always was — see the note above). Do not
+> hand-author replacements for the files below: they exist in the upstream
+> Claude Design project `SimicDesignSystem_5a908e` and re-exporting or pulling
+> them (`DesignSync`) is the fix. Do not edit this Index to match the disk
+> either — the gap is the record of what is missing.
+>
+> **⚠ THE GENERATED FILES ARE NOW STALE — a re-sync will REGRESS the site.**
+> `_ds_manifest.json` and `_adherence.oxlintrc.json` are generated output and
+> were deliberately **not** hand-edited, so they still describe the palette as
+> it stood on 2026-08-08, before the static-site review (M2, m6). Three
+> divergences, all verified 2026-08-09:
+>
+> | Token | `site/style.css` (correct) | generated files (stale) |
+> |---|---|---|
+> | `--color-bg-note` dark | hue **175** | hue **195** |
+> | `--color-bg-note-status` dark | hue **85** | hue **75** |
+> | `--color-accent-quiet` | **deleted** (unused; 4.22:1 on `--color-bg`, fails AA) | still declared, and allowlisted at `_adherence.oxlintrc.json:124,192` |
+>
+> Nothing shipped is wrong — the consumed stylesheets (`site/style.css` and the
+> flattened `styles.css`) both carry the corrected values. The hazard is
+> directional: **a `DesignSync` re-sync overwrites these files from upstream and
+> would silently reintroduce all three.** Whoever completes the export must
+> re-apply the two hue corrections and re-delete `--color-accent-quiet`
+> (including both `_adherence.oxlintrc.json` entries) as part of that sync, then
+> diff the manifest's tokens against `site/style.css` before considering it
+> done. This is a recorded deferral, not an oversight.
 
 - `styles.css` — global entry (imports everything below) — **present but inert**
 - `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css` — **missing**
