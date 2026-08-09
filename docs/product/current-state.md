@@ -33,9 +33,11 @@ today), so the plainweave seeding gate needs owner presence soon.
   still awaits owner relay; the pack is confirmed absent upstream as of
   today's marketplace fetch — re-commissioning fresh (PDR-0012 reversal
   path) may now beat relaying.
-- Kernel demo spec (PDR-0028): **spec is final** (rev 5); still a concept
-  artifact only. Building it would be a new bet — DECIDE when the owner
-  wants it.
+- Kernel demo (PDR-0029): **spec LOCKED rev 6, implementation GO**
+  (owner, parallel session, 98083fd). Purpose owner-stated: the
+  proof-of-concept — "how do you know it works" pointer; maths is proved,
+  risk is engineering. Now a Next-band bet; sequencing vs burn-down/Phase A
+  is the open call. Never citable as §28 evidence.
 - Wiki replatform implementation (PDR-0028): approved design, untracked as
   work. Enter into filigree when the owner wants it scheduled. Until
   built, the mkdocs build path stays live.
