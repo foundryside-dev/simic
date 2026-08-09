@@ -16,8 +16,10 @@ import hashlib
 import inspect
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 import torch
+from torch import nn
 
 SCHEMA_VERSION = 1
 
@@ -500,6 +502,125 @@ def build_record(
         per_class_val_acc_std=per_class_val_acc_std,
         confusion_entropy=confusion_entropy,
     )
+
+
+# section 4 — HOST
+PATHOLOGIES = semantic_const(
+    "PATHOLOGIES",
+    ("under_normalized", "channel_starved", "no_spatial_mix", "mild"),
+)
+DESIGNED_WINNER = semantic_const(
+    "DESIGNED_WINNER",
+    {
+        "under_normalized": "norm",
+        "channel_starved": "conv_heavy",
+        "no_spatial_mix": "attn",
+        "mild": "conv_light",
+    },
+)
+
+if TYPE_CHECKING:
+
+    class Slot:  # placeholder forward reference only; Task 6 defines the real Slot(nn.Module)
+        def __call__(self, h: torch.Tensor) -> torch.Tensor: ...
+
+
+@semantic
+class Host(nn.Module):
+    # All pathology wiring lives here (constructor + private helpers) so an edit to any
+    # pathology's shape moves config_hash — build_host below is construction plumbing only.
+    def __init__(self, pathology: str) -> None:
+        super().__init__()
+        if pathology not in PATHOLOGIES:
+            raise ValueError(f"unknown pathology: {pathology}")
+        self.pathology = pathology
+        w1, w2, w3 = 24, 64, 80
+        if pathology == "mild":
+            w1, w3 = 20, 72
+        use_bn = pathology != "under_normalized"
+        gain = 2.0 if pathology == "under_normalized" else 1.0
+        s2_kernel, s2_pad = (1, 0) if pathology == "no_spatial_mix" else (3, 1)
+        s2_mid = 24 if pathology == "channel_starved" else w2
+        self.stage1 = self._make_stage(3, w1, w1, 3, 1, use_bn, gain)
+        self.stage2 = self._make_stage(w1, s2_mid, w2, s2_kernel, s2_pad, use_bn, gain)
+        self.stage3 = self._make_stage(w2, w3, w3, 3, 1, use_bn, gain)
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(w3, 10)
+        self.feat_channels = 64
+        self.stage_stats: dict[str, list[float]] = {}
+
+    def _make_stage(
+        self,
+        in_ch: int,
+        mid_ch: int,
+        out_ch: int,
+        kernel_size: int,
+        padding: int,
+        use_bn: bool,
+        gain: float,
+    ) -> nn.Sequential:
+        conv1 = nn.Conv2d(in_ch, mid_ch, kernel_size, padding=padding, bias=False)
+        conv2 = nn.Conv2d(mid_ch, out_ch, kernel_size, padding=padding, bias=False)
+        if gain != 1.0:
+            with torch.no_grad():
+                conv1.weight.mul_(gain)
+                conv2.weight.mul_(gain)
+        norm1: nn.Module = nn.BatchNorm2d(mid_ch) if use_bn else nn.Identity()
+        norm2: nn.Module = nn.BatchNorm2d(out_ch) if use_bn else nn.Identity()
+        return nn.Sequential(conv1, norm1, nn.ReLU(), conv2, norm2, nn.ReLU(), nn.MaxPool2d(2))
+
+    def forward_to_slot(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.stage1(x)
+        return cast(torch.Tensor, self.stage2(h))  # slot site: [B, 64, 8, 8] for every pathology
+
+    def forward(self, x: torch.Tensor, slot: Slot | None = None) -> torch.Tensor:
+        h = self.forward_to_slot(x)
+        if slot is not None:
+            h = slot(h)
+        h = self.stage3(h)
+        h = self.gap(h)
+        h = torch.flatten(h, 1)
+        return cast(torch.Tensor, self.fc(h))
+
+    def stage_modules(self) -> tuple[nn.Sequential, nn.Sequential, nn.Sequential]:
+        return self.stage1, self.stage2, self.stage3
+
+    def attach_stat_hooks(self) -> None:
+        self.stage_stats["saturation"] = [0.0, 0.0, 0.0]
+        for idx, stage in enumerate(self.stage_modules()):
+            last_relu = stage[5]  # conv, norm, relu, conv, norm, relu, pool
+            last_relu.register_forward_hook(self._saturation_hook(idx))
+
+    def _saturation_hook(self, idx: int) -> Callable[[nn.Module, tuple[torch.Tensor, ...], torch.Tensor], None]:
+        def hook(_module: nn.Module, _inputs: tuple[torch.Tensor, ...], output: torch.Tensor) -> None:
+            self.stage_stats["saturation"][idx] = float((output == 0).float().mean().item())
+
+        return hook
+
+
+@semantic
+def build_host(pathology: str, init_seed: int) -> Host:
+    with rng_scope(make_generator(init_seed)):
+        return Host(pathology)
+
+
+@semantic
+def host_init_hash(host: Host) -> str:
+    # Standalone here (sorted state_dict bytes, sha256); Task 7 rebinds this name to the
+    # zero-normalized state_hash. Unlike config_hash/frozen_block_hash (whose _NON_SEMANTIC
+    # entries read "an edit changes every hash by construction"), an edit here — e.g. skipping
+    # BN buffers — changes recorded host identities WITHOUT moving config_hash, and those
+    # identities feed the bitwise-identity assertions (host_hashes, hash_after_training). That
+    # is gate-outcome-affecting, so this stays on the semantic surface (plan L928 makes the
+    # same call for the state_hash name this rebinds to in Task 7).
+    h = hashlib.sha256()
+    sd = host.state_dict()
+    for name in sorted(sd):
+        arr = sd[name].detach().cpu().contiguous().numpy().tobytes()
+        h.update(name.encode())
+        h.update(len(arr).to_bytes(8, "big"))
+        h.update(arr)
+    return h.hexdigest()
 
 
 def main(argv: list[str] | None = None) -> None:
