@@ -1,0 +1,35 @@
+/* Simic color tokens — copied verbatim from site/style.css. Hue 225 carries structure, hue 175 carries emphasis. OKLCH so light/dark ramps stay perceptually matched. */
+:root{
+color-scheme: light dark;
+--ink-050: oklch(0.985 0.004 225);
+--ink-100: oklch(0.955 0.008 225);
+--ink-200: oklch(0.905 0.012 225);
+--ink-300: oklch(0.825 0.016 225);
+--ink-500: oklch(0.495 0.024 225);
+--ink-700: oklch(0.375 0.030 225);
+--ink-850: oklch(0.235 0.026 225);
+--ink-900: oklch(0.185 0.024 225);
+--ink-950: oklch(0.145 0.020 225);
+--teal-400: oklch(0.780 0.110 175);
+--teal-600: oklch(0.560 0.105 175);
+--teal-700: oklch(0.470 0.098 175);
+--amber-400: oklch(0.800 0.105 85);
+--amber-700: oklch(0.520 0.105 85);
+--color-bg:          light-dark(var(--ink-050), var(--ink-950));
+--color-bg-subtle:   light-dark(var(--ink-100), var(--ink-900));
+--color-bg-code:     light-dark(var(--ink-100), var(--ink-850));
+--color-bg-note:     light-dark(oklch(0.965 0.020 175), oklch(0.235 0.030 195));
+--color-bg-note-status: light-dark(oklch(0.975 0.022 85), oklch(0.235 0.028 75));
+--color-text:        light-dark(var(--ink-900), var(--ink-100));
+--color-text-muted:  light-dark(var(--ink-500), var(--ink-300));
+--color-heading:     light-dark(var(--ink-950), var(--ink-050));
+--color-border:      light-dark(var(--ink-200), oklch(0.300 0.020 225));
+--color-border-firm: light-dark(var(--ink-300), oklch(0.380 0.024 225));
+--color-accent:      light-dark(var(--teal-700), var(--teal-400));
+--color-accent-quiet:light-dark(var(--teal-600), oklch(0.660 0.080 175));
+--color-warn:        light-dark(var(--amber-700), var(--amber-400));
+--color-link:        var(--color-accent);
+--color-link-hover:  color-mix(in oklch, var(--color-link) 72%, var(--color-text) 28%);
+}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}

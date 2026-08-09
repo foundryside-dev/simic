@@ -1,0 +1,3 @@
+# Wiki UI kit
+
+Recreation of https://simic.foundryside.dev/design/ — the MkDocs Material projection of `docs/design/` (config: `tools/wiki/mkdocs.yml`). Key facts honored: `palette: teal/teal` (header `#009485`), `font: false` (system stack, no Google Fonts), light/dark toggle (working — click the sun icon), left nav derived from the chapter directory structure, right TOC, edit link to the real source, "Made with Material for MkDocs" footer. Content is `docs/design/00-INDEX.md`, abbreviated. This is theme chrome, not the design system's own component vocabulary — the wiki is stock Material by upstream choice.

@@ -1,0 +1,126 @@
+<!-- @dsCard group="Wiki" viewport="1280x860" name="Design docs — HLD index" subtitle="simic.foundryside.dev/design/ — MkDocs Material (teal, system fonts), recreated" -->
+<!-- @startingPoint section="Wiki" subtitle="MkDocs Material docs page: teal header, nav sections, TOC" viewport="1280x860" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Simic — High-Level Design</title>
+<link rel="icon" href="../../assets/mark.svg">
+<style>
+:root{--md-primary:#009485;--md-accent:#009485;--md-bg:#fff;--md-fg:rgba(0,0,0,0.87);--md-fg-light:rgba(0,0,0,0.54);--md-fg-lighter:rgba(0,0,0,0.32);--md-code-bg:#f5f5f5;--md-line:rgba(0,0,0,0.07);--md-font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--md-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+html[data-scheme="slate"]{--md-bg:#1e2129;--md-fg:rgba(255,255,255,0.82);--md-fg-light:rgba(255,255,255,0.56);--md-fg-lighter:rgba(255,255,255,0.32);--md-code-bg:#2e333e;--md-line:rgba(255,255,255,0.07)}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--md-font);font-size:0.8rem;line-height:1.6;background:var(--md-bg);color:var(--md-fg)}
+a{color:var(--md-primary);text-decoration:none}
+a:hover{color:#00bda4}
+.header{position:sticky;top:0;z-index:4;background:var(--md-primary);color:#fff;box-shadow:0 0 0.2rem rgba(0,0,0,.1),0 0.2rem 0.4rem rgba(0,0,0,.2)}
+.header__inner{max-width:61rem;margin:0 auto;display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0.8rem;height:2.4rem}
+.header__logo{width:1.2rem;height:1.2rem;filter:brightness(0) invert(1)}
+.header__title{font-size:0.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header__topic{font-weight:400;opacity:0.85}
+.search{flex:1;max-width:14rem;margin-left:auto;display:flex;align-items:center;gap:0.4rem;background:rgba(255,255,255,0.16);border-radius:0.1rem;padding:0.25rem 0.6rem;color:rgba(255,255,255,0.8);font-size:0.75rem;cursor:text}
+.search:hover{background:rgba(255,255,255,0.26)}
+.hbtn{background:none;border:0;color:#fff;cursor:pointer;padding:0.25rem;display:flex;border-radius:0.1rem}
+.hbtn:hover{opacity:0.8}
+.repo{display:flex;align-items:center;gap:0.5rem;font-size:0.65rem;line-height:1.3;color:#fff;padding:0.25rem 0.4rem}
+.repo svg{width:1.6rem;height:1.6rem;fill:#fff}
+.layout{max-width:61rem;margin:0 auto;display:grid;grid-template-columns:12.1rem minmax(0,1fr) 12.1rem;gap:0}
+.sidebar{position:sticky;top:2.4rem;height:calc(100vh - 2.4rem);overflow-y:auto;padding:1.2rem 0.8rem;font-size:0.7rem}
+.nav__title{display:block;font-weight:700;color:var(--md-fg);margin:0 0 0.5rem;padding:0.3rem 0}
+.nav__section{display:block;font-weight:700;color:var(--md-fg-light);text-transform:none;margin:1rem 0 0.4rem;font-size:0.68rem}
+.nav a{display:block;color:var(--md-fg-light);padding:0.15rem 0;transition:color 125ms}
+.nav a:hover{color:var(--md-accent)}
+.nav a.active{color:var(--md-accent);font-weight:700}
+.toc__title{display:block;font-weight:700;color:var(--md-fg);margin:0 0 0.5rem;padding:0.3rem 0;font-size:0.7rem}
+.toc a{display:block;color:var(--md-fg-light);padding:0.15rem 0;font-size:0.7rem;border-left:2px solid transparent;padding-left:0.6rem;margin-left:-0.6rem}
+.toc a:hover{color:var(--md-accent)}
+.toc a.active{color:var(--md-accent);border-left-color:var(--md-accent)}
+.content{padding:1.2rem 1.6rem 3rem;min-width:0}
+.content h1{font-size:1.6rem;font-weight:300;color:var(--md-fg-light);margin:0.8rem 0 1rem;line-height:1.3}
+.content h2{font-size:1.15rem;font-weight:300;margin:2rem 0 0.8rem;color:var(--md-fg)}
+.content h2 .anchor,.content h1 .anchor{opacity:0;color:var(--md-accent);font-weight:400;margin-left:0.3rem;font-size:0.85em}
+.content h2:hover .anchor{opacity:1}
+.content p{margin:0 0 0.8rem}
+.content code{font-family:var(--md-mono);font-size:0.85em;background:var(--md-code-bg);border-radius:0.1rem;padding:0 0.29em;word-break:break-word}
+.content table{width:100%;border-collapse:collapse;font-size:0.72rem;margin:0 0 1.2rem;box-shadow:0 0.2rem 0.5rem rgba(0,0,0,.05),0 0 0.05rem rgba(0,0,0,.1);border-radius:0.1rem;overflow:hidden;display:table}
+.content th{background:var(--md-code-bg);color:var(--md-fg);font-weight:700;text-align:left;padding:0.6rem 0.8rem}
+.content td{padding:0.6rem 0.8rem;border-top:1px solid var(--md-line);vertical-align:top}
+.content ul{padding-left:1.2rem;margin:0 0 0.8rem}
+.content li{margin-bottom:0.25rem}
+.admonition{border-radius:0.1rem;border-left:0.2rem solid var(--md-primary);box-shadow:0 0.2rem 0.5rem rgba(0,0,0,.05),0 0 0.05rem rgba(0,0,0,.1);margin:1.2rem 0;font-size:0.72rem;overflow:hidden}
+.admonition__title{background:rgba(0,148,133,0.1);color:var(--md-fg);font-weight:700;padding:0.4rem 0.8rem}
+.admonition__body{padding:0.6rem 0.8rem}
+.admonition__body p{margin:0}
+.foot{border-top:1px solid var(--md-line);margin-top:2rem;padding-top:1rem;display:flex;justify-content:space-between;color:var(--md-fg-lighter);font-size:0.68rem}
+.editlink{float:right;color:var(--md-fg-lighter)}
+.editlink:hover{color:var(--md-accent)}
+@media (max-width:76rem){.toc-col{display:none}}
+@media (max-width:60rem){.nav-col{display:none}.layout{grid-template-columns:minmax(0,1fr)}}
+</style></head>
+<body>
+<header class="header"><div class="header__inner">
+<img class="header__logo" src="../../assets/mark.svg" alt="">
+<div class="header__title">Simic — High-Level Design <span class="header__topic">· Simic HLD — Index</span></div>
+<div class="search"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 3a6.5 6.5 0 015.2 10.4l5 5-1.4 1.4-5-5A6.5 6.5 0 119.5 3m0 2a4.5 4.5 0 100 9 4.5 4.5 0 000-9z"/></svg>Search</div>
+<button class="hbtn" id="toggle" title="Switch to dark mode" onclick="const h=document.documentElement;h.dataset.scheme=h.dataset.scheme==='slate'?'default':'slate'"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a4 4 0 100 8 4 4 0 000-8m0 10a6 6 0 110-12 6 6 0 010 12m8-9.3V4h-4.7L12 .7 8.7 4H4v4.7L.7 12 4 15.3V20h4.7l3.3 3.3 3.3-3.3H20v-4.7l3.3-3.3z"/></svg></button>
+<a class="repo" href="https://github.com/foundryside-dev/simic"><svg viewBox="0 0 24 24"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2 0 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 016 0C17.3 4 18.3 4.3 18.3 4.3c.7 1.6.3 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .3z"/></svg><span>foundryside-dev/simic<br><span style="opacity:0.7">HLD v4.1 · locked</span></span></a>
+</div></header>
+<div class="layout">
+<nav class="sidebar nav nav-col">
+<span class="nav__title">Simic — High-Level Design</span>
+<a href="#" class="active">Simic HLD — Index</a>
+<a href="#">01 — The claim</a>
+<a href="#">02 — Constitution</a>
+<a href="#">03 — Principles</a>
+<a href="#">04 — Architecture</a>
+<a href="#">05 — Leyline contracts</a>
+<a href="#">06 — Growth model</a>
+<a href="#">07 — Counterfactual engine</a>
+<span class="nav__section">Domains</span>
+<a href="#">Overview</a>
+<a href="#">Augustin</a>
+<a href="#">Kasmina</a>
+<a href="#">Sarpadia</a>
+<span class="nav__section">Programme</span>
+<a href="#">Curriculum</a>
+<a href="#">Phases</a>
+<a href="#">Risks and open decisions</a>
+<span class="nav__section">Ops</span>
+<a href="#">Observability</a>
+<a href="#">Repo structure</a>
+<span class="nav__section">Appendices</span>
+<a href="#">Newsroom principle</a>
+<a href="#">Glossary</a>
+</nav>
+<main class="content">
+<a class="editlink" href="https://github.com/foundryside-dev/simic/edit/main/docs/design/00-INDEX.md" title="Edit this page">✎</a>
+<h1>Simic HLD — Index</h1>
+<p><strong>Architecture version:</strong> 4.1 · <strong>Namespec:</strong> 1.0 — locked · <strong>Status:</strong> canonical design authority (decomposed from the v4.1 monolith per <a href="#">ADR-0001</a>).</p>
+<p>Every chapter is standalone. Load <code>02-constitution.md</code> in every working session; load the chapters your task names; do not load the rest.</p>
+<h2 id="chapter-map">Chapter map<a class="anchor" href="#chapter-map">¶</a></h2>
+<table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>01-claim.md</code></td><td>The scientific claim and its falsifiers (exec summary, problem, goals, non-goals, success criteria, final statement)</td></tr>
+<tr><td><code>02-constitution.md</code></td><td><strong>Always load.</strong> Naming constitution, the 45 constitutional invariants (INV-01..INV-45), one-line namespec invariants</td></tr>
+<tr><td><code>03-principles.md</code></td><td>Design principles and the architectural smell catalogue</td></tr>
+<tr><td><code>04-architecture.md</code></td><td>Planes, subsystem map, end-to-end operating flow</td></tr>
+<tr><td><code>05-leyline-contracts.md</code></td><td>All core contract shapes (<code>StrategicEnvelope</code> … <code>ScaffoldManifest</code>)</td></tr>
+<tr><td><code>07-counterfactual-engine.md</code></td><td>Branch pools, Academy/Field QA, no-op anchoring, blindness, statistical unit</td></tr>
+</tbody></table>
+<h2 id="reading-paths">Reading paths<a class="anchor" href="#reading-paths">¶</a></h2>
+<ul>
+<li><strong>Implementing a domain:</strong> <code>02-constitution.md</code> + <code>domains/&lt;it&gt;.md</code> + <code>05-leyline-contracts.md</code> (its contracts) + <code>programme/learning.md</code> (its entry).</li>
+<li><strong>Admission / adjudication work:</strong> <code>02</code> + <code>domains/augustin.md</code> + <code>domains/urabrask.md</code> + <code>07-counterfactual-engine.md</code>.</li>
+<li><strong>New here:</strong> <code>01</code> → <code>04</code> → <code>02</code>, then <code>appendices/newsroom.md</code> for the authority model.</li>
+</ul>
+<h2 id="citation">Citation convention<a class="anchor" href="#citation">¶</a></h2>
+<div class="admonition"><div class="admonition__title">Note</div><div class="admonition__body"><p>Invariants: <strong>INV-nn</strong>. Contracts: by <strong>name</strong> (<code>GrowthIntent</code>), never by section number. Chapters: by <strong>path#anchor</strong>. Names and file anchors survive restructuring, numbers do not.</p></div></div>
+<h2 id="size">Size discipline<a class="anchor" href="#size">¶</a></h2>
+<p>Chapters stay under ~600 lines. A chapter that outgrows the budget is split by an ADR, never silently. (Largest at decomposition: <code>05-leyline-contracts.md</code>, 579 lines.)</p>
+<div class="foot"><span>Licensed Apache-2.0</span><span>Made with Material for MkDocs</span></div>
+</main>
+<nav class="sidebar toc toc-col">
+<span class="toc__title">Table of contents</span>
+<a href="#chapter-map" class="active">Chapter map</a>
+<a href="#reading-paths">Reading paths</a>
+<a href="#citation">Citation convention</a>
+<a href="#size">Size discipline</a>
+</nav>
+</div>
+</body></html>

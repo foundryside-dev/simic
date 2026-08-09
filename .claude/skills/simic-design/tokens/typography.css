@@ -1,0 +1,9 @@
+/* Simic typography tokens — system stacks by design: the site ships zero webfonts (no third-party requests). */
+:root{
+--font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* Upstream stack also lists "JetBrains Mono" and "Fira Code" as local-only fallbacks; omitted here because no font files ship (system stacks are a deliberate zero-request stance). */
+--font-code: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+--text-h1: clamp(2rem, calc(1.45rem + 2.6vw), 3.1rem);
+--text-h2: clamp(1.35rem, calc(1.18rem + 0.8vw), 1.75rem);
+--text-h3: clamp(1.08rem, calc(1.02rem + 0.3vw), 1.22rem);
+}
