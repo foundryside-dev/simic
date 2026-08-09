@@ -1,4 +1,4 @@
-# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3
+# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.1
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **This document is self-contained: no task requires any prior plan revision.**
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.14, torch 2.13.0+cu130 (installed, CUDA verified on 2× RTX 4060 Ti), torchvision 0.28.0+cu130 (added in Task 1), pytest. matplotlib (dev group) for the sidecar only.
 
-**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). Reviews live under `docs/superpowers/reviews/`.
+**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). Reviews live under `docs/superpowers/reviews/`.
 
 ## Global Constraints (inherited by every task)
 
@@ -21,12 +21,13 @@
 - Test-data wall: pre-freeze modes (`selftest`, `preflight`) run `read_test=False` and never touch the test partition (D2). Post-freeze modes record both units per spec.
 - `Config` holds all constants; `FROZEN_FIELDS` covers the frozen block incl. policy schedule and gate thresholds; `n_collect` is deliberately unfrozen (spec's extension lever).
 - Commit per task; pre-commit ruff (`E,W,F,I,N,UP,B,C4,SIM,RUF`, E501 ignored) + strict mypy — all code blocks below are lint-clean as shown (one statement per line, no lambda assignment, no unused imports, no upper-case field names).
+- **Pytest is CPU-only by design** — no `skipif(cuda)` tests anywhere; all GPU verification lives in the manual CLI checkpoints (`--selftest --certify`, Phases A–F). Do not add GPU-conditional tests.
 - CPU-green is necessary, **not sufficient for the Class-1 claim** — only GPU phases certify determinism; any change to sections 4/5/6/8/9 after certification voids it until Phase A re-runs.
 - Code phase (Tasks 1–18) first; **all GPU work in the Operational Phases after Task 18**; freeze happens only at the certified final commit.
 
 ### Plan-authored constants (owner sign-off required at freeze — not spec values)
 
-`tau_eps=1e-6` (spec: "ε a floor", no value) · `policy_lr=1e-3`, `policy_batch_size=64`, `policy_steps=4000`, `warmup_frac=0.3` (policy schedule; frozen, selects the headline checkpoint) · `eval_chunk=1000` (evaluate_acc chunking) · gate multipliers `2.0`/`0.5`/`0.40` etc. (D9) · `fsync_every=20`. `seed_lr=0.05` is spec-derived ("same LR" as host).
+`tau_eps=1e-6` (spec: "ε a floor", no value) · `policy_lr=1e-3`, `policy_batch_size=64`, `policy_steps=4000`, `warmup_frac=0.3` (policy schedule; frozen, selects the headline checkpoint) · `eval_chunk=1000` (evaluate_acc chunking) · gate multipliers `2.0`/`0.5`/`0.40` etc. (D9) · `fsync_every=20` · `preflight_refans=12` (gate-3 refan noise floor). `seed_lr=0.05` is spec-derived ("same LR" as host).
 
 ## Deviations Register (exhaustive; surfaced, not silent)
 
@@ -42,7 +43,7 @@
 | D8 | `state_hash` canonicalizes signed zero universally; every "bitwise" claim is modulo that | IEEE-754: the STE add flips `−0.0`→`+0.0`, so raw-byte bitwise is unachievable in seed arms by construction; the spec's own null-seed contingency names zero-normalized hashing — promoted to the single primitive |
 | D9 | Gate thresholds (2.0× contrast, 0.5× late-density, 0.40 dominance, ≥2 mild wins, 0.5 probe floor) are plan-chosen values | Spec names the gates but not these constants; all are frozen Config fields; owner signs off at freeze |
 | D10 | `torch.compile` added to `FORBIDDEN_RELAXATIONS` | Spec's list omits it; a compiled kernel voids deterministic-algorithm guarantees; strengthening only |
-| D11 | τ-init measures the seed in `train()` mode (host in `eval()`/no-grad per spec) | Spec pins the host mode only. BN-carrying seeds differ across modes; train-mode calibration is the mode of the first TRAINING step, making "every arm enters at τ" true where it matters |
+| D11 | τ-init measures the seed in `train()` mode (host in `eval()`/no-grad per spec) | Spec pins the host mode only. BN-carrying seeds differ across modes; train-mode calibration is the mode of the first TRAINING step, making "every arm enters at τ" true where it matters. **Owner ack required** |
 | D12 | GERMINATED is zero-duration (collapses into TRAINING's first tick) | Spec lists the FSM state; nothing observes a nonzero dwell |
 | D13 | Gate-2 probe = 200-step `nn.Linear` + hand-rolled by-episode split, not sklearn | No new dependency |
 
@@ -64,7 +65,7 @@
 - **Phase C — Collect (overnight):** idempotent; halt-on-divergence.
 - **Phase D — Train.** **Phase E — Eval (user present, one-shot, resume-safe).** **Phase F — Report + replay spot-check.**
 
-**Runtime budget (measured, not guessed):** 2.78 s/epoch floor under real Class-1 flags on this hardware. Collection ≈ 300 episodes × ~340 epochs ≈ 79 GPU-h; eval battery ≈ 48k epochs ≈ 37 GPU-h. **VRAM measured ≈ 0.85–1.05 GB/worker → 6 workers/card fits with ~2× margin (15.6 GiB usable).** At 12 workers: collect ≈ 7 h, eval ≈ 3 h — overnight is real at 12 workers and ~2× optimistic at 6. Gate 8 records wall-clock at 1-vs-N workers, yielding the true concurrency factor and the spec-mandated deterministic-mode cost from a run already required.
+**Runtime budget (per-epoch floor measured; concurrency scaling is a planning assumption until gate 8):** 2.78 s/epoch floor under real Class-1 flags on this hardware. Collection ≈ 300 episodes × ~340 epochs ≈ 79 GPU-h; eval battery ≈ 48k epochs ≈ 37 GPU-h. **VRAM measured ≈ 0.85–1.05 GB/worker → 6 workers/card fits with ~2× margin (15.6 GiB usable).** Dividing by 12 workers gives collect ≈ 6.6 h / eval ≈ 3.1 h **assuming linear scaling — unverified**; six processes timesharing one GPU realistically deliver ~4–6× aggregate, so the planning case is collect ≈ 13–20 h wall-clock. Gate 8 measures the true concurrency factor before anything is committed. (The 2.78 s floor was measured on the old ~289k host; the 162k host runs faster, partially offsetting.) Gate 8 records wall-clock at 1-vs-N workers, yielding the true concurrency factor and the spec-mandated deterministic-mode cost from a run already required.
 
 **After freeze, any behavioral source change creates a new run generation** (new `manifest_hash`); generations never mix in one number.
 
@@ -82,7 +83,9 @@
   (torchvision ships no py.typed; strict mypy hard-fails otherwise — verified).
 - Create: `experiments/__init__.py`, `experiments/kernel_demo.py`, `tests/unit/__init__.py`, `tests/unit/kernel_demo/__init__.py`, `tests/unit/kernel_demo/test_derive.py`
 
-**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
+**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `semantic(obj)` (decorator), `_SEMANTIC_SURFACE`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
+
+`derive` is decorated `@semantic` at its definition, which is why `_SEMANTIC_SURFACE`/`semantic` are defined above it. The qualname sort makes the hash independent of registration order, and the surface is extended **only** by decoration at module definition time — Tasks 4, 5, 7 and 14 decorate their classes/functions; nothing ever appends from inside a factory or a gate run. (Rev 3 registered at call time, which made `config_hash()` call-order- and call-count-dependent: a worker mid-episode and a fresh parent disagreed, and the Task 15/17 refusal gates could spuriously fire or pass.)
 
 - [ ] **Step 1: pyproject edits** as above; verify `uv run python -c "import torchvision; print(torchvision.__version__)"`. STOP and report if unresolvable.
 - [ ] **Step 2: Failing tests**
@@ -95,7 +98,6 @@ import torch
 
 from experiments.kernel_demo import (
     Config,
-    config_hash,
     derive,
     frozen_block_hash,
     make_generator,
@@ -141,8 +143,21 @@ def test_frozen_hash_covers_policy_and_gate_knobs_but_not_n_collect():
     assert frozen_block_hash(more) == frozen_block_hash(c)
 
 
-def test_config_hash_stable_within_process():
-    assert config_hash() == config_hash()
+def test_config_hash_matches_fresh_subprocess():
+    import os
+    import subprocess
+    import sys
+
+    import experiments.kernel_demo as k
+
+    out = subprocess.run(
+        [sys.executable, "-c", "import experiments.kernel_demo as k; print(k.config_hash())"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONPATH": "src:."},
+    )
+    assert out.stdout.strip() == k.config_hash()
 ```
 
 - [ ] **Step 3: Run** `uv run pytest tests/unit/kernel_demo/test_derive.py -v` — FAIL (ImportError).
@@ -165,6 +180,7 @@ import argparse
 import contextlib
 import hashlib
 import inspect
+import types
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -172,7 +188,18 @@ import torch
 
 SCHEMA_VERSION = 1
 
+_SEMANTIC_SURFACE: list[type | types.FunctionType] = []
 
+
+def semantic[T: type | types.FunctionType](obj: T) -> T:
+    # Import-time registration, exactly once per process. NEVER call from a
+    # factory: call-time registration made config_hash depend on call order
+    # (rev 3 defect — a worker mid-episode and a fresh parent disagreed).
+    _SEMANTIC_SURFACE.append(obj)
+    return obj
+
+
+@semantic
 def derive(seed: int, *labels: str | int) -> int:
     h = hashlib.sha256()
     h.update(seed.to_bytes(8, "big"))
@@ -185,7 +212,10 @@ def derive(seed: int, *labels: str | int) -> int:
 
 def make_generator(seed: int, device: str | torch.device = "cpu") -> torch.Generator:
     g = torch.Generator(device=device)
-    g.manual_seed(seed)  # full uint64 is accepted; do NOT mask (seed aliasing)
+    # full uint64 is accepted; do NOT mask (seed aliasing). CPU and CUDA
+    # generators produce different streams for the same seed — all current
+    # call sites use the CPU default; do not assume cross-device comparability.
+    g.manual_seed(seed)
     return g
 
 
@@ -221,6 +251,7 @@ class Config:
     seed_lr: float = 0.05
     diverged_r: float = 0.10
     fans_per_episode: int = 2
+    preflight_refans: int = 12     # gate-3 noise-floor refans (plan-authored, owner sign-off at freeze)
     # frozen: statistics
     n_preflight: int = 30
     n_eval: int = 100
@@ -254,7 +285,7 @@ class Config:
 FROZEN_FIELDS: tuple[str, ...] = (
     "tau", "tau_eps", "lam", "stage_k", "stage_m", "stage_f", "horizon",
     "window", "t_star", "lr", "momentum", "wd", "seed_lr", "diverged_r",
-    "fans_per_episode", "n_preflight", "n_eval", "alpha_level",
+    "fans_per_episode", "preflight_refans", "n_preflight", "n_eval", "alpha_level",
     "permutation_resamples", "beta_which_frac", "beta_now_div",
     "gate1_min_mild_noop_wins", "gate2_probe_min_acc", "gate3_contrast_mult",
     "gate4_dominance_max", "gate5_rms_band", "gate6_late_density_mult",
@@ -267,19 +298,9 @@ def frozen_block_hash(cfg: Config) -> str:
     return hashlib.sha256("\n".join(lines).encode()).hexdigest()
 
 
-def _semantic_sources() -> list[object]:
-    # Populated as the named objects come to exist (Tasks 4-7, 14 extend this
-    # list in place); config_hash covers the semantic surface whose edits
-    # change behavior without moving frozen_block_hash.
-    return list(_SEMANTIC_SURFACE)
-
-
-_SEMANTIC_SURFACE: list[object] = [derive]
-
-
 def config_hash() -> str:
     h = hashlib.sha256()
-    for obj in _semantic_sources():
+    for obj in sorted(_SEMANTIC_SURFACE, key=lambda o: o.__qualname__):
         h.update(inspect.getsource(obj).encode())
     return h.hexdigest()
 
@@ -321,15 +342,23 @@ if __name__ == "__main__":
 
 **Interfaces:**
 - Consumes: `derive`, `make_generator`, `Config`.
-- Produces: `CIFAR_MEAN`, `CIFAR_STD`; `split_indices(run_seed) -> (train_idx 45k, val_idx 5k)` (pure, download-free); `DataBundle` (six tensor fields, one per line); `load_data(cfg, device, subset=None)` (CIFAR10 → `runs/data`; official 10k test untouched; named `to_device` helper, no lambda); `CommonFuture` (`order` int64 **[E, S*B]** flat indices, `crops` uint8 [E,S,B,2] 0–8, `flips` bool [E,S,B], `epochs`, `hash`; `draw(seed, n_train, epochs, cfg)` — one generator); `augment(x_u8, crops, flips)` (float32 normalize → reflect-pad-4 → per-sample crop by advanced indexing → per-sample flip; pure, RNG-free).
+- Produces: `CIFAR_MEAN`, `CIFAR_STD`; `split_indices(run_seed) -> (train_idx 45k, val_idx 5k)` (pure, download-free); `data_split_id(cfg) -> str` — sha256 over the length-prefixed concatenated bytes of the train/val/test index arrays from `split_indices(cfg.run_seed)` (content-derived: any change to the split function or seed moves it; this is the value `frozen.json` records); `DataBundle` (six tensor fields, one per line); `load_data(cfg, device, subset=None)` (CIFAR10 → `runs/data`; official 10k test untouched; named `to_device` helper, no lambda); `CommonFuture` (`order` int64 **[E, S*B]** flat indices, `crops` uint8 [E,S,B,2] 0–8, `flips` bool [E,S,B], `epochs`, `hash`; `draw(seed, n_train, epochs, cfg)` — one generator); `augment(x_u8, crops, flips)` (float32 normalize → reflect-pad-4 → per-sample crop by advanced indexing → per-sample flip; pure, RNG-free).
 
 - [ ] **Step 1: Failing tests**
 
 ```python
 # tests/unit/kernel_demo/test_data.py
+import dataclasses
+
 import torch
 
-from experiments.kernel_demo import CommonFuture, Config, augment, split_indices
+from experiments.kernel_demo import (
+    CommonFuture,
+    Config,
+    augment,
+    data_split_id,
+    split_indices,
+)
 
 
 def test_split_indices_partition_invariants():
@@ -364,6 +393,13 @@ def test_augment_pure_function_no_rng():
     assert torch.equal(y1, y2)
     assert y1.shape == (4, 3, 32, 32) and y1.dtype == torch.float32
     assert not torch.equal(y1, augment(x, crops, ~flips))
+
+
+def test_data_split_id_content_derived():
+    assert data_split_id(Config()) == data_split_id(Config())
+    assert data_split_id(Config()) != data_split_id(
+        dataclasses.replace(Config(), run_seed=Config().run_seed + 1)
+    )
 ```
 
 - [ ] **Step 2: FAIL.** **Step 3: Implement**
@@ -468,6 +504,7 @@ def augment(x_u8: torch.Tensor, crops: torch.Tensor, flips: torch.Tensor) -> tor
 - `confusion_stats(logits, labels, n_classes=10) -> tuple[float, float]` — per-class accuracy std; entropy of the pooled off-diagonal confusion distribution.
 - `class Normalizer` — per-feature median/IQR (IQR floored 1e-8): `fit(vectors)`, `apply(v)`, `to_json()`, `from_json(s)`, `Normalizer.identity()` classmethod (no-op, for tests).
 - `build_record(...)` — the one construction site: takes epoch, losses/accs, per-stage grad-norm accumulations, saturation means (from `host.stage_stats`), weight norms, confusion stats; returns `TelemetryRecord`. Called only by the episode loop (Task 8).
+- **Helper hoist (forward note):** `test_telemetry.py` defines `_rec` locally here — valid, because `conftest.py` does not exist until Task 8. Task 8 hoists it to `conftest.py` as `make_telemetry_rec` and `test_telemetry.py` switches to importing it; do the hoist as part of Task 8 Step 1. No test file ever imports a private name from another test file.
 
 - [ ] **Step 1: Failing tests**
 
@@ -490,13 +527,13 @@ from experiments.kernel_demo import (
 
 
 def _rec(**kw):
-    base = dict(
-        epoch=3, train_loss=1.2, val_loss=1.3, val_acc=0.41,
-        train_loss_delta=-0.1, val_loss_delta=-0.05,
-        grad_norm_mean=(1.0, 2.0, 3.0), grad_norm_var=(0.1, 0.2, 0.3),
-        act_saturation=(0.5, 0.4, 0.3), weight_norm=(10.0, 11.0, 12.0),
-        per_class_val_acc_std=0.05, confusion_entropy=2.1,
-    )
+    base = {
+        "epoch": 3, "train_loss": 1.2, "val_loss": 1.3, "val_acc": 0.41,
+        "train_loss_delta": -0.1, "val_loss_delta": -0.05,
+        "grad_norm_mean": (1.0, 2.0, 3.0), "grad_norm_var": (0.1, 0.2, 0.3),
+        "act_saturation": (0.5, 0.4, 0.3), "weight_norm": (10.0, 11.0, 12.0),
+        "per_class_val_acc_std": 0.05, "confusion_entropy": 2.1,
+    }
     base.update(kw)
     return TelemetryRecord(**base)
 
@@ -548,7 +585,7 @@ def test_confusion_stats_separate_uniform_from_structured():
 **Interfaces (Produces):**
 - `PATHOLOGIES = ("under_normalized", "channel_starved", "no_spatial_mix", "mild")`; `DESIGNED_WINNER = {"under_normalized": "norm", "channel_starved": "conv_heavy", "no_spatial_mix": "attn", "mild": "conv_light"}`.
 - `class Host(nn.Module)` — 3 stages (Conv-BN-ReLU ×2 + `MaxPool2d(2)`), `nn.AdaptiveAvgPool2d(1)` GAP (the documented deterministic-backward case), `Linear(→10)`. **Healthy widths 24/64/80 ≈ 162k params** (D7). **Slot after stage2's pool → slot input `[B, 64, 8, 8]` for every pathology.** Pathologies change internal capacity only: `under_normalized` = same widths, BN→Identity, init gain ×2; `channel_starved` = stage2 internally 24→24 then 24→64; `no_spatial_mix` = stage2 all-1×1 (24→64); `mild` = stages 1/3 reduced to 20/72 (≈142k). `host.feat_channels == 64` constant; `host.forward_to_slot(x)` (stops at slot site — how `germinate` obtains τ-init features); `host.forward(x, slot: "Slot | None")` (PEP 563 forward reference; Task 6 defines `Slot`; only `slot is None`/`slot(h)` used at runtime); `host.attach_stat_hooks()` → `host.stage_stats["saturation"]` (per-stage zero-fraction of the last ReLU, overwritten per forward; the episode loop averages per epoch); `host.stage_modules()`.
-- `build_host(pathology, init_seed) -> Host` — inside `rng_scope(make_generator(init_seed))`; appends `Host`'s class source to `_SEMANTIC_SURFACE`.
+- `build_host(pathology, init_seed) -> Host` — inside `rng_scope(make_generator(init_seed))` (`Host` is decorated `@semantic` — import-time registration; `build_host` never touches `_SEMANTIC_SURFACE`).
 - `host_init_hash(host) -> str` — **standalone here** (sorted state_dict bytes, sha256); Task 7 rebinds it to the zero-normalized `state_hash`.
 
 - [ ] **Step 1: Failing tests**
@@ -607,7 +644,7 @@ def test_construction_does_not_touch_global_rng():
 **Interfaces (Produces):**
 - `SEED_NAMES = ("norm", "attn", "conv_light", "conv_heavy")`.
 - `class SeedDelta(nn.Module)` — `self.gain = nn.Parameter(torch.zeros(()))`; `forward(h) = self.gain * self.f(h)`; abstract `f`. Subclasses at C=64 (reviewer-computed): `NormSeed` `f = GroupNorm(8, 64)(h) − h` (129p); `AttnSeed` LN → explicit single-head qkv/out `Linear(64,16)`×3 + `Linear(16,64)`, no SDPA (~4.2k); `ConvLightSeed` depthwise 3×3 + pointwise **mid=64** + BN + ReLU + pointwise (8,897 — mid=16/32 would fail the budget floor at 2,657/4,737); `ConvHeavySeed` 3×3-BN-ReLU-3×3-BN, **bottleneck Cb=52** (60,137; valid band [31,77]). Internals standard-init; final BN γ=1; only the gain carries τ.
-- `build_seed(name, channels, init_seed) -> SeedDelta` — inside `rng_scope`; appends each seed class source to `_SEMANTIC_SURFACE`.
+- `build_seed(name, channels, init_seed) -> SeedDelta` — inside `rng_scope` (each seed class and `SeedDelta` are decorated `@semantic`; `build_seed` never touches `_SEMANTIC_SURFACE`).
 - `tau_init(seed, host_feats, cfg) -> float` — caller supplies `host_feats` from `host.forward_to_slot` under `host.eval()`/`no_grad` (host BN protection, spec); the measurement runs the seed **in `train()` mode under `no_grad`** (D11 — the mode of the first TRAINING step; seed BN buffers mutated by the fixed measurement batch are deterministic birth state); `g = cfg.tau * rms(host_feats) / max(rms(f0), cfg.tau_eps)`; sets and returns `g`.
 - `split_decay_groups(module) -> (decay: list[tuple[str, Tensor]], no_decay: list[tuple[str, Tensor]])` — **rule: `param.ndim <= 1 or name.endswith("gain") → no-decay`** (coextensive with the spec's gain/affines/biases list; robust to `nn.Sequential` integer names, where substring rules silently mis-file BN affines).
 
@@ -621,6 +658,7 @@ import torch
 from experiments.kernel_demo import (
     Config,
     SEED_NAMES,
+    build_host,
     build_seed,
     split_decay_groups,
     tau_init,
@@ -665,6 +703,16 @@ def test_no_decay_rule_catches_sequential_bn_affines():
     assert any(isinstance(m, torch.nn.BatchNorm2d) for m in s.modules())
     for n, p in decay:
         assert p.ndim > 1, f"1-d param {n} leaked into decay group"
+
+
+def test_config_hash_call_order_independent():
+    import experiments.kernel_demo as k
+
+    before = k.config_hash()
+    build_host("mild", 3)
+    build_seed("conv_heavy", 64, 4)
+    build_seed("conv_heavy", 64, 4)  # repeat call — the rev 3 drift case
+    assert k.config_hash() == before
 ```
 
 - [ ] **Steps 2–4: FAIL → implement → PASS.** **Step 5: Commit.**
@@ -796,7 +844,7 @@ def test_cosine_ease_endpoints():
 - `state_hash(module) -> str` — sorted `state_dict()`, `.detach().cpu().contiguous()`, **`torch.where(v == 0, zeros, v)`** (D8), sha256 over key + bytes. `host_init_hash` is rebound to this (Task 4's standalone version retired).
 - `env_block(device, worker_count) -> dict` (torch/cuda/cudnn/python versions, GPU name, TF32 flags, worker_count, device_index); `REPLAY_REFUSAL_KEYS` (worker_count/device_index provenance-only — the composition of worker_count-in-key + single-worker replay was a proven deadlock).
 - `FORBIDDEN_RELAXATIONS: tuple[str, ...]` — spec list + `torch.compile` (D10).
-- `_SEMANTIC_SURFACE` extended with `Slot`, `state_hash`.
+- `Slot` (Task 6) and `state_hash` are decorated `@semantic` at their definitions — import-time registration only; nothing appends to `_SEMANTIC_SURFACE` at call time.
 
 - [ ] **Step 1: Failing tests**
 
@@ -869,7 +917,7 @@ def test_env_block_keys_and_refusal_subset():
 # tests/unit/kernel_demo/conftest.py
 import torch
 
-from experiments.kernel_demo import DataBundle
+from experiments.kernel_demo import DataBundle, TelemetryRecord
 
 
 def make_tiny_bundle(device: str = "cpu") -> DataBundle:
@@ -887,6 +935,18 @@ def make_tiny_bundle(device: str = "cpu") -> DataBundle:
     vx, vy = mk(128)
     ex, ey = mk(128)
     return DataBundle(tx, ty, vx, vy, ex, ey)
+
+
+def make_telemetry_rec(**kw):
+    base = {
+        "epoch": 3, "train_loss": 1.2, "val_loss": 1.3, "val_acc": 0.41,
+        "train_loss_delta": -0.1, "val_loss_delta": -0.05,
+        "grad_norm_mean": (1.0, 2.0, 3.0), "grad_norm_var": (0.1, 0.2, 0.3),
+        "act_saturation": (0.5, 0.4, 0.3), "weight_norm": (10.0, 11.0, 12.0),
+        "per_class_val_acc_std": 0.05, "confusion_entropy": 2.1,
+    }
+    base.update(kw)
+    return TelemetryRecord(**base)
 ```
 
 - [ ] **Step 1: Failing tests**
@@ -972,7 +1032,7 @@ def test_end_state_r():
 **Interfaces:**
 - Consumes (itemized): Task 8's API (`EpisodeCtx`, `make_episode`, `train_one_epoch`, `Snapshot`, `take_snapshot`, `germinate`, `end_state_R`), `state_hash`, `Stage`, `Slot`, `build_optimizer`, `Config`.
 - Produces:
-  - `class TwinDivergence(RuntimeError)` — carries `first_bad_epoch: int`.
+  - `class TwinDivergence(RuntimeError)` — carries `first_bad_epoch: int`, the **absolute epoch index in the episode's numbering** (not an offset from `snap.epoch`).
   - `@dataclass ArmResult`: `name: str`, `status: str` ("ok"|"diverged"), `r_val: float`, `r_test: float | None`, `curve_val: list[float]`, `curve_test: list[float] | None`, `init_seed: int`, `g_at_init: float | None`, `rms_ratio_blend_entry: float | None` (from `Slot.rms_ratio()` at the first BLENDING step), `hash_after_training: str | None` (every arm), `host_hashes: list[str] | None` (noop/nullseed arms), `alpha_beta_log: list[tuple[float, float]] | None` (from `Slot.alpha_beta_log` — the α/β plot's data source).
   - `@dataclass BaseTrace`: `host_hashes: list[str]`, `curve_val: list[float]`, `curve_test: list[float] | None`, `snapshots: dict[int, Snapshot]` (captured at the scheduled fan epochs during the single base pass), `status: str`, `diverged_at: int | None`.
   - `run_base(ctx, cfg, fan_epochs: tuple[int, ...]) -> BaseTrace` — **a thin wrapper over the same inner loop `run_arm` uses** (one loop, two call sites — base/twin drift is structurally impossible). Base divergence: status recorded, `r_noop = cfg.diverged_r`, hashes kept to the divergence epoch, fans scheduled after it are skipped (recorded).
@@ -1059,6 +1119,51 @@ def test_cross_arm_assertion_fires_on_injected_corruption(monkeypatch):
     monkeypatch.setattr(kd, "state_hash", corrupt_third)
     with pytest.raises((AssertionError, TwinDivergence)):
         run_fan(CFG, ctx.data, "cpu", 31, ctx.pathology, ctx.future, snap, base, False)
+
+
+def test_base_divergence_skips_scheduled_fans(monkeypatch):
+    import experiments.kernel_demo as k
+
+    real = k.build_record
+
+    def bomb(*a, **kw):
+        rec = real(*a, **kw)
+        if rec.epoch == 1:
+            raise k.TelemetryDivergence("injected")
+        return rec
+
+    monkeypatch.setattr(k, "build_record", bomb)
+    ctx = make_episode(CFG, make_tiny_bundle(), "cpu", 41)
+    trace = run_base(ctx, CFG, fan_epochs=(FAN_EPOCH,))
+    assert trace.status == "diverged"
+    assert trace.diverged_at == 1
+    assert FAN_EPOCH not in trace.snapshots  # scheduled fan skipped, not run
+
+
+def test_nonfinite_arm_is_measured_not_abort(monkeypatch):
+    import experiments.kernel_demo as k
+
+    ctx, trace = _base()
+    snap = trace.snapshots[FAN_EPOCH]
+    real = k.tau_init
+
+    def huge_tau(seed, host_feats, cfg):
+        g = real(seed, host_feats, cfg)
+        if type(seed).__name__ == "ConvHeavySeed":
+            seed.gain.data.fill_(1e30)
+            return 1e30
+        return g
+
+    monkeypatch.setattr(k, "tau_init", huge_tau)
+    arms, _ = run_fan(
+        CFG, ctx.data, "cpu", 31, ctx.pathology, ctx.future,
+        snap, trace, read_test=False,
+    )
+    heavy = next(a for a in arms if a.name == "conv_heavy")
+    assert heavy.status == "diverged"
+    assert heavy.r_val == CFG.diverged_r
+    finite = [a for a in arms if a.status == "ok"]
+    assert finite  # finite arms completed and passed the cross-arm hash check
 ```
 
 - [ ] **Steps 2–4: FAIL → implement → PASS.** **Step 5: Commit.**
@@ -1072,9 +1177,10 @@ def test_cross_arm_assertion_fires_on_injected_corruption(monkeypatch):
 **Interfaces (Produces):**
 - `class SplitViolation(RuntimeError)`.
 - `@dataclass FanRecord`: `schema_version: int`, `kind: str` ∈ {`fan`, `refan`, `policy_run`, `preflight_iter`, `extension_event`, `void_event`}, `episode_seed: int`, `seed_namespace: str` ∈ {dev, preflight, train, eval}, `split_role: str` ∈ {preflight, train, tune, eval}, `pathology_id: str`, `fan_epoch: int | None`, `refan_k: int | None`, `schedule_id: str` (= sha256 of `("uniform-no-replacement", cfg.window, cfg.fans_per_episode)` canonical string — now defined), `policy_checkpoint_id: str | None`, `iteration: int | None` (preflight_iter counter), `config_hash: str`, `frozen_block_hash: str`, `manifest_hash: str | None` (None pre-freeze), `common_future_hash: str`, `host_init_hash: str`, `env: dict`, `arms: list[dict]` (ArmResult-as-dict), `telemetry: list[dict]`, `decisions: list[dict] | None` (**policy_run payload**: per-epoch `{epoch, p, action}` + `germination_epoch`), `gate_results: dict | None` (**preflight_iter payload**), `fan_id: str`.
-- `fan_id` = sha256 over the **full identity tuple** `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)` — comparator runs and preflight iterations are distinct identities. **`Store.merge()` asserts uniqueness for `kind ∈ {fan, refan}` records within one `manifest_hash` generation** (the duplication backstop) — event/policy_run/preflight kinds are exempt from the collision assert but still carry unique ids.
-- `encode_record(r) -> str` / `decode_record(line) -> FanRecord` — JSON; non-finite → `null` recursively; tuples become lists (consumers take dicts/lists); **`decode_record` asserts `schema_version == SCHEMA_VERSION`** and refuses otherwise with a message naming the migration rule: **post-collection schema changes are additive-only** (decoder fills absent new fields with `None`); a non-additive bump pre-collection wipes scratch stores; a non-additive bump post-collection is an owner decision (re-collect vs. translate), never silent.
-- `class Store(root)`: `shard_path(worker_id)` → `shards/worker_{id}.jsonl`; `append(worker_id, record)` (write + flush; **`os.fsync` every `cfg.fsync_every` records and on close** — durability target: host-level failure loses ≤ fsync_every records, process crash loses none); `merge() -> list[FanRecord]` sorted `(episode_seed, fan_epoch, kind, refan_k)`; `load(split_role, kinds=("fan",))` filter.
+- `fan_id` = sha256 over the **full identity tuple** `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)` — comparator runs and preflight iterations are distinct identities. **`Store.merge()` raises `ValueError` on duplicate `fan_id` for `kind ∈ {fan, refan}` records within one `manifest_hash` generation** (the duplication backstop) — event/policy_run/preflight kinds are exempt from the collision assert but still carry unique ids. Implementer note: `iteration` and `policy_checkpoint_id` must be derived deterministically from store state (the `preflight_iter` count already in the store; the checkpoint's content identity) — never from wall-clock or process-local counters — so a resumed run reconstructs identical `fan_id`s.
+- `make_fan_record(**fields) -> FanRecord` — the sole constructor tests and production use; derives `fan_id` from the identity tuple `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)`; every other field passed by name.
+- `encode_record(r) -> str` / `decode_record(line) -> FanRecord` — JSON; non-finite → `null` recursively; tuples become lists (consumers take dicts/lists); **`decode_record` raises `ValueError` unless `schema_version == SCHEMA_VERSION`**, refusing with a message naming the migration rule: **post-collection schema changes are additive-only** (decoder fills absent new fields with `None`); a non-additive bump pre-collection wipes scratch stores; a non-additive bump post-collection is an owner decision (re-collect vs. translate), never silent.
+- `class Store(root)`: `shard_path(worker_id)` → `shards/worker_{id}.jsonl`; `append(worker_id, record)` (write + flush; **`os.fsync` every `cfg.fsync_every` records and on close** — durability target: host-level failure loses ≤ fsync_every records, process crash loses none); `merge() -> list[FanRecord]` sorted by `(episode_seed, -1 if fan_epoch is None else fan_epoch, kind, -1 if refan_k is None else refan_k)` — `None` coalesces to `-1` so event records (`fan_epoch=None`) sort before that episode's fans instead of raising `TypeError`; `load(split_role, kinds=("fan",))` filter.
 - `load_for_training(store) -> list[FanRecord]` — returns train+tune fans; **re-checks every record it yields** and raises `SplitViolation` on `split_role == "eval"` or `kind != "fan"` (the guard is on the yield path, not vacuously behind the filter). `_assert_trainable(records)` is the shared check, callable directly.
 - `train_tune_split` happens **at collection time**: `split_role = "tune" if derive(episode_seed, "tune-split") % 5 == 0 else "train"` — recorded per episode, never re-split downstream.
 
@@ -1098,14 +1204,23 @@ from experiments.kernel_demo import (
 )
 
 
-def _rec(episode_seed=1, fan_epoch=5, split_role="train", kind="fan", **kw):
+def _rec(
+    episode_seed=1,
+    fan_epoch=5,
+    split_role="train",
+    kind="fan",
+    policy_checkpoint_id=None,
+    iteration=None,
+    **kw,
+):
     # make_fan_record derives fan_id from the identity tuple — tests never
     # hardcode fan_id.
     return make_fan_record(
         kind=kind, episode_seed=episode_seed, seed_namespace="train",
         split_role=split_role, pathology_id="mild", fan_epoch=fan_epoch,
-        refan_k=None, schedule_id="s", policy_checkpoint_id=None,
-        iteration=None, config_hash="c", frozen_block_hash="f",
+        refan_k=None, schedule_id="s",
+        policy_checkpoint_id=policy_checkpoint_id,
+        iteration=iteration, config_hash="c", frozen_block_hash="f",
         manifest_hash=None, common_future_hash="h", host_init_hash="i",
         env={"torch": "2.13"},
         arms=[{
@@ -1163,6 +1278,15 @@ def test_comparator_policy_runs_do_not_collide(tmp_path):
     assert len(s.merge()) == 2  # no false duplicate trip
 
 
+def test_merge_handles_event_records_beside_fans(tmp_path):
+    s = Store(tmp_path)
+    s.append(0, _rec(episode_seed=2, fan_epoch=5))
+    s.append(0, _rec(episode_seed=2, fan_epoch=None, kind="extension_event"))
+    kinds = [r.kind for r in s.merge()]
+    assert kinds.count("fan") == 1
+    assert kinds.count("extension_event") == 1
+
+
 def test_split_wall_fires_on_the_yield_path(tmp_path):
     s = Store(tmp_path)
     s.append(0, _rec(split_role="train"))
@@ -1206,11 +1330,11 @@ from experiments.kernel_demo import (
     make_generator,
     schedule_only_mask,
 )
-from tests.unit.kernel_demo.test_telemetry import _rec
+from tests.unit.kernel_demo.conftest import make_telemetry_rec
 
 
 def _rec_at(epoch: int):
-    return _rec(epoch=epoch)
+    return make_telemetry_rec(epoch=epoch)
 
 
 def test_shapes_and_determinism():
@@ -1271,7 +1395,7 @@ def test_decide_live_window_boundaries_inclusive():
 
 **Interfaces (Produces):**
 - `fan_to_example(rec, normalizer) -> dict` — `{tokens [T,20] normalized, length, r: Tensor[4] (val units, SEED_NAMES order, diverged already 0.10), r_noop: float}`; consumes decoded dicts/lists.
-- `measure_fan_density(records, unit="val") -> dict` — keys `best_minus_second`, `best_minus_noop` (within-fan means).
+- `measure_fan_density(records, unit="val") -> dict` — keys `best_minus_second`, `best_minus_noop` (within-fan means) — raises `ValueError("no fan records")` on empty input (loud, not an `IndexError` three frames deep during the interactive preflight loop).
 - **Temperature mapping (pre-registered, recorded in the FreezeManifest):** `beta_which = cfg.beta_which_frac * density["best_minus_second"]`; `beta_now = density["best_minus_noop"] / cfg.beta_now_div`.
 - `warmup_schedule(step, total_steps, warmup_frac) -> bool` — pure; `False` during warm-up (J_now disabled).
 - `policy_loss(policy, batch, cfg, *, beta_which, beta_now, enable_now, mask_fn=None) -> Tensor` — **takes both temperatures explicitly** (a single scalar cannot honor the two-key mapping):
@@ -1318,6 +1442,7 @@ from experiments.kernel_demo import (
     Policy,
     SplitViolation,
     make_generator,
+    measure_fan_density,
     money_chart_permutation_pvalue,
     policy_loss,
     sign_flip_pvalue,
@@ -1401,6 +1526,11 @@ def test_sign_flip_pvalue_calibration():
     null_lifts = torch.randn(100, generator=g) * 0.01
     assert sign_flip_pvalue(null_lifts, n=2000, seed=2) > 0.05
     assert sign_flip_pvalue(null_lifts + 0.02, n=2000, seed=2) < 0.01
+
+
+def test_measure_fan_density_empty_is_loud():
+    with pytest.raises(ValueError, match="no fan records"):
+        measure_fan_density([])
 ```
 
 - [ ] **Steps 2–4: FAIL → implement → PASS.** **Step 5: Commit.**
@@ -1421,7 +1551,7 @@ def test_sign_flip_pvalue_calibration():
 7. Store checks: JSON round-trip incl. non-finite; split wall; duplicate-identity assert; `schema_version` refusal.
 8. Partition check: 45k/5k/10k, disjoint (via `split_indices` + counts).
 9. `rng_scope` global-stream isolation.
-10. Deterministic-mode cost measured (timed epoch, flags on vs. off on a throwaway copy) and printed.
+10. Deterministic-mode cost measured (timed epoch, flags on vs. off on a throwaway copy) and printed; the flags-off timing leg runs in a **throwaway subprocess** (fresh interpreter, nothing written to any store) — a scoped measurement exception to `FORBIDDEN_RELAXATIONS`, never a relaxation of the live process.
 `--certify` (GPU, all steps passed, none skipped): writes `certified.json` = `{git_rev, results, det_mode_cost}` — **the artifact `preflight --freeze` checks HEAD against.**
 
 - [ ] Test: `test_selftest_runs_clean_cpu()` asserts `result["ok"]` and that GPU-only steps are marked skipped (not failed). Implement; PASS; commit.
@@ -1439,15 +1569,15 @@ def test_sign_flip_pvalue_calibration():
 - Gates 1–8, thresholds from Config (never literals), unit = first fan per episode, all val units:
   1. `gate1_noop_sanity` — ≥ `cfg.gate1_min_mild_noop_wins` mild no-op wins (5-arm val-argmax); modal in no targeted pathology (D1). *Remedy: sampler.*
   2. `gate2_signal` — (a) 200-step linear probe telemetry→pathology, by-episode split (D13), > `cfg.gate2_probe_min_acc`; (b) probe telemetry→val-argmax (4-seed) vs majority-class; contingency table vs `DESIGNED_WINNER`. *Remedy: sampler.*
-  3. `gate3_contrast` — both fan-density keys > `cfg.gate3_contrast_mult` × refan floor. *Remedy: averaging window, horizon.*
+  3. `gate3_contrast` — both fan-density keys > `cfg.gate3_contrast_mult` × refan floor (floor measured from `cfg.preflight_refans = 12` refans run by `run_preflight`). *Remedy: averaging window, horizon.*
   4. `gate4_dominance` — no seed val-argmax > `cfg.gate4_dominance_max` overall, none majority in every pathology. *Remedy: sampler / menu balance — **menu balance = Task 5 reopen + Phase A re-run, priced, not a knob.*
   5. `gate5_magnitude` — per-seed mean `rms_ratio_blend_entry` within `cfg.gate5_rms_band`. *Remedy: τ, λ, seed_lr — never the sampler.*
   6. `gate6_horizon` — late-epoch density ≥ `cfg.gate6_late_density_mult` × early. *Remedy: horizon, window.*
   7. `gate7_now_vs_later` — report-only: `P(A(t_late) > A(t_early))`, mean gap.
   8. `gate8_pressure` (GPU) — twin at 1 worker vs full count, same episode seed; **records wall-clock at both counts** (→ the measured concurrency factor for the runtime table) and the outcome + contingency (`--replay` runs at the recorded worker_count if it fired).
-- `run_preflight(cfg, data, device, store_root, freeze=False) -> dict` — dry-run by default: gates printed, `preflight_iter` record appended (`iteration`, `gate_results`, `config_hash`, git rev), normalizer fitted and shown, no artifact. `--freeze`: refuses unless all gates ok ∧ worktree clean ∧ `HEAD == certified.json["git_rev"]`; writes `frozen.json` atomically (temp+rename): `{frozen_block_hash, config_hash, git_rev, certified_rev, spec_rev: "98083fd", normalizer, fan_density (both keys), beta_which, beta_now, schedule_id, data_split_id, gate_results, gate8_outcome, det_mode_cost, concurrency_factor, plan_authored_constants (echoed for owner sign-off), manifest_hash}` with `manifest_hash` = sha256 over the canonical serialization of the rest. `_SEMANTIC_SURFACE` extended with the gate functions.
+- `run_preflight(cfg, data, device, store_root, freeze=False) -> dict` — dry-run by default: gates printed, `preflight_iter` record appended (`iteration`, `gate_results`, `config_hash`, git rev), normalizer fitted and shown, runs `cfg.preflight_refans` refans via `run_refan` (these supply gate 3's noise floor), no artifact. `--freeze`: refuses unless all gates ok ∧ worktree clean ∧ `HEAD == certified.json["git_rev"]`; writes `frozen.json` atomically (temp+rename): `{frozen_block_hash, config_hash, git_rev, certified_rev, spec_rev: "98083fd", normalizer, fan_density (both keys), beta_which, beta_now, schedule_id, data_split_id, gate_results, gate8_outcome, det_mode_cost, concurrency_factor, plan_authored_constants (echoed for owner sign-off), manifest_hash}` with `manifest_hash` = sha256 over the canonical serialization of the rest; `data_split_id` = Task 2's `data_split_id(cfg)`. (Gate functions are decorated `@semantic` at definition — never registered at call time.)
 
-- [ ] Tests: each gate has a passing AND a failing synthetic fixture (gate 4: 8/10 conv_heavy wins → not ok; gate 1: zero mild no-op wins → not ok; gate 5: ratios (0.04, 0.05, 0.06, 0.30) → not ok); freeze refusal on failing gates and on a stubbed dirty worktree / HEAD mismatch. Implement; PASS; commit + `wc -l` (~1150).
+- [ ] Tests: each gate has a passing AND a failing synthetic fixture (gate 4: 8/10 conv_heavy wins → not ok; gate 1: zero mild no-op wins → not ok; gate 5: ratios (0.04, 0.05, 0.06, 0.30) → not ok); a gate fed an all-diverged-arms fixture returns not-ok with reason `all arms diverged` (no exception); `measure_fan_density([])` raises (Task 12's test); freeze refusal on failing gates and on a stubbed dirty worktree / HEAD mismatch. Implement; PASS; commit + `wc -l` (~1150).
 
 ---
 
