@@ -187,7 +187,7 @@ Changing a codename or moving an authority between names requires an architectur
 
 ---
 
-<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged) -->
+<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended) -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
 The following are blocking invariants.
@@ -219,7 +219,7 @@ The following are blocking invariants.
 25. **Reversible influence:** every non-merged growth can be brought to zero influence without an uncontrolled discontinuity.
 26. **Isperia admission warrant:** Wrenn cannot raise a newborn growth above zero influence without a valid warrant.
 27. **Isperia maintenance warrant:** ordinary post-commit decay or lysis requires a valid maintenance decision.
-28. **Containment distinction:** emergency safety reduction is recorded as containment, not disguised as economic judgement.
+28. **Containment accountability:** emergency safety reduction is recorded as containment, never disguised as economic judgement; Tolaria detects and contains mechanically, and every containment is adjudicated by Isperia back to the admitting warrant and the `adjudication_policy_version` in force — a rollback is a defect report against that policy version. (ADR-0010)
 29. **Authority enforcement:** Aurelia cannot manage post-commit structure; Emrakul cannot manage unborn structure; Ugin cannot issue local transitions.
 30. **Grace-period protection:** contribution-based removal cannot fire before declared blend and holding windows complete.
 31. **Complete negative retention:** structural rejects, compilation failures, QA failures, adjudication rejects, no-op decisions and abstentions are stored.

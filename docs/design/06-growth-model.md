@@ -201,7 +201,7 @@ Wrenn is the sole executor of growth-state transitions and enforces these rules:
 - Tolaria executes optimisation and tests, never lifecycle preferences.
 - A transition that raises influence requires a valid Isperia warrant.
 - A transition that removes influence for ordinary economic reasons requires the appropriate authority and, post-commit, an Isperia maintenance warrant.
-- Emergency containment may reduce influence without prior economic adjudication only when a declared safety invariant is breached; it must be logged as containment and reviewed.
+- Emergency containment may reduce influence without prior economic adjudication only when a declared safety invariant is breached; Tolaria detects and contains mechanically, the event is recorded as containment (`CONTAINMENT_CATASTROPHE`, never `INTEGRATION_SHOCK`), and Isperia adjudicates it back to the admitting warrant and policy version (INV-28, ADR-0010).
 
 ### 12.3 Commitment handoff
 

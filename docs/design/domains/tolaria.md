@@ -1,7 +1,7 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
 [← HLD index](../00-INDEX.md)
 
-<!-- hld: source: v4.1 monolith lines 1863–1916 -->
+<!-- hld: source: v4.1 monolith lines 1863–1916 · amended by ADR-0010 (containment detect-and-contain boundary) -->
 ### 13.2 Tolaria — Training and Execution Infrastructure
 
 #### Responsibilities
@@ -51,6 +51,7 @@ All modes and regimes use the same host-runtime interface and, wherever possible
 - A branch-matured candidate is deployed only by adopting the branch or replaying it under the declared validated deployment protocol from the common snapshot.
 - Ambiguous or low-margin Field cases can be escalated to Academy-exact execution.
 - Execution failures are reported, not interpreted as policy decisions.
+- Emergency containment is detect-and-contain only: on a declared safety-invariant breach Tolaria reduces influence mechanically and reports to Isperia; the report is an account of the breach, never an opinion about the candidate (INV-28, ADR-0010).
 
 #### Smell
 
