@@ -1600,6 +1600,122 @@ def load_for_training(store: Store) -> list[FanRecord]:
     return records
 
 
+# section 11 — POLICY
+@semantic
+class _PolicyBlock(nn.Module):
+    # Hand-rolled: explicit-matmul single-head self-attention (attention dim =
+    # d_model, no biases in projections, causal mask) + MLP ratio 4, pre-LN.
+    def __init__(self, d: int) -> None:
+        super().__init__()
+        self.scale = d**-0.5
+        self.ln1 = nn.LayerNorm(d)
+        self.q = nn.Linear(d, d, bias=False)
+        self.k = nn.Linear(d, d, bias=False)
+        self.v = nn.Linear(d, d, bias=False)
+        self.proj = nn.Linear(d, d, bias=False)
+        self.ln2 = nn.LayerNorm(d)
+        self.mlp = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
+
+    def forward(self, x: torch.Tensor, causal_mask: torch.Tensor) -> torch.Tensor:
+        h = self.ln1(x)
+        q, k, v = self.q(h), self.k(h), self.v(h)
+        att = q @ k.transpose(1, 2) * self.scale
+        att = att.masked_fill(causal_mask, float("-inf"))
+        att = torch.softmax(att, dim=-1)
+        x = x + self.proj(att @ v)
+        x = x + self.mlp(self.ln2(x))
+        return x
+
+
+@semantic
+class Policy(nn.Module):
+    # now_head/seed_head are separate named submodules (test-addressable);
+    # together they are the conceptual Linear(d_model, 5) head — [:, 0] NOW
+    # logit, [:, 1:] seed logits — with identical arithmetic capacity.
+    def __init__(self, cfg: Config, gen: torch.Generator) -> None:
+        super().__init__()
+        d = cfg.d_model
+        with rng_scope(gen):
+            self.embed = nn.Sequential(nn.Linear(TELEMETRY_DIM, d), nn.GELU(), nn.Linear(d, d))
+            self.pos = nn.Parameter(torch.randn(cfg.horizon, d) * 0.02)
+            self.blocks = nn.ModuleList([_PolicyBlock(d) for _ in range(cfg.n_layers)])
+            self.ln_f = nn.LayerNorm(d)
+            self.now_head = nn.Linear(d, 1)
+            self.seed_head = nn.Linear(d, 4)
+
+    def forward(self, tokens: torch.Tensor, lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        b, t, _ = tokens.shape
+        x = self.embed(tokens) + self.pos[:t]
+        causal_mask = torch.triu(torch.ones(t, t, dtype=torch.bool, device=tokens.device), diagonal=1)
+        for blk in self.blocks:
+            x = blk(x, causal_mask)
+        x = self.ln_f(x)
+        h_last = x[torch.arange(b, device=tokens.device), (lengths - 1).to(tokens.device)]
+        p_logit = cast(torch.Tensor, self.now_head(h_last)).squeeze(-1)
+        seed_logits = cast(torch.Tensor, self.seed_head(h_last))
+        return p_logit, seed_logits
+
+
+@semantic
+def schedule_only_mask(t: torch.Tensor) -> torch.Tensor:
+    # Index the FEATURE axis ([..., EPOCH_FEATURE_IDX]) — correct on 1-D and
+    # [B,T,D]; a dim-0 implementation zeroes the batch axis and silently
+    # corrupts the schedule-only comparator.
+    m = torch.zeros_like(t)
+    m[..., EPOCH_FEATURE_IDX] = t[..., EPOCH_FEATURE_IDX]
+    return m
+
+
+@semantic
+def _policy_tokens(policy: Policy, normalizer: Normalizer, telemetry: list[TelemetryRecord]) -> torch.Tensor:
+    dev = next(policy.parameters()).device
+    vecs = [normalizer.apply(record_to_vector(r)) for r in telemetry]
+    return torch.stack(vecs).unsqueeze(0).to(dev)  # [1, T, TELEMETRY_DIM]
+
+
+@semantic
+def decide_live(
+    policy: Policy,
+    normalizer: Normalizer,
+    telemetry: list[TelemetryRecord],
+    epoch: int,
+    cfg: Config,
+    mask_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> tuple[bool, str | None]:
+    lo, hi = cfg.window
+    if epoch < lo or epoch > hi:
+        # Outside the trained decision window p is pure extrapolation.
+        return (False, None)
+    tokens = _policy_tokens(policy, normalizer, telemetry)  # normalize first...
+    if mask_fn is not None:
+        tokens = mask_fn(tokens)  # ...then mask (if any), then forward
+    prior = policy.training
+    policy.eval()
+    with torch.no_grad():
+        p_logit, seed_logits = policy(tokens, torch.tensor([tokens.shape[1]]))
+    policy.train(prior)
+    if float(torch.sigmoid(p_logit[0])) > 0.5:  # deterministic — no sampling slot at eval
+        logits = seed_logits[0]
+        best = int((logits == logits.max()).nonzero()[0])  # deterministic tie-break: lowest index
+        return (True, SEED_NAMES[best])
+    return (False, None)
+
+
+@semantic
+def query_teacher_forced(
+    policy: Policy, normalizer: Normalizer, telemetry_prefix: list[TelemetryRecord], cfg: Config
+) -> tuple[float, dict[str, float]]:
+    tokens = _policy_tokens(policy, normalizer, telemetry_prefix)
+    prior = policy.training
+    policy.eval()
+    with torch.no_grad():
+        p_logit, seed_logits = policy(tokens, torch.tensor([tokens.shape[1]]))
+        p = float(torch.sigmoid(p_logit[0]))
+        pi = torch.softmax(seed_logits[0], dim=-1)
+    policy.train(prior)
+    return p, {name: float(pi[i]) for i, name in enumerate(SEED_NAMES)}
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
