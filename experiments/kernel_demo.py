@@ -623,6 +623,140 @@ def host_init_hash(host: Host) -> str:
     return h.hexdigest()
 
 
+# section 5 — SEEDS
+SEED_NAMES = semantic_const("SEED_NAMES", ("norm", "attn", "conv_light", "conv_heavy"))
+
+
+@semantic
+class SeedDelta(nn.Module):
+    # Delta contract: the seed's contribution is gain * f(h); gain is born 0.0
+    # (exact zero delta before tau_init) and is the ONLY parameter carrying tau.
+    def __init__(self) -> None:
+        super().__init__()
+        self.gain = nn.Parameter(torch.zeros(()))
+
+    def f(self, h: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        return self.gain * self.f(h)
+
+
+@semantic
+class NormSeed(SeedDelta):
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        self.gn = nn.GroupNorm(8, channels)
+
+    def f(self, h: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self.gn(h) - h)
+
+
+@semantic
+class AttnSeed(SeedDelta):
+    # Explicit single-head attention over the 8x8 spatial tokens — no SDPA
+    # (spec: keep the arithmetic visible and deterministic).
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        d = 16
+        self.scale = d**-0.5
+        self.ln = nn.LayerNorm(channels)
+        self.q = nn.Linear(channels, d)
+        self.k = nn.Linear(channels, d)
+        self.v = nn.Linear(channels, d)
+        self.out = nn.Linear(d, channels)
+
+    def f(self, h: torch.Tensor) -> torch.Tensor:
+        b, c, hh, ww = h.shape
+        x = h.flatten(2).transpose(1, 2)  # [B, HW, C]
+        x = self.ln(x)
+        q, k, v = self.q(x), self.k(x), self.v(x)
+        attn = torch.softmax(q @ k.transpose(1, 2) * self.scale, dim=-1)
+        y = self.out(attn @ v)  # [B, HW, C]
+        return cast(torch.Tensor, y.transpose(1, 2).reshape(b, c, hh, ww))
+
+
+@semantic
+class ConvLightSeed(SeedDelta):
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        mid = 64  # mid=16/32 would fail the budget floor (2,657 / 4,737 params)
+        self.body = nn.Sequential(
+            nn.Conv2d(channels, channels, 3, padding=1, groups=channels, bias=False),
+            nn.Conv2d(channels, mid, 1, bias=False),
+            nn.BatchNorm2d(mid),
+            nn.ReLU(),
+            nn.Conv2d(mid, channels, 1, bias=False),
+        )
+
+    def f(self, h: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self.body(h))
+
+
+@semantic
+class ConvHeavySeed(SeedDelta):
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        cb = 52  # bottleneck; valid band [31, 77]
+        self.body = nn.Sequential(
+            nn.Conv2d(channels, cb, 3, padding=1, bias=False),
+            nn.BatchNorm2d(cb),
+            nn.ReLU(),
+            nn.Conv2d(cb, channels, 3, padding=1, bias=False),
+            nn.BatchNorm2d(channels),  # standard init: final BN gamma = 1
+        )
+
+    def f(self, h: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self.body(h))
+
+
+@semantic
+def build_seed(name: str, channels: int, init_seed: int) -> SeedDelta:
+    classes: dict[str, Callable[[int], SeedDelta]] = {
+        "norm": NormSeed,
+        "attn": AttnSeed,
+        "conv_light": ConvLightSeed,
+        "conv_heavy": ConvHeavySeed,
+    }
+    if name not in classes:
+        raise ValueError(f"unknown seed: {name}")
+    with rng_scope(make_generator(init_seed)):
+        return classes[name](channels)
+
+
+@semantic
+def tau_init(seed: SeedDelta, host_feats: torch.Tensor, cfg: Config) -> float:
+    # D11: calibrate in train() mode — the mode of the first TRAINING step. Seed
+    # BN buffers mutated by the fixed measurement batch are deterministic birth
+    # state. The caller supplies host_feats from host.forward_to_slot under
+    # host.eval()/no_grad (host BN protection).
+    seed.train()
+    with torch.no_grad():
+        f0 = seed.f(host_feats)
+        rms_h = float(host_feats.pow(2).mean().sqrt())
+        rms_f0 = float(f0.pow(2).mean().sqrt())
+        g = cfg.tau * rms_h / max(rms_f0, cfg.tau_eps)
+        seed.gain.fill_(g)
+    return g
+
+
+@semantic
+def split_decay_groups(
+    module: nn.Module,
+) -> tuple[list[tuple[str, torch.Tensor]], list[tuple[str, torch.Tensor]]]:
+    # ndim <= 1 catches biases and all norm affines even under nn.Sequential's
+    # integer names (where substring rules silently mis-file BN affines);
+    # endswith("gain") catches the tau-carrying scalar explicitly.
+    decay: list[tuple[str, torch.Tensor]] = []
+    no_decay: list[tuple[str, torch.Tensor]] = []
+    for name, param in module.named_parameters():
+        if param.ndim <= 1 or name.endswith("gain"):
+            no_decay.append((name, param))
+        else:
+            decay.append((name, param))
+    return decay, no_decay
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
