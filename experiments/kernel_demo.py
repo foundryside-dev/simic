@@ -3453,6 +3453,152 @@ def run_eval(
     return results
 
 
+# section 17 — REPORT AND REPLAY
+@semantic
+def run_report(cfg: Config, store_root: str) -> dict[str, object]:
+    root = Path(store_root)
+    results = json.loads((root / "eval_results.json").read_text(encoding="utf-8"))
+    store = Store(store_root, cfg.fsync_every)
+    merged = store.merge()
+    # D6: refuse mixed manifest_hash inside any single number.
+    hashes = {r.manifest_hash for r in merged if r.seed_namespace == "eval" and r.manifest_hash is not None}
+    if results.get("manifest_hash") is not None:
+        hashes.add(results["manifest_hash"])
+    if len(hashes) > 1:
+        raise RuntimeError(f"report refused: mixed manifest_hash in a single number: {sorted(map(str, hashes))}")
+    manifest_path = root / "frozen.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    fans = [r for r in merged if r.kind in ("fan", "refan")]
+    # observed diverged-arm end-state accuracies, printed beside the 0.10
+    # convention (the convention is a measurement claim, so the measurement is
+    # shown); per-seed failure rates.
+    diverged_end_states: list[float] = []
+    seed_counts: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
+    seed_failures: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
+    val_eq_test_hits = 0
+    val_eq_test_n = 0
+    for r in fans:
+        for a in r.arms:
+            name = str(a["name"])
+            if name in seed_counts:
+                seed_counts[name] += 1
+                if a.get("status") == "diverged":
+                    seed_failures[name] += 1
+                    curve = a.get("curve_val")
+                    if isinstance(curve, list) and curve:
+                        last = curve[-1]
+                        if isinstance(last, (int, float)):
+                            diverged_end_states.append(float(last))
+        if r.seed_namespace == "eval" and r.kind == "fan":
+            by = _arm_by_name(r)
+            if all(by[n].get("r_test") is not None for n in SEED_NAMES):
+                val_best = max(SEED_NAMES, key=lambda n: _as_float(by[n]["r_val"]))
+                val_eq_test_hits += val_best == _test_argmax(r)
+                val_eq_test_n += 1
+    per_grid = cast(list[dict[str, object]], results.get("per_grid_point", []))
+    pos = [_as_float(pt["p"]) for pt in per_grid if _as_float(pt["A"]) > 0]
+    neg = [_as_float(pt["p"]) for pt in per_grid if _as_float(pt["A"]) <= 0]
+    report: dict[str, object] = {
+        "manifest_hash": results.get("manifest_hash"),
+        "lift_table": results["lift"],
+        "agreement": {**cast(dict[str, object], results["agreement"]), "ceiling_as_context": results.get("ceiling")},
+        "money_chart": results["money_chart"],
+        "falsifier": results["falsifier"],
+        "chosen_seed_marginal": results.get("chosen_seed_marginal", {}),
+        "diverged_observed": {
+            "convention_r": cfg.diverged_r,
+            "observed_end_state_acc": diverged_end_states,
+            "n": len(diverged_end_states),
+        },
+        "per_seed_failure_rates": {n: (seed_failures[n] / seed_counts[n] if seed_counts[n] else 0.0) for n in SEED_NAMES},
+        "fan_density": manifest.get("fan_density"),
+        "p_val_argmax_eq_test_argmax": (val_eq_test_hits / val_eq_test_n) if val_eq_test_n else None,
+        "restraint_regret": results.get("restraint_regret"),
+        "realized_p_by_sign": {
+            "mean_p_when_A_positive": (sum(pos) / len(pos)) if pos else None,
+            "mean_p_when_A_nonpositive": (sum(neg) / len(neg)) if neg else None,
+            "n_positive": len(pos),
+            "n_nonpositive": len(neg),
+        },
+        "when_contrast": results.get("when_contrast"),
+        "temperatures_in_force": {"beta_which": manifest.get("beta_which"), "beta_now": manifest.get("beta_now")},
+        "det_mode_cost": manifest.get("det_mode_cost"),
+        "concurrency_factor": manifest.get("concurrency_factor"),
+        "verdict": results.get("verdict"),
+    }
+    tune_path = root / "policies" / "trained.json"
+    if tune_path.exists():
+        report["tune_curve"] = json.loads(tune_path.read_text(encoding="utf-8")).get("curve")
+    # Aligned tables (D4).
+    lift = cast(dict[str, object], results["lift"])
+    print(f"{'comparator':16s} {'mean lift':>10s} {'germ rate':>10s}")
+    for comp, row in cast(dict[str, dict[str, float]], lift["per_comparator"]).items():
+        print(f"{comp:16s} {row['mean_lift']:>10.4f} {row['germination_rate']:>10.2f}")
+    ag = cast(dict[str, object], report["agreement"])
+    print(
+        f"{'agreement':16s} {_as_float(ag['teacher_forced']):>10.3f}  majority {_as_float(ag['majority_null']):.3f}  schedule-only {_as_float(ag['schedule_only_null']):.3f}"
+    )
+    mc = cast(dict[str, object], report["money_chart"])
+    print(f"{'money chart':16s} matched {mc['matched']}/4  p={_as_float(mc['p']):.4f}")
+    print(f"{'verdict':16s} {report['verdict']}")
+    return report
+
+
+@semantic
+def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[str, object]:
+    root = Path(store_root)
+    store = Store(store_root, cfg.fsync_every)
+    merged = store.merge()
+    rec = next((r for r in merged if r.fan_id == fan_id), None)
+    if rec is None:
+        raise RuntimeError(f"replay refused: fan_id {fan_id} not found in the merged store")
+    manifest_path = root / "frozen.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
+    # Replay runs single-worker, or at the recorded worker_count if the
+    # manifest's gate-8 contingency fired (worker pressure changed the twin).
+    worker_count = 1
+    if manifest is not None:
+        g8 = cast(dict[str, object], (manifest.get("gate8_outcome") or {}))
+        if g8 and not g8.get("ok", True):
+            wc = rec.env.get("worker_count")
+            worker_count = wc if isinstance(wc, int) else 1
+    live_env = env_block(device, worker_count)
+    bad_env = [k for k in REPLAY_REFUSAL_KEYS if rec.env.get(k) != live_env.get(k)]
+    if bad_env:
+        raise RuntimeError(f"replay refused: env mismatch on {bad_env} (recorded vs live)")
+    if rec.config_hash != config_hash():
+        raise RuntimeError("replay refused: config_hash mismatch (live semantic surface differs from the record)")
+    if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest.get("manifest_hash"):
+        raise RuntimeError("replay refused: manifest_hash mismatch")
+    if rec.kind != "fan" or rec.fan_epoch is None:
+        raise RuntimeError(f"replay supports kind='fan' records, got {rec.kind!r}")
+    data = load_data(cfg, device)
+    ctx = make_episode(cfg, data, device, rec.episode_seed, read_test=True)
+    live_init = state_hash(ctx.host)
+    if live_init != rec.host_init_hash:
+        # Localisation: the host was wrong before any kernel ran.
+        raise RuntimeError("replay mismatch: diverged at SEEDING (host_init_hash differs)")
+    trace = run_base(ctx, cfg, fan_epochs=(rec.fan_epoch,))
+    snap = trace.snapshots[rec.fan_epoch]
+    include_nullseed = any(a["name"] == "nullseed" for a in rec.arms)
+    arms, _meta = run_fan(
+        cfg, data, device, rec.episode_seed, ctx.pathology, ctx.future, snap, trace, True, include_nullseed=include_nullseed
+    )
+    recorded = {str(a["name"]): a for a in rec.arms}
+    mismatched = [
+        a.name
+        for a in arms
+        if a.name in recorded
+        and a.status == "ok"
+        and recorded[a.name].get("status") == "ok"
+        and a.r_val != _as_float(recorded[a.name]["r_val"])
+    ]
+    if mismatched:
+        # Seeding verified above, so the divergence is in the branch itself.
+        raise RuntimeError(f"replay mismatch: diverged at KERNEL SELECTION for arms {mismatched}")
+    return {"fan_id": fan_id, "ok": True, "arms_verified": [a.name for a in arms if a.status == "ok"]}
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
@@ -3498,6 +3644,12 @@ def main(argv: list[str] | None = None) -> None:
         data = load_data(cfg, args.device, args.subset)
         result_e = run_eval(cfg, data, args.device, args.store, resume=args.resume_eval, void_prereg=args.void_preregistration)
         print(json.dumps(result_e.get("verdict"), indent=2))
+        raise SystemExit(0)
+    if args.mode == "report":
+        run_report(cfg, args.store)
+        raise SystemExit(0)
+    if args.mode == "replay":
+        print(run_replay(cfg, args.fan_id, args.store, args.device))
         raise SystemExit(0)
     raise SystemExit(f"not implemented: {args.mode}")
 
