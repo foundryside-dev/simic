@@ -1,0 +1,28 @@
+<!-- @dsCard group="Components" viewport="700x720" name="Data & layout" subtitle="CardGrid, DataTable, Split, Diagram" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css"><style>body{margin:0;background:var(--color-bg)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { CardGrid, DataTable, Split, Diagram } = window.SimicDesignSystem_5a908e;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div style={{padding:"24px 28px"}}>
+    <CardGrid cards={[
+      {title:"The architecture \u2192", body:"Fourteen bounded domains, the canonical sentence, the newsroom routing rule."},
+      {title:"The guarantees \u2192", body:"The invariant spine each piece of armour is written into — cited as INV-nn."}
+    ]} />
+    <DataTable caption="Repository map" columns={["Path","Contents"]} rows={[
+      ["docs/design/00-INDEX.md","Entry point to the HLD chapter set, with reading paths"],
+      ["docs/design/02-constitution.md","Naming constitution and the 45 blocking invariants"],
+      ["docs/adr/","Architecture decision records"]
+    ]} />
+    <Split left={<><h3 style={{marginTop:0}}>The armour</h3><p>Every mechanism that makes a documented failure class <em>unrepresentable</em> rather than policed.</p></>}
+           right={<><h3 style={{marginTop:0}}>The forward motion</h3><p>What the record earned the right to attempt.</p></>} />
+    <Diagram lightSrc="../../assets/diagrams/observation-loop-light.svg" darkSrc="../../assets/diagrams/observation-loop-dark.svg" label="Observation loop" caption={<>Source: <code>docs/design/04-architecture.md</code></>} />
+  </div>
+);
+</script>
+</body></html>

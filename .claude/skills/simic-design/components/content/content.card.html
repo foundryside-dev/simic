@@ -1,0 +1,24 @@
+<!-- @dsCard group="Components" viewport="700x760" name="Content" subtitle="PageHead, Note (+status), CanonQuote, Spine" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css"><style>body{margin:0;background:var(--color-bg)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { PageHead, Note, CanonQuote, Spine } = window.SimicDesignSystem_5a908e;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <div style={{padding:"24px 28px"}}>
+    <PageHead title="Simic" tagline="Counterfactual Generative Morphogenesis" lede={<>New neural structure is <strong>generated from the live state of a host network</strong> — then causally screened against doing nothing.</>} />
+    <Note label="Project status" status><p style={{margin:0}}><strong>Pre-implementation bootstrap.</strong> Nothing on this site describes a running system or a measured result.</p></Note>
+    <Note label="Read the claims against this"><p style={{margin:0}}>Part of the expected improvement is a training-procedure win that could arguably have been retrofitted.</p></Note>
+    <CanonQuote cite={<>The canonical sentence — <code>docs/design/02-constitution.md</code> §5.3</>}><p style={{margin:0}}>Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes, Momir designs.</p></CanonQuote>
+    <Spine items={[
+      {title:"Determinism", inv:"INV-05", body:"Identical snapshot plus identical future data produces bitwise-identical traces."},
+      {title:"Doing nothing is a real competitor", inv:"INV-15, INV-16", body:"Every admission includes a measured no-intervention branch with policy utility exactly zero."}
+    ]} />
+  </div>
+);
+</script>
+</body></html>

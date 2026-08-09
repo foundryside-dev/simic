@@ -1,8 +1,11 @@
 # PDR-0019 — Design-system recovery path: re-export if it survives, else reconstruct — never fabricate
 
-Date: 2026-08-09   Status: proposed   Author: Claude (product-owner session)
-Owner sign-off: REQUIRED — the deciding fact (does the SimicDesignSystem
-project survive in the owner's claude.ai/design UI?) is owner-visible only.
+Date: 2026-08-09   Status: accepted   Author: Claude (product-owner session)
+Owner sign-off: RECEIVED 2026-08-09 (session 10, "yes try to fetch it now")
+— the project survives; the re-export fork fired. Executed same day on
+branch design-system-recovery: all 57 files pulled, 12/12 bundle
+sourceHashes verified sha256 (the originals, per this PDR's adjudication
+rule), divergence-table corrections and Namespec 2.0 re-applied on top.
 Related: simic-42e575b93c, commit 6e74997, PDR-0018 (the divergence table),
 memory: simic-design-system-partial-export
 
