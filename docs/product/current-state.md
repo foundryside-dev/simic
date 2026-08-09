@@ -1,4 +1,4 @@
-# Current State — Simic        Checkpoint: 2026-08-09 (session 12)
+# Current State — Simic        Checkpoint: 2026-08-09 (session 12, second)
 
 ## The bet right now
 Design hardening — the hld-review burn-down (31 → 0 by 2026-08-31, pacing
@@ -15,11 +15,12 @@ today), so the plainweave seeding gate needs owner presence soon.
 - Nothing claimed. Wave:2-momir heads with simic-0e6445d894 (Momir critic
   ADR, unblocks simic-c90afdb156); simic-0bf2c40dec → simic-38a07fad39
   (§9 contract shapes) stays the cross-band leverage play.
-- **Publish queue (owner-gated):** local main is ahead of origin by 5
-  parallel-session commits (design-wiki Astro/Starlight design 692014f;
-  kernel demo spec revs 1–4, 25be1da..6b9f496 — both recorded in
-  PDR-0028) **plus** this session's cost-model landing and checkpoint.
-  Publish = PR branch + merge, never direct push.
+- **Publish queue (owner-gated):** local main is ahead of origin by **9
+  commits** — the design-wiki Astro/Starlight design (692014f), the kernel
+  demo spec **now final** (revs 1–5, panel round 3 verified, ends f2ece1d;
+  recorded in PDR-0028), and this session's cost-model landing + plugin
+  config + checkpoints. Working tree clean. Publish = PR branch + merge,
+  never direct push.
 - Plugin roster: axiom-experiment-formalisation v0.2.1 installed at
   project scope (PDR-0027) — **loads from the next session**;
   contract-engineering confirmed current (post-ship fixes included).
@@ -32,8 +33,9 @@ today), so the plainweave seeding gate needs owner presence soon.
   still awaits owner relay; the pack is confirmed absent upstream as of
   today's marketplace fetch — re-commissioning fresh (PDR-0012 reversal
   path) may now beat relaying.
-- Kernel demo spec (PDR-0028): concept artifact only. Building it would be
-  a new bet — DECIDE when the owner wants it.
+- Kernel demo spec (PDR-0028): **spec is final** (rev 5); still a concept
+  artifact only. Building it would be a new bet — DECIDE when the owner
+  wants it.
 - Wiki replatform implementation (PDR-0028): approved design, untracked as
   work. Enter into filigree when the owner wants it scheduled. Until
   built, the mkdocs build path stays live.
