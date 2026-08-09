@@ -1,5 +1,6 @@
 import dataclasses
 
+import pytest
 import torch
 
 from experiments.kernel_demo import (
@@ -30,6 +31,12 @@ def test_common_future_deterministic_hash_sensitive_and_shapes():
     assert a.order.shape == (3, steps * cfg.batch_size)  # [E, S*B]
     assert a.crops.shape == (3, steps, cfg.batch_size, 2)
     assert int(a.crops.max()) <= 8 and int(a.crops.min()) >= 0
+
+
+def test_draw_rejects_subset_smaller_than_batch():
+    cfg = Config()
+    with pytest.raises(ValueError, match="zero steps"):
+        CommonFuture.draw(1, n_train=64, epochs=1, cfg=cfg)
 
 
 def test_augment_pure_function_no_rng():

@@ -284,6 +284,8 @@ class CommonFuture:
         g = make_generator(seed)
         bs = cfg.batch_size
         steps = n_train // bs
+        if steps == 0:
+            raise ValueError(f"n_train={n_train} < batch_size={bs}: zero steps per epoch (subset too small)")
         order = torch.stack([torch.randperm(n_train, generator=g)[: steps * bs] for _ in range(epochs)])
         crops = torch.randint(0, 9, (epochs, steps, bs, 2), generator=g, dtype=torch.uint8)
         flips = torch.rand(epochs, steps, bs, generator=g) < 0.5
