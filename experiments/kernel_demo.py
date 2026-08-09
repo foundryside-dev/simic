@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import enum
 import hashlib
 import inspect
@@ -943,6 +944,208 @@ def env_block(device: str, worker_count: int) -> dict[str, object]:
         "worker_count": worker_count,
         "device_index": dev.index,
     }
+
+
+# section 8 — EPISODE
+@semantic
+def normalize_u8(x_u8: torch.Tensor) -> torch.Tensor:
+    # Eval-path normalization: same mean/std as augment, no crop/flip.
+    dev = x_u8.device
+    xf = x_u8.to(torch.float32).div(255.0)
+    return (xf - CIFAR_MEAN.to(dev)) / CIFAR_STD.to(dev)
+
+
+@semantic
+@dataclass
+class EpisodeCtx:
+    cfg: Config
+    data: DataBundle
+    device: str
+    episode_seed: int
+    pathology: str
+    future: CommonFuture
+    host: Host
+    opt: torch.optim.SGD
+    slot: Slot
+    telemetry: list[TelemetryRecord]
+    curves_val: list[float]
+    curves_test: list[float] | None  # None iff read_test=False — one convention, no empty-list ambiguity
+    read_test: bool
+
+
+@semantic
+def make_episode(cfg: Config, data: DataBundle, device: str, episode_seed: int, read_test: bool = False) -> EpisodeCtx:
+    pathology = PATHOLOGIES[derive(episode_seed, "pathology") % 4]
+    host = build_host(pathology, derive(episode_seed, "host-init")).to(device)
+    host.attach_stat_hooks()
+    future = CommonFuture.draw(derive(episode_seed, "future", 0), data.train_x.shape[0], cfg.horizon, cfg)
+    slot = Slot().to(device)
+    opt = build_optimizer(host, cfg)
+    return EpisodeCtx(
+        cfg=cfg,
+        data=data,
+        device=device,
+        episode_seed=episode_seed,
+        pathology=pathology,
+        future=future,
+        host=host,
+        opt=opt,
+        slot=slot,
+        telemetry=[],
+        curves_val=[],
+        curves_test=[] if read_test else None,
+        read_test=read_test,
+    )
+
+
+@semantic
+def evaluate_acc(host: Host, slot: Slot, x: torch.Tensor, y: torch.Tensor, device: str, chunk: int) -> float:
+    prior_h, prior_s = host.training, slot.training
+    host.eval()
+    slot.eval()
+    correct = 0
+    with torch.no_grad():
+        for i in range(0, x.shape[0], chunk):
+            xb = normalize_u8(x[i : i + chunk].to(device))
+            yb = y[i : i + chunk].to(device)
+            logits = host(xb, slot)
+            correct += int((logits.argmax(1) == yb).sum())
+    host.train(prior_h)
+    slot.train(prior_s)
+    return correct / x.shape[0]
+
+
+@semantic
+def train_one_epoch(ctx: EpisodeCtx, epoch: int) -> None:
+    cfg = ctx.cfg
+    order = ctx.future.order[epoch].reshape(-1, cfg.batch_size)
+    steps_per_epoch = order.shape[0]
+    ctx.host.train()
+    ctx.slot.train()
+    ce_sum = 0.0
+    sat_sum = [0.0, 0.0, 0.0]
+    step_grad_norms: tuple[list[float], list[float], list[float]] = ([], [], [])
+    for s in range(steps_per_epoch):
+        idx = order[s]
+        x = augment(ctx.data.train_x[idx], ctx.future.crops[epoch, s], ctx.future.flips[epoch, s])
+        y = ctx.data.train_y[idx]
+        logits = ctx.host(x, ctx.slot)
+        ce = torch.nn.functional.cross_entropy(logits, y)
+        loss = ce + ctx.slot.trust_region_loss(cfg)  # trust term self-gates on TRAINING
+        ctx.opt.zero_grad(set_to_none=True)
+        loss.backward()  # type: ignore[no-untyped-call]
+        for i, stage in enumerate(ctx.host.stage_modules()):
+            sq = 0.0
+            for p in stage.parameters():
+                if p.grad is not None:
+                    sq += float(p.grad.pow(2).sum())
+            step_grad_norms[i].append(sq**0.5)
+        ctx.opt.step()
+        ctx.slot.step_tick(cfg, steps_per_epoch)
+        ce_sum += float(ce.detach())
+        sat = ctx.host.stage_stats.get("saturation", [0.0, 0.0, 0.0])
+        for i in range(3):
+            sat_sum[i] += sat[i]
+    ctx.slot.epoch_tick(cfg)
+    train_loss = ce_sum / steps_per_epoch
+    # val eval under no_grad (full per-class stats need the full logits)
+    prior = ctx.host.training
+    ctx.host.eval()
+    ctx.slot.eval()
+    with torch.no_grad():
+        chunks = []
+        loss_sum = 0.0
+        for i in range(0, ctx.data.val_x.shape[0], cfg.eval_chunk):
+            xb = normalize_u8(ctx.data.val_x[i : i + cfg.eval_chunk])
+            yb = ctx.data.val_y[i : i + cfg.eval_chunk]
+            lg = ctx.host(xb, ctx.slot)
+            loss_sum += float(torch.nn.functional.cross_entropy(lg, yb, reduction="sum"))
+            chunks.append(lg)
+        val_logits = torch.cat(chunks)
+        val_loss = loss_sum / ctx.data.val_y.shape[0]
+        val_acc = float((val_logits.argmax(1) == ctx.data.val_y).float().mean())
+        std, ent = confusion_stats(val_logits, ctx.data.val_y)
+    ctx.host.train(prior)
+    ctx.slot.train(prior)
+
+    def _mean_var(norms: list[float]) -> tuple[float, float]:
+        t = torch.tensor(norms, dtype=torch.float64)
+        return float(t.mean()), float(t.var(unbiased=False))
+
+    gm0, gv0 = _mean_var(step_grad_norms[0])
+    gm1, gv1 = _mean_var(step_grad_norms[1])
+    gm2, gv2 = _mean_var(step_grad_norms[2])
+    weight_norm = tuple(float(sum(float(p.detach().pow(2).sum()) for p in stage.parameters()) ** 0.5) for stage in ctx.host.stage_modules())
+    prev = ctx.telemetry[-1] if ctx.telemetry else None
+    record = build_record(
+        epoch=epoch,
+        train_loss=train_loss,
+        val_loss=val_loss,
+        val_acc=val_acc,
+        train_loss_delta=train_loss - prev.train_loss if prev else 0.0,
+        val_loss_delta=val_loss - prev.val_loss if prev else 0.0,
+        grad_norm_mean=(gm0, gm1, gm2),
+        grad_norm_var=(gv0, gv1, gv2),
+        act_saturation=(sat_sum[0] / steps_per_epoch, sat_sum[1] / steps_per_epoch, sat_sum[2] / steps_per_epoch),
+        weight_norm=(weight_norm[0], weight_norm[1], weight_norm[2]),
+        per_class_val_acc_std=std,
+        confusion_entropy=ent,
+    )  # a TelemetryDivergence propagates to the caller — Task 9 owns the divergence conventions
+    ctx.telemetry.append(record)
+    ctx.curves_val.append(val_acc)
+    if ctx.read_test:
+        assert ctx.curves_test is not None
+        ctx.curves_test.append(evaluate_acc(ctx.host, ctx.slot, ctx.data.test_x, ctx.data.test_y, ctx.device, cfg.eval_chunk))
+
+
+@semantic
+@dataclass
+class Snapshot:
+    # opt_state is ALWAYS the 2-group never-germinated base state — snapshots
+    # are taken only on the base path; Task 9's arm-local materialization is
+    # what makes this sufficient. There is no restore_snapshot: arms are built
+    # fresh from snapshot values.
+    host_state: dict[str, torch.Tensor]
+    opt_state: dict[str, object]
+    cpu_rng: torch.Tensor
+    cuda_rng: torch.Tensor | None
+    epoch: int
+
+
+@semantic
+def take_snapshot(ctx: EpisodeCtx) -> Snapshot:
+    dev = torch.device(ctx.device)
+    return Snapshot(
+        host_state={k: v.detach().clone() for k, v in ctx.host.state_dict().items()},
+        opt_state=copy.deepcopy(ctx.opt.state_dict()),
+        cpu_rng=torch.get_rng_state(),
+        cuda_rng=torch.cuda.get_rng_state(dev) if dev.type == "cuda" else None,
+        epoch=len(ctx.telemetry),
+    )
+
+
+@semantic
+def germinate(ctx: EpisodeCtx, seed_name: str) -> float:
+    cfg = ctx.cfg
+    seed = build_seed(seed_name, ctx.host.feat_channels, derive(ctx.episode_seed, "arm", seed_name)).to(ctx.device)
+    prior = ctx.host.training
+    ctx.host.eval()  # host BN protection (spec): tau-init must not touch host state
+    with torch.no_grad():
+        fixed_val_batch = normalize_u8(ctx.data.val_x[: cfg.batch_size])
+        feats = ctx.host.forward_to_slot(fixed_val_batch)
+    ctx.host.train(prior)
+    g = tau_init(seed, feats, cfg)
+    append_seed_group(ctx.opt, seed, cfg)
+    ctx.slot.seed = seed
+    ctx.slot.stage = Stage.TRAINING  # GERMINATED is zero-duration (D12)
+    return g
+
+
+@semantic
+def end_state_R(curve: list[float]) -> float:  # noqa: N802 — spec names the reward R
+    if len(curve) < 3:
+        raise ValueError(f"end_state_R needs >= 3 entries, got {len(curve)}")
+    return sum(curve[-3:]) / 3.0
 
 
 def main(argv: list[str] | None = None) -> None:

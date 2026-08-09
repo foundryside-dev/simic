@@ -12,45 +12,14 @@ from experiments.kernel_demo import (
     confusion_stats,
     record_to_vector,
 )
-
-
-def _rec(**kw: object) -> TelemetryRecord:
-    base: dict[str, object] = {
-        "epoch": 3,
-        "train_loss": 1.2,
-        "val_loss": 1.3,
-        "val_acc": 0.41,
-        "train_loss_delta": -0.1,
-        "val_loss_delta": -0.05,
-        "grad_norm_mean": (1.0, 2.0, 3.0),
-        "grad_norm_var": (0.1, 0.2, 0.3),
-        "act_saturation": (0.5, 0.4, 0.3),
-        "weight_norm": (10.0, 11.0, 12.0),
-        "per_class_val_acc_std": 0.05,
-        "confusion_entropy": 2.1,
-    }
-    base.update(kw)
-    return TelemetryRecord(
-        epoch=int(base["epoch"]),  # type: ignore
-        train_loss=float(base["train_loss"]),  # type: ignore
-        val_loss=float(base["val_loss"]),  # type: ignore
-        val_acc=float(base["val_acc"]),  # type: ignore
-        train_loss_delta=float(base["train_loss_delta"]),  # type: ignore
-        val_loss_delta=float(base["val_loss_delta"]),  # type: ignore
-        grad_norm_mean=tuple(base["grad_norm_mean"]),  # type: ignore
-        grad_norm_var=tuple(base["grad_norm_var"]),  # type: ignore
-        act_saturation=tuple(base["act_saturation"]),  # type: ignore
-        weight_norm=tuple(base["weight_norm"]),  # type: ignore
-        per_class_val_acc_std=float(base["per_class_val_acc_std"]),  # type: ignore
-        confusion_entropy=float(base["confusion_entropy"]),  # type: ignore
-    )
+from tests.unit.kernel_demo.conftest import make_telemetry_rec
 
 
 def test_record_rejects_nonfinite():
     with pytest.raises(TelemetryDivergence):
-        _rec(val_loss=float("inf"))
+        make_telemetry_rec(val_loss=float("inf"))
     with pytest.raises(TelemetryDivergence):
-        _rec(grad_norm_var=(0.1, float("nan"), 0.3))
+        make_telemetry_rec(grad_norm_var=(0.1, float("nan"), 0.3))
 
 
 def test_blindness_no_forbidden_fields():
@@ -60,7 +29,7 @@ def test_blindness_no_forbidden_fields():
 
 
 def test_vector_epoch_first_and_normalizer_roundtrip():
-    v = record_to_vector(_rec())
+    v = record_to_vector(make_telemetry_rec())
     assert v.shape == (TELEMETRY_DIM,)
     assert v[EPOCH_FEATURE_IDX] == 3.0
     n = Normalizer()
