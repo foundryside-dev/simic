@@ -267,7 +267,7 @@ Integration occurs through Leyline records and protocols, not circular implement
 <!-- hld: source: v4.1 monolith lines 4252–4272 -->
 ## 30. Repository Handoff and Custody
 
-This document is the authoritative target HLD for repository implementation. Namespec 2.0 (ADR-0008), the authority boundaries, the newsroom routing rule, the no-op requirement, and the Scaffold Withdrawal Principle are constitutional constraints. They may be changed only through an architecture decision record that names the displaced invariant and its replacement.
+This document is the authoritative target HLD for repository implementation. Namespec 2.0 (ADR-0008), the authority boundaries, the evidence-routing rule (INV-07/INV-09), the no-op requirement, and the Scaffold Withdrawal Principle are constitutional constraints. They may be changed only through an architecture decision record that names the displaced invariant and its replacement.
 
 Codex or any other implementation agent may stage, simplify or defer unbuilt capabilities, but it must not represent a target capability as implemented, collapse two named authorities for convenience without an explicit adapter boundary, or silently turn an Academy scaffold into a permanent production assumption.
 

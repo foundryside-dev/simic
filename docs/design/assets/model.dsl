@@ -75,7 +75,7 @@ workspace "Simic" "Counterfactual Generative Morphogenesis — the fourteen-doma
         tolaria -> wrenn "Executes host forward/backward passes and optimiser steps"
         wrenn -> nissa "Exposes host state for canonical ablated diagnostic observation"
 
-        // Direct evidence publication (the newsroom rule)
+        // Direct evidence publication (INV-07)
         nissa -> ugin "Permitted coarse summary"
         nissa -> aurelia "TelemetryEnvelope O (same observation identity)"
         nissa -> momir "TelemetryEnvelope O (same observation identity)"

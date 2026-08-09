@@ -47,13 +47,13 @@ The other eleven are agents, summarised by the canonical sentence
 > Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo
 > reveals; every precedent is kept in Urborg.
 
-The architecture deliberately resembles a newsroom
-([`docs/design/appendices/newsroom.md`](docs/design/appendices/newsroom.md)):
-observation, assignment, authorship, standards, production, fact-checking,
-publication judgement, and archive are separate desks, because letting one
-desk control the whole chain corrupts both evidence and accountability. The
-load-bearing routing rule: **Nissa sends the photograph directly to the
-designer; the assignments editor sends only the assignment brief.**
+The load-bearing routing rule: **Nissa publishes the evidence directly to
+the designer; Aurelia sends only the assignment brief** — evidence never
+arrives pre-captioned by the desk that commissioned it (INV-07, INV-09).
+And for readers who would rather picture an institution than learn a
+mythology, [`docs/design/appendices/newsroom.md`](docs/design/appendices/newsroom.md)
+retells the whole authority model as a newsroom — the same separations, no
+new vocabulary.
 
 ## Guarantees
 

@@ -193,27 +193,9 @@ Jin-Gitaxias and Isperia are independent of this command hierarchy. Jin-Gitaxias
 
 Emrakul's post-commit actions execute Isperia `MaintenanceDecision` verdicts; the vocabularies map one-to-one: `RETAIN` → `HOLD` (no physical transition), `RETEST` → `REQUEST_REVIEW` (schedule maintenance QA), and `SEDATE`/`DECAY`/`LYSE` execute directly under the maintenance warrant. Verdicts are Isperia records; actions are Emrakul executions of them.
 
-### 7.6 The newsroom authority model
+### 7.6 Hearing an authority leak
 
-The newsroom analogy provides an explanatory overlay, not a second architecture:
-
-```text
-Nissa reports source material
-Ugin funds the desk
-Aurelia commissions the assignment
-Momir authors the candidate
-Elesh applies standards and canonical form
-Urabrask produces the executable edition
-Jin-Gitaxias fact-checks and proof-tests it in Tolaria
-Isperia publishes, returns, defers, or spikes it
-Wrenn integrates it into the live edition
-Emrakul corrects, withdraws, or retires it later
-Urborg preserves the complete archive
-Tamiyo presents the account
-Leyline supplies the editorial constitution
-```
-
-The analogy is useful because it makes an authority leak audible. “The assignments editor rewrote the source notes before the writer saw them” is the same defect as Aurelia mediating Nissa's evidence. Appendix E provides the full mapping and review prompts.
+The codename grammar is the operating frame for authority, and its sentence test (`02-constitution.md`) makes a leak audible in one line: "Aurelia rewrote the observation before Momir saw it" sounds wrong before any code is read. For readers to whom the codenames do not speak, Appendix E retells the same authority model as a newsroom — an explanatory rendering kept in lockstep with this chapter (ADR-0009), never a second architecture.
 
 ## 8. Subsystem Map
 
@@ -512,4 +494,4 @@ Urborg stores:
 - determinism manifests;
 - and terminal outcomes.
 
-Tamiyo presents the same causal chain to operators. It may show the newsroom view—source, assignment, draft, standards, production, fact check, publication decision, placement, correction and archive—but it remains read-only.
+Tamiyo presents the same causal chain to operators. It may offer the newsroom projection (Appendix E) as one presentation of that chain, but it remains read-only.
