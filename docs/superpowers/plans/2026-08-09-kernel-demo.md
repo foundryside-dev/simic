@@ -1,4 +1,4 @@
-# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.2
+# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.3
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **This document is self-contained: no task requires any prior plan revision.**
 
@@ -8,12 +8,13 @@
 
 **Tech Stack:** Python ≥3.14, torch 2.13.0+cu130 (installed, CUDA verified on 2× RTX 4060 Ti), torchvision 0.28.0+cu130 (added in Task 1), pytest. matplotlib (dev group) for the sidecar only.
 
-**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). rev 3.2 = re-verdict fixes: `semantic_const` registry for behavior-changing module constants (M9; tensors registered as defining float tuples — tensor `repr` is neither tamper-evident nor print-options-stable), `Callable[..., object]` bound for `@semantic` (mypy-strict-verified at module level incl. typed call sites), `GateResult` restored, Phase C runtime wording, `tau_init` on the semantic surface. Reviews live under `docs/superpowers/reviews/`.
+**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). rev 3.2 = re-verdict fixes: `semantic_const` registry for behavior-changing module constants (M9; tensors registered as defining float tuples — tensor `repr` is neither tamper-evident nor print-options-stable), `Callable[..., object]` bound for `@semantic` (mypy-strict-verified at module level incl. typed call sites), `GateResult` restored, Phase C runtime wording, `tau_init` on the semantic surface. rev 3.3 = convergence fixes: classify-or-fail partition test over the whole public surface (`_NON_SEMANTIC` allowlist with stated reasons; identity-matched membership; **adds a per-task obligation — every task classifies its new public symbols in the same commit**), `semantic_const` duplicate guard + registration criterion, `GateResult` serialization via `dataclasses.asdict`, probe tests exercise the public API. Reviews live under `docs/superpowers/reviews/`.
 
 ## Global Constraints (inherited by every task)
 
 - **The spec is LOCKED.** Deviations are surfaced in the Deviations Register, never silent. The spec is the tiebreaker for ambiguity.
 - **Reward definition (spec):** `R` = mean accuracy over the final 3 epochs of the horizon (`end_state_R`), end-state only, zero shaped terms. Diverged runs score `cfg.diverged_r = 0.10` in both units.
+- **Every public class/function is classified**: `@semantic` by default; `_NON_SEMANTIC[name] = reason` is the explicit opt-out (serialization, CLI orchestration, plotting, hash mechanism). `test_every_public_symbol_is_classified` must pass at the end of EVERY task — a task that adds a public symbol classifies it in the same commit.
 - Class 1 determinism: `torch.use_deterministic_algorithms(True)`, `cudnn.deterministic=True`, `cudnn.benchmark=False`; `CUBLAS_WORKSPACE_CONFIG=:4096:8` **force-set, hard-fail on a conflicting pre-set value**. TF32 off both flags. No AMP, no dropout, no gradient clipping, no `torch.compile`.
 - Explicit-matmul attention everywhere (seed and policy); no `F.scaled_dot_product_attention`.
 - RNG ownership: every draw from a named `torch.Generator`; `torch.manual_seed` only at process startup; all `nn.Module` construction inside `rng_scope(gen)`.
@@ -83,7 +84,7 @@
   (torchvision ships no py.typed; strict mypy hard-fails otherwise — verified).
 - Create: `experiments/__init__.py`, `experiments/kernel_demo.py`, `tests/unit/__init__.py`, `tests/unit/kernel_demo/__init__.py`, `tests/unit/kernel_demo/test_derive.py`
 
-**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `semantic(obj)` (decorator), `_SEMANTIC_SURFACE`, `semantic_const(name, value)`, `_SEMANTIC_CONSTANTS`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
+**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `semantic(obj)` (decorator), `_SEMANTIC_SURFACE`, `semantic_const(name, value)`, `_SEMANTIC_CONSTANTS`, `_NON_SEMANTIC`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
 
 `derive` is decorated `@semantic` at its definition, which is why `_SEMANTIC_SURFACE`/`semantic` are defined above it. Sorting the collected source strings makes the hash independent of registration order (and avoids any attribute access on `Callable`), and the surface is extended **only** by decoration at module definition time — Tasks 4, 5, 7 and 14 decorate their classes/functions; nothing ever appends from inside a factory or a gate run. (Rev 3 registered at call time, which made `config_hash()` call-order- and call-count-dependent: a worker mid-episode and a fresh parent disagreed, and the Task 15/17 refusal gates could spuriously fire or pass.)
 
@@ -93,7 +94,9 @@
 ```python
 # tests/unit/kernel_demo/test_derive.py
 import dataclasses
+import inspect
 
+import pytest
 import torch
 
 from experiments.kernel_demo import (
@@ -164,11 +167,40 @@ def test_config_hash_covers_semantic_constants():
     import experiments.kernel_demo as k
 
     before = k.config_hash()
-    k._SEMANTIC_CONSTANTS["__probe__"] = 1
+    k.semantic_const("__probe__", 1)
     try:
         assert k.config_hash() != before
     finally:
         del k._SEMANTIC_CONSTANTS["__probe__"]
+
+
+def test_semantic_const_rejects_duplicate_name():
+    import experiments.kernel_demo as k
+
+    k.semantic_const("__dup__", 1)
+    try:
+        with pytest.raises(ValueError, match="__dup__"):
+            k.semantic_const("__dup__", 2)
+    finally:
+        del k._SEMANTIC_CONSTANTS["__dup__"]
+
+
+def test_every_public_symbol_is_classified():
+    import experiments.kernel_demo as k
+
+    unclassified = [
+        name
+        for name, obj in vars(k).items()
+        if not name.startswith("_")
+        and (inspect.isclass(obj) or inspect.isfunction(obj))
+        and getattr(obj, "__module__", None) == "experiments.kernel_demo"
+        and not any(obj is s for s in k._SEMANTIC_SURFACE)
+        and name not in k._NON_SEMANTIC
+    ]
+    assert not unclassified, (
+        f"classify these: decorate @semantic or add to _NON_SEMANTIC "
+        f"with a reason: {unclassified}"
+    )
 ```
 
 - [ ] **Step 3: Run** `uv run pytest tests/unit/kernel_demo/test_derive.py -v` — FAIL (ImportError).
@@ -217,9 +249,28 @@ def semantic_const[T](name: str, value: T) -> T:
     # source-hashable classes/functions. Registered at definition, import
     # time — same discipline as @semantic, same reason. Register only plain
     # Python values (tuples/dicts/ints/strs) — never tensors or other objects
-    # whose repr truncates or reads global state.
+    # whose repr truncates or reads global state. Register a constant iff
+    # changing its value changes computed numbers or gate outcomes;
+    # documentation-only lists (FORBIDDEN_RELAXATIONS, MODES) and
+    # independently-recorded identities (SCHEMA_VERSION — already in every
+    # record) stay out.
+    if name in _SEMANTIC_CONSTANTS:
+        raise ValueError(f"semantic_const duplicate: {name}")
     _SEMANTIC_CONSTANTS[name] = value
     return value
+
+
+_NON_SEMANTIC: dict[str, str] = {
+    # name -> stated reason a public symbol is NOT on the semantic surface.
+    # Default for new public classes/functions is @semantic; entry here is
+    # the explicit opt-out (test_every_public_symbol_is_classified enforces).
+    "Config": "field values covered by frozen_block_hash; unfrozen fields are licensed operational levers",
+    "semantic": "hash mechanism — an edit changes every hash by construction",
+    "semantic_const": "hash mechanism",
+    "config_hash": "hash mechanism",
+    "frozen_block_hash": "hash mechanism",
+    "main": "CLI orchestration; every semantic step it dispatches is independently on the surface",
+}
 
 
 @semantic
@@ -233,6 +284,7 @@ def derive(seed: int, *labels: str | int) -> int:
     return int.from_bytes(h.digest()[:8], "big")
 
 
+@semantic
 def make_generator(seed: int, device: str | torch.device = "cpu") -> torch.Generator:
     g = torch.Generator(device=device)
     # full uint64 is accepted; do NOT mask (seed aliasing). CPU and CUDA
@@ -242,6 +294,7 @@ def make_generator(seed: int, device: str | torch.device = "cpu") -> torch.Gener
     return g
 
 
+@semantic
 @contextlib.contextmanager
 def rng_scope(gen: torch.Generator) -> Iterator[None]:
     # nn.Module constructors draw from the GLOBAL stream in reset_parameters();
@@ -333,6 +386,7 @@ def config_hash() -> str:
 MODES = ("selftest", "preflight", "collect", "train", "eval", "report", "replay")
 
 
+@semantic
 def enable_class1() -> None:  # real body lands in Task 7
     pass
 
@@ -673,7 +727,7 @@ def test_construction_does_not_touch_global_rng():
 - `class SeedDelta(nn.Module)` — `self.gain = nn.Parameter(torch.zeros(()))`; `forward(h) = self.gain * self.f(h)`; abstract `f`. Subclasses at C=64 (reviewer-computed): `NormSeed` `f = GroupNorm(8, 64)(h) − h` (129p); `AttnSeed` LN → explicit single-head qkv/out `Linear(64,16)`×3 + `Linear(16,64)`, no SDPA (~4.2k); `ConvLightSeed` depthwise 3×3 + pointwise **mid=64** + BN + ReLU + pointwise (8,897 — mid=16/32 would fail the budget floor at 2,657/4,737); `ConvHeavySeed` 3×3-BN-ReLU-3×3-BN, **bottleneck Cb=52** (60,137; valid band [31,77]). Internals standard-init; final BN γ=1; only the gain carries τ.
 - `build_seed(name, channels, init_seed) -> SeedDelta` — inside `rng_scope` (each seed class and `SeedDelta` are decorated `@semantic`; `build_seed` never touches `_SEMANTIC_SURFACE`).
 - `tau_init(seed, host_feats, cfg) -> float` — decorated `@semantic` (D11's train-mode calibration is semantic surface); caller supplies `host_feats` from `host.forward_to_slot` under `host.eval()`/`no_grad` (host BN protection, spec); the measurement runs the seed **in `train()` mode under `no_grad`** (D11 — the mode of the first TRAINING step; seed BN buffers mutated by the fixed measurement batch are deterministic birth state); `g = cfg.tau * rms(host_feats) / max(rms(f0), cfg.tau_eps)`; sets and returns `g`.
-- `split_decay_groups(module) -> (decay: list[tuple[str, Tensor]], no_decay: list[tuple[str, Tensor]])` — **rule: `param.ndim <= 1 or name.endswith("gain") → no-decay`** (coextensive with the spec's gain/affines/biases list; robust to `nn.Sequential` integer names, where substring rules silently mis-file BN affines).
+- `split_decay_groups(module) -> (decay: list[tuple[str, Tensor]], no_decay: list[tuple[str, Tensor]])` — decorated `@semantic` (its ndim/gain rule changes optimizer grouping — semantic surface); **rule: `param.ndim <= 1 or name.endswith("gain") → no-decay`** (coextensive with the spec's gain/affines/biases list; robust to `nn.Sequential` integer names, where substring rules silently mis-file BN affines).
 
 - [ ] **Step 1: Failing tests**
 
@@ -867,7 +921,7 @@ def test_cosine_ease_endpoints():
 **Files:** modify section 7; create `tests/unit/kernel_demo/test_determinism.py`.
 
 **Interfaces (Produces):**
-- `enable_class1()` (real body): `CUBLAS_WORKSPACE_CONFIG` — if unset, set `:4096:8`; if set to anything else, `raise RuntimeError` (a tolerated stray value is a silent Class-1 relaxation); then deterministic algorithms, cudnn flags, TF32 off ×2.
+- `enable_class1()` (real body; **keeps its `@semantic` decorator** — the full replacement definition is still semantic surface): `CUBLAS_WORKSPACE_CONFIG` — if unset, set `:4096:8`; if set to anything else, `raise RuntimeError` (a tolerated stray value is a silent Class-1 relaxation); then deterministic algorithms, cudnn flags, TF32 off ×2.
 - `state_hash(module) -> str` — sorted `state_dict()`, `.detach().cpu().contiguous()`, **`torch.where(v == 0, zeros, v)`** (D8), sha256 over key + bytes. `host_init_hash` is rebound to this (Task 4's standalone version retired).
 - `env_block(device, worker_count) -> dict` (torch/cuda/cudnn/python versions, GPU name, TF32 flags, worker_count, device_index); `REPLAY_REFUSAL_KEYS` (worker_count/device_index provenance-only — the composition of worker_count-in-key + single-worker replay was a proven deadlock) (registered via `semantic_const` at definition).
 - `FORBIDDEN_RELAXATIONS: tuple[str, ...]` — spec list + `torch.compile` (D10).
@@ -1586,7 +1640,7 @@ def test_measure_fan_density_empty_is_loud():
 - `draw_schedule(episode_seed, cfg) -> tuple[int, int]` — 2 ordered epochs, uniform without replacement, inclusive window.
 - `run_collection_episode(cfg, data, device, episode_seed, namespace, store, worker_id, read_test) -> None` — base (`BaseTrace`, snapshots at scheduled epochs), two fans (`include_nullseed = derive(episode_seed, "nullseed-subsample") % 10 == 0` — **the 1-in-10 subsample wired into the collection path, not only selftest**), records appended with `split_role` from the tune rule.
 - `run_refan(cfg, data, device, episode_seed, fan_epoch, k, store, worker_id) -> None` — future `derive(episode_seed, "refan", k)`, `k` recorded, **5 real arms incl. a fresh no-op under the new future** (the base tail is not a valid comparand; the twin is re-based), `kind="refan"`, excluded from training.
-- `@dataclass GateResult`: `ok: bool`, `reason: str | None` (human-readable failure cause, e.g. `all arms diverged`), `detail: dict`, `remedy: str` — the return type of every gate function; the freeze refusal and the printed gate table consume it.
+- `@dataclass GateResult`: `ok: bool`, `reason: str | None` (human-readable failure cause, e.g. `all arms diverged`), `detail: dict`, `remedy: str` — the return type of every gate function; the freeze refusal and the printed gate table consume it; serialized via `dataclasses.asdict` at the site that builds the `preflight_iter` record and `frozen.json` — `gate_results` payloads store plain dicts, never dataclass instances.
 - Gates 1–8, thresholds from Config (never literals), unit = first fan per episode, all val units:
   1. `gate1_noop_sanity` — ≥ `cfg.gate1_min_mild_noop_wins` mild no-op wins (5-arm val-argmax); modal in no targeted pathology (D1). *Remedy: sampler.*
   2. `gate2_signal` — (a) 200-step linear probe telemetry→pathology, by-episode split (D13), > `cfg.gate2_probe_min_acc`; (b) probe telemetry→val-argmax (4-seed) vs majority-class; contingency table vs `DESIGNED_WINNER`. *Remedy: sampler.*
