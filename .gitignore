@@ -40,3 +40,4 @@ tools/wiki/.cache/
 tools/diagrams/build/
 
 prompts/
+.claude/worktrees/

@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-09 (session 12; PDR-0029 — kernel demo enters Next as the proof-of-concept bet)
+# Roadmap — Simic            Updated: 2026-08-10 (session 13; PDR-0031 — kernel demo moves to Now, execution owner-authorized)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -13,7 +13,19 @@
   `wave:*` labels (PDR-0008) · tracker: wave:0 cleared and the wave:1
   Isperia pair landed (ADR-0004, ADR-0005); dependency-critical path now
   simic-0bf2c40dec → simic-38a07fad39, six wave:1 items remain ·
-  metric: design-debt burn-down (metrics.md)
+  metric: design-debt burn-down (metrics.md). The three-tier trust model
+  is now adopted doctrine (ADR-0015, PDR-0030) — wave:4-leyline contract
+  shapes record a tier per record class; enforcement wiring is
+  simic-8db0b87ed6 (Phase A)
+- **Kernel demo — the proof of concept** ("Simic in 20 minutes",
+  `experiments/kernel_demo.py`) — why: the pointable answer to "how do you
+  know it works" (PDR-0029: maths proved, risk is engineering). Moved to
+  Now by PDR-0031: spec locked rev 6 (98083fd), implementation plan rev
+  3.3 panel-green (86f25d8), owner authorized execution with full
+  autonomy (stop-points: BLOCKED/load-bearing, GPU-checkpoint phases) ·
+  tracker: simic-4a44ed57c9 (in_progress, subagent-driven) · metric: none
+  of its own — never citable as §28 evidence; guarded by the burn-down
+  staying on pace (PDR-0031 reversal trigger)
 - **Information-management regime (ADR-0002)** — why: data management was the
   owner-named second esper bugbear (definition drift, no sign-or-lock,
   lost lineage, silent mutation); Phase A binds code to contracts, so the
@@ -23,14 +35,6 @@
   own — guarded by the design-debt burn-down staying on pace
 
 ## Next (shaped, decreasing certainty)
-- **Kernel demo — the proof of concept** ("Simic in 20 minutes",
-  `experiments/kernel_demo.py`) — why: the pointable answer to "how do you
-  know it works"; owner position (PDR-0029): the maths is proved, the risk
-  is engineering, so a runnable substrate-loop demo is the cheapest
-  credibility instrument while the fleet is far off. Spec locked rev 6
-  with implementation GO (2026-08-09, commit 98083fd); never citable as
-  §28 evidence — the pre-registered fleet (ADR-0014) owns the claim.
-  (not yet sequenced)
 - **Phase A — Namespec, Leyline contracts, dependency boundaries** (HLD §25.A;
   §30 milestones 1–3) — namespec ADR (Namespec 2.0 — done, ADR-0008), package skeleton with
   forbidden-import checks, core contracts, lifecycle/warrant rules, budgets,

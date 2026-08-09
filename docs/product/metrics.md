@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-09 (session 12)
+# Metrics — Simic             Last read: 2026-08-10 (session 13)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 31 open / 23 closed. Session 12 closed simic-642c2c1823 (worked cost model, ADR-0014) — pulled forward out of wave:5 because three decisions consumed its numbers (PDR-0026). Remaining: wave:2-momir 8, wave:3-narset 7, wave:4-leyline 10, wave:5-scoreboard 3, unwaved 3; pace needed ≈ 1.5 closures per working day to 2026-08-31 | 2026-08-09 (session 12) |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 31 open / 23 closed — **no closures since session 12**; sessions 12b–13 went to the kernel demo (spec lock, plan, execution start) and ADR-0015. Pace needed has steepened to ≈ 2.1 closures per working day (~15 working days left). Not yet fired, but a second no-closure session puts 2026-08-31 out of reach at spare-time cadence — re-plan signal per the header note | 2026-08-10 (session 13) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)
