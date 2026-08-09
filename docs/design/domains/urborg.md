@@ -62,6 +62,7 @@ For every case it stores:
 - Wrenn embodiment state;
 - maturation and blend history;
 - Emrakul maintenance history;
+- near-miss records — thin-margin veto passes joined to large uncontained post-commit shock (`isperia.md`);
 - and final outcome.
 
 #### 15.2 Blinded views

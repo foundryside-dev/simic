@@ -54,6 +54,26 @@ compute; **Isperia bounds worst case** and must be conservative, because
 its errors cost the host. They optimise different functionals of the same
 distribution.
 
+<!-- hld: added 2026-08-09 (simic-66c357e06a, peer review) -->
+#### The veto's training signal
+
+The veto's one true-positive signal — a containment rollback (ADR-0010) —
+is rare **by construction**: if the veto works, rollbacks approach zero,
+which starves exactly the thing that would improve it. Two substitutes
+keep the signal alive, both cheap:
+
+- **Permanent harmful fixtures.** The deliberately harmful and
+  long-term-regressing candidates in the QA pool (`07-counterfactual-engine.md`)
+  are permanent members, not a curriculum stage — the veto is continuously
+  exercised against known-bad structure for as long as the system runs.
+- **Near-misses.** A candidate that passed the veto with a thin margin and
+  then produced large integration shock *without* triggering containment is
+  recorded as a near-miss: the join of its `tail_veto_results` margin
+  (INV-31) with its post-commit shock outcome in Urborg. Near-misses are
+  dense where rollbacks are sparse, and they are the same distribution's
+  shoulder, so they carry most of the usable signal. They are analysis
+  records over immutable history (INV-36), never retroactive verdicts.
+
 #### Admission utility
 
 For a candidate \(c\) that survived eligibility and the tail-risk veto,
