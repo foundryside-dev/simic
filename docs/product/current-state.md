@@ -25,10 +25,12 @@ unstarted and needs owner presence at the plainweave seeding gate.
   publish (branch protection: publish = PR route, see memory).
 - Optional: dismiss Dependabot alert #1 as "vulnerable code not in use"
   (external state change — owner's call; PDR-0023).
-- Carried: the claude.ai design-system project is BEHIND local (push-back
-  owner-gated, flagged in the skill readme); yzmir-training-state pack
-  still absent, its applied prompt awaiting owner relay upstream (since
-  session 6).
+- Carried: yzmir-training-state pack still absent; the applied prompt
+  (`commissioning/yzmir-training-state-engineering-updated-prompt.md`)
+  awaits owner relay to the in-flight upstream build (since session 6).
+  (Session-11 correction: the design-system upstream was already re-synced
+  2026-08-09 — local and claude.ai agree; the "BEHIND local" line this
+  brief carried was stale, per the skill readme's round-trip record.)
 
 ## Last checkpoint did
 - Recorded PDR-0021 (pacing warning answered: wave:1 resumed, date
