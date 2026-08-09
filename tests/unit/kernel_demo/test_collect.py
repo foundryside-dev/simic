@@ -39,12 +39,23 @@ def bomb_runner(
     *,
     manifest_hash: str | None = None,
     worker_count: int = 1,
+    skip_fan_ids: frozenset[str] = frozenset(),
 ) -> None:
     if episode_seed == derive(cfg.run_seed, "train", 0):
         raise TwinDivergence(3)
     time.sleep(0.5)  # let the sibling's halt land between episodes deterministically
     run_collection_episode(
-        cfg, data, device, episode_seed, namespace, store, worker_id, read_test, manifest_hash=manifest_hash, worker_count=worker_count
+        cfg,
+        data,
+        device,
+        episode_seed,
+        namespace,
+        store,
+        worker_id,
+        read_test,
+        manifest_hash=manifest_hash,
+        worker_count=worker_count,
+        skip_fan_ids=skip_fan_ids,
     )
 
 
@@ -73,6 +84,29 @@ def test_collect_idempotent_and_roles(tmp_path):
     out2 = run_collect(TINY, str(tmp_path), ["cpu"], 2, data_loader=tiny_loader)
     assert out2["collected"] == 0  # re-invocation collects zero new episodes
     assert len([r for r in Store(tmp_path).merge() if r.kind == "fan"]) == 8
+
+
+def test_partial_episode_resume_completes_without_duplicates(tmp_path):
+    # Crash between an episode's two fans: resume must produce the missing fan
+    # WITHOUT re-appending the existing one (a duplicate fan_id would fail
+    # every later merge()).
+    full = tmp_path / "full"
+    partial = tmp_path / "partial"
+    store = Store(full, fsync_every=1)
+    es = derive(TINY.run_seed, "train", 1)
+    run_collection_episode(TINY, make_tiny_bundle(), "cpu", es, "train", store, 0, False)
+    store.close()
+    lines = (full / "shards" / "worker_0.jsonl").read_text().strip().splitlines()
+    assert len(lines) == 2  # two fans, no void
+    (partial / "shards").mkdir(parents=True)
+    (partial / "shards" / "worker_0.jsonl").write_text(lines[0] + "\n")  # crash after fan 1
+    existing = frozenset(r.fan_id for r in Store(partial).merge())
+    store2 = Store(partial, fsync_every=1)
+    run_collection_episode(TINY, make_tiny_bundle(), "cpu", es, "train", store2, 0, False, skip_fan_ids=existing)
+    store2.close()
+    merged = Store(partial).merge()  # raises on any duplicate fan_id
+    assert len(merged) == 2
+    assert len({r.fan_id for r in merged}) == 2
 
 
 def test_collect_refuses_without_manifest(tmp_path):

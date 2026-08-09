@@ -159,11 +159,54 @@ def test_gate2_pass_and_fail():
 
 
 def test_gate3_pass_and_fail():
+    # The floor is the PAIRED per-arm |R^fan - R^refan| noise at the same
+    # (episode, epoch) — not the density statistic computed on refans, which
+    # has the same expectation as the fan density itself.
     fans = _balanced_fixture()
-    flat_refans = [_fan(100 + i, "mild", winner="norm", kind="refan", refan_k=0, win_r=0.51, other_r=0.5, noop_r=0.5) for i in range(6)]
-    assert gate3_contrast(fans, flat_refans, CFG).ok
+    # es 1..5 are under_normalized (winner norm); paired refans move every arm
+    # by 0.005 -> tiny noise floor, fan contrast clears 2x it.
+    quiet_refans = [
+        _fan(i, "under_normalized", winner="norm", kind="refan", refan_k=0, win_r=0.705, other_r=0.505, noop_r=0.455) for i in range(1, 6)
+    ]
+    assert gate3_contrast(fans, quiet_refans, CFG).ok
+    # Flat fans against noisy refans: contrast 0.01 vs noise ~0.058 -> fail.
     flat_fans = [_fan(i, "mild", winner="norm", win_r=0.51, other_r=0.5, noop_r=0.5) for i in range(1, 11)]
-    assert not gate3_contrast(flat_fans, flat_refans, CFG).ok
+    noisy_refans = [_fan(i, "mild", winner="norm", kind="refan", refan_k=0, win_r=0.60, other_r=0.45, noop_r=0.55) for i in range(1, 6)]
+    assert not gate3_contrast(flat_fans, noisy_refans, CFG).ok
+
+
+def test_gate3_unpaired_refans_is_loud_failure():
+    fans = _balanced_fixture()
+    unpaired = [_fan(100 + i, "mild", winner="norm", kind="refan", refan_k=0) for i in range(3)]
+    res = gate3_contrast(fans, unpaired, CFG)
+    assert not res.ok
+    assert res.reason is not None and "paired" in res.reason
+
+
+def test_run_refan_base_divergence_voids_not_crashes(tmp_path, monkeypatch):
+    import dataclasses as dc
+
+    from experiments.kernel_demo import Store, run_refan
+    from tests.unit.kernel_demo.conftest import make_tiny_bundle
+
+    tiny = dc.replace(CFG, horizon=6, stage_k=1, stage_m=1, stage_f=1, batch_size=64, window=(1, 3))
+    real = kd.build_record
+
+    def bomb(*a, **kw):
+        rec = real(*a, **kw)
+        if rec.epoch == 1:
+            raise kd.TelemetryDivergence("injected")
+        return rec
+
+    monkeypatch.setattr(kd, "build_record", bomb)
+    store = Store(tmp_path, fsync_every=1)
+    run_refan(tiny, make_tiny_bundle(), "cpu", 77, 3, 0, store, 0)  # base diverges at epoch 1 < fan_epoch 3
+    store.close()
+    merged = Store(tmp_path).merge()
+    assert len(merged) == 1
+    assert merged[0].kind == "void_event" and merged[0].refan_k == 0
+    assert (merged[0].gate_results or {}).get("event") == "refan_base_divergence"
+    assert (merged[0].gate_results or {}).get("diverged_at") == 1
 
 
 def test_gate4_pass_and_fail():

@@ -1074,7 +1074,7 @@ def train_one_epoch(ctx: EpisodeCtx, epoch: int) -> None:
         ctx.opt.step()
         ctx.slot.step_tick(cfg, steps_per_epoch)
         ce_sum += float(ce.detach())
-        sat = ctx.host.stage_stats.get("saturation", [0.0, 0.0, 0.0])
+        sat = ctx.host.stage_stats["saturation"]  # KeyError = hooks never attached — loud, never silent zeros
         for i in range(3):
             sat_sum[i] += sat[i]
     ctx.slot.epoch_tick(cfg)
@@ -1590,9 +1590,20 @@ class Store:
         records: list[FanRecord] = []
         for p in sorted((self.root / "shards").glob("worker_*.jsonl")):
             with open(p, encoding="utf-8") as fh:
-                for line in fh:
-                    if line.strip():
-                        records.append(decode_record(line))
+                lines = [ln for ln in fh if ln.strip()]
+            for i, line in enumerate(lines):
+                try:
+                    records.append(decode_record(line))
+                except json.JSONDecodeError:
+                    if i == len(lines) - 1:
+                        # Torn FINAL line = host crash mid-append; the record
+                        # was never durable (this is the "loses <= fsync_every
+                        # records" contract, not corruption). Skip LOUDLY so
+                        # the store stays readable. A torn interior line is
+                        # corruption and still raises.
+                        print(f"WARNING: skipping torn final line of {p} (host crash mid-append)", flush=True)
+                        continue
+                    raise
         # Duplication backstop: fan/refan identities must be unique within one
         # manifest_hash generation; event/policy_run/preflight kinds are exempt
         # from the collision assert but still carry unique ids.
@@ -2271,6 +2282,7 @@ def run_collection_episode(
     manifest_hash: str | None = None,
     worker_count: int = 1,
     schedule_label: str = "schedule",
+    skip_fan_ids: frozenset[str] = frozenset(),
 ) -> None:
     if namespace == "preflight":
         split_role = "preflight"
@@ -2287,6 +2299,8 @@ def run_collection_episode(
     # selftest.
     include_nullseed = derive(episode_seed, "nullseed-subsample") % 10 == 0
     for fe in fan_epochs:
+        if fan_identity(episode_seed, fe, "fan", None, None, None) in skip_fan_ids:
+            continue  # crash-resume: this fan is already durable in a shard; re-appending would duplicate its fan_id
         snap = trace.snapshots.get(fe)
         if snap is None:
             continue  # scheduled after a base divergence; recorded in the void_event below
@@ -2319,6 +2333,8 @@ def run_collection_episode(
             ),
         )
     if trace.status == "diverged":
+        if fan_identity(episode_seed, None, "void_event", None, None, None) in skip_fan_ids:
+            return  # crash-resume: the divergence is already on record
         skipped = [fe for fe in fan_epochs if fe not in trace.snapshots]
         store.append(
             worker_id,
@@ -2368,8 +2384,40 @@ def run_refan(
 ) -> None:
     ctx = make_episode(cfg, data, device, episode_seed, read_test)
     host_init = state_hash(ctx.host)
-    for e in range(fan_epoch):
-        train_one_epoch(ctx, e)
+    try:
+        for e in range(fan_epoch):
+            train_one_epoch(ctx, e)
+    except TelemetryDivergence:
+        # The base replay diverges deterministically — crashing here would
+        # brick preflight/eval at the same epoch on every retry. Record the
+        # void (complete history; refan_k makes the identity distinct from
+        # the episode's own base-divergence void_event) and skip this refan.
+        store.append(
+            worker_id,
+            make_fan_record(
+                kind="void_event",
+                episode_seed=episode_seed,
+                seed_namespace=namespace,
+                split_role="preflight" if namespace == "preflight" else "eval",
+                pathology_id=ctx.pathology,
+                fan_epoch=fan_epoch,
+                refan_k=k,
+                schedule_id=make_schedule_id(cfg),
+                policy_checkpoint_id=None,
+                iteration=None,
+                config_hash=config_hash(),
+                frozen_block_hash=frozen_block_hash(cfg),
+                manifest_hash=manifest_hash,
+                common_future_hash="",
+                host_init_hash=host_init,
+                env=env_block(device, 1),
+                arms=[],
+                telemetry=[],
+                decisions=None,
+                gate_results={"event": "refan_base_divergence", "diverged_at": len(ctx.telemetry)},
+            ),
+        )
+        return
     snap = take_snapshot(ctx)
     future_k = CommonFuture.draw(derive(episode_seed, "refan", k), data.train_x.shape[0], cfg.horizon, cfg)
     # 5 real arms incl. a FRESH no-op under the new future — the base tail is
@@ -2539,11 +2587,29 @@ def gate2_signal(records: list[FanRecord], cfg: Config) -> GateResult:
 def gate3_contrast(records: list[FanRecord], refans: list[FanRecord], cfg: Config) -> GateResult:
     remedy = "averaging window, horizon"
     density = measure_fan_density(_first_fans(records))
-    floor = measure_fan_density(refans)  # measured from the preflight refans
+    # Refan noise floor: a refan replays the SAME base prefix and snapshot and
+    # re-runs the same arms under a re-drawn future, so per-arm
+    # |R_a^fan - R_a^refan| at the same (episode, epoch) is exactly the
+    # future-resampling noise of R. (The density statistic computed ON refans
+    # is NOT a floor — it has the same expectation as the fan density itself,
+    # which would make this gate structurally unpassable.)
+    by_point: dict[tuple[int, int | None], FanRecord] = {(r.episode_seed, r.fan_epoch): r for r in records if r.kind == "fan"}
+    diffs: list[float] = []
+    for rf in refans:
+        fan = by_point.get((rf.episode_seed, rf.fan_epoch))
+        if fan is None:
+            continue
+        fan_by, rf_by = _arm_by_name(fan), _arm_by_name(rf)
+        for n in ("noop", *SEED_NAMES):
+            diffs.append(abs(_as_float(fan_by[n]["r_val"]) - _as_float(rf_by[n]["r_val"])))
+    if not diffs:
+        return GateResult(False, "no refans paired with fans for the noise floor", {"density": density}, remedy)
+    noise = sum(diffs) / len(diffs)
+    floor = dict.fromkeys(density, noise)
     checks = {k: density[k] > cfg.gate3_contrast_mult * floor[k] for k in density}
     ok = all(checks.values())
     failing = [k for k, v in checks.items() if not v]
-    reason = None if ok else f"density not > {cfg.gate3_contrast_mult}x refan floor for {failing}"
+    reason = None if ok else f"density not > {cfg.gate3_contrast_mult}x refan noise floor for {failing}"
     return GateResult(ok, reason, {"density": density, "floor": floor}, remedy)
 
 
@@ -2774,16 +2840,32 @@ def freeze_manifest(
 
 
 @semantic
-def run_preflight(cfg: Config, data: DataBundle, device: str, store_root: str, freeze: bool = False) -> dict[str, object]:
+def run_preflight(
+    cfg: Config, data: DataBundle, device: str, store_root: str, freeze: bool = False, gate8_workers: int = 6
+) -> dict[str, object]:
     store = Store(store_root, cfg.fsync_every)
     merged = store.merge()
-    have_fans = {r.episode_seed for r in merged if r.kind == "fan" and r.seed_namespace == "preflight"}
+    # Episode completeness is fan-level, not any-record-level: a crash between
+    # an episode's two fans must resume the missing fan (existing fan_ids
+    # skipped inside run_collection_episode), not drop it silently.
+    pf = [r for r in merged if r.seed_namespace == "preflight"]
+    pf_fan_counts: dict[int, int] = {}
+    pf_voided: set[int] = set()
+    for r in pf:
+        if r.kind == "fan":
+            pf_fan_counts[r.episode_seed] = pf_fan_counts.get(r.episode_seed, 0) + 1
+        elif r.kind == "void_event":
+            pf_voided.add(r.episode_seed)
+    pf_existing = frozenset(r.fan_id for r in pf)
     for i in range(cfg.n_preflight):
         es = derive(cfg.run_seed, "preflight", i)
-        if es not in have_fans:
-            run_collection_episode(cfg, data, device, es, "preflight", store, worker_id=0, read_test=False)
+        if es in pf_voided or pf_fan_counts.get(es, 0) >= cfg.fans_per_episode:
+            continue
+        run_collection_episode(cfg, data, device, es, "preflight", store, worker_id=0, read_test=False, skip_fan_ids=pf_existing)
     merged = store.merge()
-    have_refans = {(r.episode_seed, r.refan_k) for r in merged if r.kind == "refan"}
+    # A void_event with refan_k set is a completed-but-diverged refan: skip it
+    # too, or every preflight invocation re-runs it and re-appends the void.
+    have_refans = {(r.episode_seed, r.refan_k) for r in merged if r.kind == "refan" or (r.kind == "void_event" and r.refan_k is not None)}
     for k in range(cfg.preflight_refans):  # these supply gate 3's noise floor
         es = derive(cfg.run_seed, "preflight", k % cfg.n_preflight)
         if (es, k) not in have_refans:
@@ -2805,7 +2887,9 @@ def run_preflight(cfg: Config, data: DataBundle, device: str, store_root: str, f
         "gate5_magnitude": gate5_magnitude(fans, cfg),
         "gate6_horizon": gate6_horizon(fans, cfg),
         "gate7_now_vs_later": gate7_now_vs_later(fans, cfg),
-        "gate8_pressure": gate8_pressure(cfg, data, device, worker_count=2),
+        # gate8_workers defaults to collect's per-device worker default; the
+        # certified worker_count is recorded in gate8_outcome.detail.
+        "gate8_pressure": gate8_pressure(cfg, data, device, worker_count=gate8_workers),
     }
     # gate_results payloads store plain dicts, never dataclass instances.
     gate_dicts = {name: dataclasses.asdict(g) for name, g in gates.items()}
@@ -2905,6 +2989,7 @@ def worker_main(
     manifest_hash: str | None,
     worker_count: int,
     log_dir: str,
+    skip_fan_ids: frozenset[str] = frozenset(),
 ) -> None:
     enable_class1()  # MUST be the first statement of every process
     dev = torch.device(device)
@@ -2925,7 +3010,17 @@ def worker_main(
                 t0 = time.perf_counter()
                 try:
                     episode_runner(
-                        cfg, data, device, es, "train", store, worker_id, False, manifest_hash=manifest_hash, worker_count=worker_count
+                        cfg,
+                        data,
+                        device,
+                        es,
+                        "train",
+                        store,
+                        worker_id,
+                        False,
+                        manifest_hash=manifest_hash,
+                        worker_count=worker_count,
+                        skip_fan_ids=skip_fan_ids,
                     )
                 except TwinDivergence as td:
                     write_divergence_report(store_root, cfg, es, "noop", td.first_bad_epoch, manifest_hash, device, worker_count)
@@ -3012,7 +3107,22 @@ def run_collect(
     targets = [derive(cfg.run_seed, "train", i) for i in range(cfg.n_collect + extensions)]
     if limit is not None:
         targets = targets[:limit]
-    done = {r.episode_seed for r in merged if r.seed_namespace == "train" and r.kind in ("fan", "void_event")}
+    # Episode completeness is fan-level, not any-record-level: a crash between
+    # an episode's two fans must resume the missing fan (existing fan_ids are
+    # skipped inside run_collection_episode, so nothing is double-appended),
+    # not silently drop it from the collection forever.
+    fan_counts: dict[int, int] = {}
+    voided: set[int] = set()
+    existing_ids: set[str] = set()
+    for r in merged:
+        if r.seed_namespace != "train":
+            continue
+        existing_ids.add(r.fan_id)
+        if r.kind == "fan":
+            fan_counts[r.episode_seed] = fan_counts.get(r.episode_seed, 0) + 1
+        elif r.kind == "void_event":
+            voided.add(r.episode_seed)
+    done = voided | {es for es, c in fan_counts.items() if c >= cfg.fans_per_episode}
     todo = [es for es in targets if es not in done]
     store.close()
     slots = [(d, w) for d in devices for w in range(n_workers_per_device)]
@@ -3027,7 +3137,20 @@ def run_collect(
             seeds = todo[wid :: len(slots)]
             p = ctx_mp.Process(
                 target=worker_main,
-                args=(wid, device, cfg, store_root, seeds, halt, data_loader, episode_runner, manifest_hash, len(slots), log_dir),
+                args=(
+                    wid,
+                    device,
+                    cfg,
+                    store_root,
+                    seeds,
+                    halt,
+                    data_loader,
+                    episode_runner,
+                    manifest_hash,
+                    len(slots),
+                    log_dir,
+                    frozenset(existing_ids),
+                ),
             )
             p.start()
             procs.append(p)
@@ -3075,15 +3198,19 @@ def class_derangement(classes: list[str], seed: int) -> dict[str, str]:
 
 @semantic
 def when_contrast(episodes: list[dict[str, object]]) -> dict[str, float]:
-    # never-germinate contributes lift 0 to the unrestricted mean and is
-    # excluded from the restricted (conditional-on-acting) mean.
+    # episodes carry the per-episode WHEN-contrast series in "lift"
+    # (trained_live - fixed_epoch at eval) and trained-live's germination
+    # flag. Unrestricted = mean over ALL episodes (a never-germinating
+    # trained side contributes 0 - fixed_epoch's lift — the restraint
+    # confound the spec names); restricted = mean over episodes where
+    # trained-live germinated.
     if not episodes:
         return {"unrestricted_mean": 0.0, "restricted_mean": 0.0, "germination_rate": 0.0}
     lifts = [_as_float(e["lift"]) for e in episodes]
     germ = [bool(e["germinated"]) for e in episodes]
     acted = [lift for lift, g in zip(lifts, germ, strict=True) if g]
     return {
-        "unrestricted_mean": sum(lift if g else 0.0 for lift, g in zip(lifts, germ, strict=True)) / len(episodes),
+        "unrestricted_mean": sum(lifts) / len(episodes),
         "restricted_mean": sum(acted) / len(acted) if acted else 0.0,
         "germination_rate": len(acted) / len(episodes),
     }
@@ -3186,8 +3313,11 @@ def _test_argmax(rec: FanRecord) -> str:
 
 @semantic
 def _pi_argmax(pi: dict[str, float]) -> str:
+    # Deterministic tie-break: LOWEST INDEX in SEED_NAMES order — the same
+    # rule decide_live implements and tests pin ("norm" before "attn");
+    # min() over names was a different (alphabetical) rule.
     best = max(pi.values())
-    return min(n for n, v in pi.items() if v == best)  # lexicographic-in-SEED_NAMES? lowest index
+    return next(n for n in SEED_NAMES if pi[n] == best)
 
 
 @semantic
@@ -3233,7 +3363,12 @@ def run_eval(
         raise RuntimeError("eval refused: manifest mismatch (live Config/source differ from frozen.json)")
     manifest_hash = cast(str, manifest["manifest_hash"])
     merged = store.merge()
-    train_eps = {r.episode_seed for r in merged if r.kind == "fan" and r.seed_namespace == "train"}
+    # A base divergence before the first fan epoch legitimately yields a
+    # void_event-only episode; it counts as COLLECTED (complete history —
+    # the episode was processed and its outcome recorded). Counting only
+    # kind=="fan" made eval permanently unreachable after any such episode,
+    # since --extend raises `required` by the same n.
+    train_eps = {r.episode_seed for r in merged if r.kind in ("fan", "void_event") and r.seed_namespace == "train"}
     required = cfg.n_collect + _recorded_extensions(merged)
     if len(train_eps) < required:
         raise RuntimeError(f"eval refused: incomplete collection ({len(train_eps)} train episodes < {required})")
@@ -3268,13 +3403,20 @@ def run_eval(
             fid = fan_identity(es, None, "policy_run", None, comp_ckpt[comp], None)
             if fid in existing:
                 rec = next(r for r in merged if r.fan_id == fid)
-                summary = (rec.decisions or [{}])[-1]
+                # Loud on a malformed record: silently defaulting a missing
+                # summary to "never germinated, lift 0" is the silent-zero scar.
+                if not rec.decisions:
+                    raise RuntimeError(f"policy_run {fid} has no decisions payload — corrupt record, refusing to resume")
+                summary = rec.decisions[-1]
+                for key in ("germination_epoch", "lift", "chosen"):
+                    if key not in summary:
+                        raise RuntimeError(f"policy_run {fid} summary missing {key!r} — corrupt record, refusing to resume")
                 per_comp[comp].append(
                     {
                         "episode_seed": es,
-                        "germinated": summary.get("germination_epoch") is not None,
-                        "lift": _as_float(summary.get("lift", 0.0)),
-                        "chosen": summary.get("chosen"),
+                        "germinated": summary["germination_epoch"] is not None,
+                        "lift": _as_float(summary["lift"]),
+                        "chosen": summary["chosen"],
                     }
                 )
                 continue
@@ -3305,7 +3447,11 @@ def run_eval(
                             pol = trained_pol if comp == "trained" else sched_pol
                             mask = comp == "schedule_only"
                             p, pi = _query_dicts(pol, normalizer, [dataclasses.asdict(t) for t in ctx.telemetry], mask)
-                            fire = p > 0.5  # deterministic deployment rule
+                            # Deterministic deployment rule — the inline twin of
+                            # the unit-tested decide_live (p > 0.5, tie-break =
+                            # lowest SEED_NAMES index via _pi_argmax). Keep the
+                            # two in lockstep: decide_live is the tested owner.
+                            fire = p > 0.5
                             action = _pi_argmax(pi) if fire else None
                         decisions.append({"epoch": e, "p": p, "action": action})
                         if fire and action is not None:
@@ -3348,11 +3494,32 @@ def run_eval(
                 ),
             )
             per_comp[comp].append({"episode_seed": es, "germinated": germination_epoch is not None, "lift": lift, "chosen": chosen})
-        # frozen grid: 2 forced fans per eval episode at evalgrid-drawn epochs
+        # frozen grid: 2 forced fans per eval episode at evalgrid-drawn epochs.
+        # Resume is per-fan (skip_fan_ids), not per-episode: re-running a
+        # partially-recorded episode without the skip set would append a
+        # duplicate fan_id and fail every later merge().
         grid_epochs = draw_schedule(es, cfg, "evalgrid")
-        if any(fan_identity(es, fe, "fan", None, None, None) not in existing for fe in grid_epochs):
-            run_collection_episode(cfg, data, device, es, "eval", store, 0, True, manifest_hash=manifest_hash, schedule_label="evalgrid")
-        if i < N_EVAL_REFANS and fan_identity(es, grid_epochs[0], "refan", 0, None, None) not in existing:
+        grid_missing = [fe for fe in grid_epochs if fan_identity(es, fe, "fan", None, None, None) not in existing]
+        base_voided = fan_identity(es, None, "void_event", None, None, None) in existing
+        if grid_missing and not base_voided:
+            run_collection_episode(
+                cfg,
+                data,
+                device,
+                es,
+                "eval",
+                store,
+                0,
+                True,
+                manifest_hash=manifest_hash,
+                schedule_label="evalgrid",
+                skip_fan_ids=frozenset(existing),
+            )
+        refan_done = (
+            fan_identity(es, grid_epochs[0], "refan", 0, None, None) in existing
+            or fan_identity(es, grid_epochs[0], "void_event", 0, None, None) in existing  # diverged base, already voided
+        )
+        if i < N_EVAL_REFANS and not refan_done:
             run_refan(cfg, data, device, es, grid_epochs[0], 0, store, 0, namespace="eval", read_test=True, manifest_hash=manifest_hash)
     store.close()
     merged = Store(store_root, cfg.fsync_every).merge()
@@ -3418,6 +3585,20 @@ def run_eval(
     obs_matched, money_p = money_chart_permutation_pvalue(
         paths, picks, dict(DESIGNED_WINNER), cfg.permutation_resamples, derive(cfg.run_seed, "money")
     )
+    # Diverged-excluded companion (spec: report) — the money chart recomputed
+    # on grid fans where all four seed arms finished, showing whether the
+    # diagonal is driven by diagnosis or by divergence-avoidance.
+    keep = [i for i, g in enumerate(grid) if all(str(_arm_by_name(g)[n]["status"]) == "ok" for n in SEED_NAMES)]
+    if keep:
+        nd_matched, nd_p = money_chart_permutation_pvalue(
+            [paths[i] for i in keep],
+            [picks[i] for i in keep],
+            dict(DESIGNED_WINNER),
+            cfg.permutation_resamples,
+            derive(cfg.run_seed, "money-nodiv"),
+        )
+    else:
+        nd_matched, nd_p = 0, 1.0
     # restraint regret: what never-germinating left on the table, from the
     # episode's LAST grid point (+ labeled per-point pairs stored above)
     regrets: list[float] = []
@@ -3430,13 +3611,23 @@ def run_eval(
             continue
         last = max(ep_grid, key=lambda g: g.fan_epoch or 0)
         by = _arm_by_name(last)
-        regrets.append(max(_as_float(by[n]["r_test"]) for n in SEED_NAMES) - _as_float(by["noop"]["r_test"]))
+        # Regret vs fan-optimal-WITH-no-op: when no-op is the fan optimum,
+        # never-germinating left nothing on the table — regret 0, never
+        # negative (a negative entry would credit restraint instead of
+        # measuring what it cost).
+        regrets.append(max(0.0, max(_as_float(by[n]["r_test"]) for n in SEED_NAMES) - _as_float(by["noop"]["r_test"])))
     chosen_marginal: dict[str, int] = {}
     for e_summary in per_comp["trained"]:
         c = e_summary.get("chosen")
         if isinstance(c, str):
             chosen_marginal[c] = chosen_marginal.get(c, 0) + 1
     density = cast(dict[str, float], manifest["fan_density"])
+    # The WHEN contrast is trained_live - fixed_epoch per episode (spec),
+    # paired by eval seed — NOT trained's own lift alone.
+    when_eps: list[dict[str, object]] = [
+        {"germinated": t["germinated"], "lift": _as_float(t["lift"]) - _as_float(f["lift"])}
+        for t, f in zip(per_comp["trained"], per_comp["fixed_epoch"], strict=True)
+    ]
     z_power = 1.645 + 0.842  # one-sided alpha=0.05, power 0.8
     results: dict[str, object] = {
         "manifest_hash": manifest_hash,
@@ -3453,10 +3644,14 @@ def run_eval(
             },
         },
         "agreement": {"teacher_forced": agreement, "majority_null": majority_null, "schedule_only_null": sched_null},
-        "money_chart": {"matched": obs_matched, "p": money_p},
+        "money_chart": {
+            "matched": obs_matched,
+            "p": money_p,
+            "excluding_diverged": {"matched": nd_matched, "p": nd_p, "n_points": len(keep)},
+        },
         "falsifier": {"deranged_agreement": deranged_agreement, "null_ci_hi": null_ci[1], "derangement": mapping},
         "ceiling": {"estimate": ceiling, "wilson_ci": ceiling_ci, "pairs": pairs, "label": "lower bound, test units"},
-        "when_contrast": when_contrast(per_comp["trained"]),
+        "when_contrast": when_contrast(when_eps),
         "restraint_regret": {
             "last_grid_point_mean": (sum(regrets) / len(regrets)) if regrets else 0.0,
             "per_point": regrets,
@@ -3498,6 +3693,7 @@ def run_report(cfg: Config, store_root: str) -> dict[str, object]:
     diverged_end_states: list[float] = []
     seed_counts: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
     seed_failures: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
+    g_values: dict[str, list[float]] = {n: [] for n in SEED_NAMES}
     val_eq_test_hits = 0
     val_eq_test_n = 0
     for r in fans:
@@ -3505,6 +3701,9 @@ def run_report(cfg: Config, store_root: str) -> dict[str, object]:
             name = str(a["name"])
             if name in seed_counts:
                 seed_counts[name] += 1
+                gv = a.get("g_at_init")
+                if isinstance(gv, (int, float)) and not isinstance(gv, bool):
+                    g_values[name].append(float(gv))
                 if a.get("status") == "diverged":
                     seed_failures[name] += 1
                     curve = a.get("curve_val")
@@ -3534,6 +3733,8 @@ def run_report(cfg: Config, store_root: str) -> dict[str, object]:
             "n": len(diverged_end_states),
         },
         "per_seed_failure_rates": {n: (seed_failures[n] / seed_counts[n] if seed_counts[n] else 0.0) for n in SEED_NAMES},
+        # Spec report list: "RMS(Δ)/RMS(h) at blend entry + g at germination".
+        "g_at_germination": {n: ({"mean": sum(v) / len(v), "min": min(v), "max": max(v)} if v else None) for n, v in g_values.items()},
         "fan_density": manifest.get("fan_density"),
         "p_val_argmax_eq_test_argmax": (val_eq_test_hits / val_eq_test_n) if val_eq_test_n else None,
         "restraint_regret": results.get("restraint_regret"),
@@ -3630,11 +3831,17 @@ def main(argv: list[str] | None = None) -> None:
         p = sub.add_parser(m)
         p.add_argument("--store", default="runs/kernel_demo")
         p.add_argument("--device", default="cuda:0")
-        p.add_argument("--subset", type=int, default=None)  # dev-speed flag
+        if m in ("preflight", "eval"):
+            # Dev-speed flag ONLY where it is honored — a flag that parses
+            # everywhere but is silently ignored (collect, replay) is the scar.
+            p.add_argument("--subset", type=int, default=None)
         if m == "selftest":
             p.add_argument("--certify", action="store_true")
         if m == "preflight":
             p.add_argument("--freeze", action="store_true")
+            # Gate 8 must pressure-test the concurrency collect will actually
+            # run (collect's per-device default), not a hardcoded stand-in.
+            p.add_argument("--workers", type=int, default=6)
         if m == "collect":
             p.add_argument("--devices", default="cuda:0")
             p.add_argument("--workers", type=int, default=6)
@@ -3654,7 +3861,7 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(0 if result["ok"] else 1)
     if args.mode == "preflight":
         data = load_data(cfg, args.device, args.subset)
-        out = run_preflight(cfg, data, args.device, args.store, freeze=args.freeze)
+        out = run_preflight(cfg, data, args.device, args.store, freeze=args.freeze, gate8_workers=args.workers)
         raise SystemExit(0 if dataclass_gates_ok(cast(dict[str, dict[str, object]], out["gates"])) else 1)
     if args.mode == "collect":
         result_c = run_collect(cfg, args.store, args.devices.split(","), args.workers, limit=args.limit, extend=args.extend)
