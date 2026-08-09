@@ -207,6 +207,107 @@ def enable_class1() -> None:  # real body lands in Task 7
     pass
 
 
+# section 2 — DATA
+CIFAR_MEAN_RGB = semantic_const("CIFAR_MEAN_RGB", (0.4914, 0.4822, 0.4465))
+CIFAR_STD_RGB = semantic_const("CIFAR_STD_RGB", (0.2470, 0.2435, 0.2616))
+CIFAR_MEAN = torch.tensor(CIFAR_MEAN_RGB).view(1, 3, 1, 1)
+CIFAR_STD = torch.tensor(CIFAR_STD_RGB).view(1, 3, 1, 1)
+
+
+@semantic
+@dataclass
+class DataBundle:
+    train_x: torch.Tensor
+    train_y: torch.Tensor
+    val_x: torch.Tensor
+    val_y: torch.Tensor
+    test_x: torch.Tensor
+    test_y: torch.Tensor
+
+
+@semantic
+def split_indices(run_seed: int) -> tuple[torch.Tensor, torch.Tensor]:
+    perm = torch.randperm(50_000, generator=make_generator(derive(run_seed, "valsplit")))
+    return perm[:45_000], perm[45_000:]
+
+
+@semantic
+def data_split_id(cfg: Config) -> str:
+    train_idx, val_idx = split_indices(cfg.run_seed)
+    h = hashlib.sha256()
+    for idx in (train_idx, val_idx):
+        arr = idx.numpy().tobytes()
+        h.update(len(arr).to_bytes(8, "big"))
+        h.update(arr)
+    return h.hexdigest()
+
+
+@semantic
+def load_data(cfg: Config, device: str, subset: int | None = None) -> DataBundle:
+    import torchvision
+
+    root = "runs/data"
+    tr = torchvision.datasets.CIFAR10(root, train=True, download=True)
+    te = torchvision.datasets.CIFAR10(root, train=False, download=True)
+    x = torch.from_numpy(tr.data).permute(0, 3, 1, 2).contiguous()
+    y = torch.tensor(tr.targets, dtype=torch.int64)
+    train_idx, val_idx = split_indices(cfg.run_seed)
+    if subset is not None:
+        train_idx = train_idx[:subset]
+    tx = torch.from_numpy(te.data).permute(0, 3, 1, 2).contiguous()
+    ty = torch.tensor(te.targets, dtype=torch.int64)
+
+    def to_device(t: torch.Tensor) -> torch.Tensor:
+        return t.to(device)
+
+    return DataBundle(
+        to_device(x[train_idx]),
+        to_device(y[train_idx]),
+        to_device(x[val_idx]),
+        to_device(y[val_idx]),
+        to_device(tx),
+        to_device(ty),
+    )
+
+
+@semantic
+@dataclass
+class CommonFuture:
+    order: torch.Tensor
+    crops: torch.Tensor
+    flips: torch.Tensor
+    epochs: int
+    hash: str
+
+    @classmethod
+    def draw(cls, seed: int, n_train: int, epochs: int, cfg: Config) -> CommonFuture:
+        g = make_generator(seed)
+        bs = cfg.batch_size
+        steps = n_train // bs
+        order = torch.stack([torch.randperm(n_train, generator=g)[: steps * bs] for _ in range(epochs)])
+        crops = torch.randint(0, 9, (epochs, steps, bs, 2), generator=g, dtype=torch.uint8)
+        flips = torch.rand(epochs, steps, bs, generator=g) < 0.5
+        h = hashlib.sha256()
+        for t in (order, crops, flips):
+            h.update(t.numpy().tobytes())
+        return cls(order, crops, flips, epochs, h.hexdigest())
+
+
+@semantic
+def augment(x_u8: torch.Tensor, crops: torch.Tensor, flips: torch.Tensor) -> torch.Tensor:
+    dev = x_u8.device
+    xf = x_u8.to(torch.float32).div(255.0)
+    xf = (xf - CIFAR_MEAN.to(dev)) / CIFAR_STD.to(dev)
+    xp = torch.nn.functional.pad(xf, (4, 4, 4, 4), mode="reflect")
+    n = xf.shape[0]
+    ar = torch.arange(32, device=dev)
+    ys = crops[:, 0].to(dev, torch.int64)[:, None] + ar
+    xs = crops[:, 1].to(dev, torch.int64)[:, None] + ar
+    bi = torch.arange(n, device=dev)[:, None, None]
+    out = xp.permute(0, 2, 3, 1)[bi, ys[:, :, None], xs[:, None, :], :].permute(0, 3, 1, 2)
+    return torch.where(flips.to(dev)[:, None, None, None], out.flip(-1), out).contiguous()
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
