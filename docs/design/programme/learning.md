@@ -6,6 +6,9 @@
 
 Authority boundaries remain in force even when subsystems are learned. The MVP does not use an end-to-end objective that allows one subsystem’s gradients to silently redefine another subsystem’s mandate.
 
+<!-- hld: added 2026-08-09 (simic-4282dadb69, peer review) -->
+A third distinction cuts deeper than mechanical-versus-policy and governs this chapter's sequencing: **not everything that needs judgement should be learned — a policy is only safely learnable when something else can measure it.** Momir and Aurelia can be learned aggressively because they are graded against counterfactuals by something other than themselves: Jin-Gitaxias measures, Isperia judges. Isperia is the terminal authority, so a learned Isperia grades itself, and its only external signal is containment rollbacks (ADR-0010), which approach zero exactly when the veto works; Emrakul sits downstream of Isperia's verdicts and inherits the same problem. The rule-driven starts in §17.5 and §17.6 are therefore structural, not engineering conservatism: the learnability boundary sits wherever external measurement runs out.
+
 ### 17.1 Momir
 
 Candidate-design objectives may include:
@@ -102,6 +105,8 @@ Later learned adjudication is possible, but only after:
 - and a fixed-rule baseline is understood.
 
 A learned Isperia still cannot inspect candidate source or collect its own evidence.
+
+**The tail-risk veto is the known-hard case, not an afterthought.** It is the one place where judgement is essential, learning is desirable, and the grading signal is structurally sparse — its true positives are containment rollbacks, rare by construction. The mitigations are the permanent harmful fixtures and near-miss records ([`../domains/isperia.md`](../domains/isperia.md#the-vetos-training-signal)); until that corpus demonstrably supports calibration, the veto stays rule-driven regardless of how trustworthy the rest of the evidence becomes.
 
 ### 17.6 Emrakul
 
