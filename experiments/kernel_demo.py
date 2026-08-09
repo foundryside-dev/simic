@@ -766,6 +766,9 @@ class Slot(nn.Module):
         # Appended once per epoch_tick (epoch-end values); the data source for
         # the report's alpha/beta trajectory plot (carried into ArmResult).
         self.alpha_beta_log: list[tuple[float, float]] = []
+        # Sampled by step_tick at the first BLENDING step (gate 5's only input);
+        # rms_ratio() is the named owner of the measurement, this is its capture.
+        self.rms_ratio_blend_entry: float | None = None
         self._blend_step = 0
         self._fossil_step = 0
         self._epochs_in_stage = 0
@@ -806,6 +809,8 @@ class Slot(nn.Module):
         if self.seed is None:
             return
         if self.stage is Stage.BLENDING:
+            if self._blend_step == 0:
+                self.rms_ratio_blend_entry = self.rms_ratio()
             total = cfg.stage_m * steps_per_epoch
             self.alpha = cosine_ease((self._blend_step + 1) / total)
             self._blend_step += 1
@@ -1146,6 +1151,220 @@ def end_state_R(curve: list[float]) -> float:  # noqa: N802 — spec names the r
     if len(curve) < 3:
         raise ValueError(f"end_state_R needs >= 3 entries, got {len(curve)}")
     return sum(curve[-3:]) / 3.0
+
+
+# section 9 — FAN EXECUTOR
+class TwinDivergence(RuntimeError):  # noqa: N818
+    def __init__(self, first_bad_epoch: int) -> None:
+        # Absolute epoch index in the episode's numbering, NOT an offset from
+        # snap.epoch.
+        super().__init__(f"twin diverged from base at epoch {first_bad_epoch}")
+        self.first_bad_epoch = first_bad_epoch
+
+
+_NON_SEMANTIC["TwinDivergence"] = "exception class — no computation depends on its definition"
+
+
+@semantic
+@dataclass
+class ArmResult:
+    name: str
+    status: str  # "ok" | "diverged"
+    r_val: float
+    r_test: float | None
+    curve_val: list[float]
+    curve_test: list[float] | None
+    init_seed: int
+    g_at_init: float | None
+    rms_ratio_blend_entry: float | None
+    hash_after_training: str | None  # host hash at the end of the STE TRAINING stage (every arm)
+    host_hashes: list[str] | None  # noop/nullseed arms only
+    alpha_beta_log: list[tuple[float, float]] | None
+
+
+@semantic
+@dataclass
+class BaseTrace:
+    host_hashes: list[str]
+    curve_val: list[float]
+    curve_test: list[float] | None
+    snapshots: dict[int, Snapshot]  # captured at the scheduled fan epochs during the single base pass
+    status: str
+    diverged_at: int | None
+
+
+@semantic
+def _run_span(
+    ctx: EpisodeCtx,
+    start: int,
+    fan_epochs: tuple[int, ...] = (),
+    snapshots: dict[int, Snapshot] | None = None,
+    hash_capture_epoch: int | None = None,
+) -> tuple[list[str], str, int | None, str | None]:
+    # THE inner loop — run_base and run_arm both call this (one loop, two call
+    # sites: base/twin drift is structurally impossible). Snapshots are taken
+    # BEFORE the fan epoch trains, so an arm running snap.epoch -> horizon
+    # produces hashes aligned with base.host_hashes[snap.epoch:].
+    hashes: list[str] = []
+    status = "ok"
+    diverged_at: int | None = None
+    hash_after_training: str | None = None
+    for epoch in range(start, ctx.cfg.horizon):
+        if snapshots is not None and epoch in fan_epochs:
+            snapshots[epoch] = take_snapshot(ctx)
+        try:
+            train_one_epoch(ctx, epoch)
+        except TelemetryDivergence:
+            status = "diverged"
+            diverged_at = epoch
+            break
+        h = state_hash(ctx.host)
+        hashes.append(h)
+        if epoch == hash_capture_epoch:
+            hash_after_training = h
+    return hashes, status, diverged_at, hash_after_training
+
+
+@semantic
+def run_base(ctx: EpisodeCtx, cfg: Config, fan_epochs: tuple[int, ...]) -> BaseTrace:
+    # Base divergence: status recorded, hashes kept to the divergence epoch,
+    # fans scheduled after it are skipped (snapshot point never reached);
+    # r_noop = cfg.diverged_r is applied by the caller.
+    snapshots: dict[int, Snapshot] = {}
+    hashes, status, diverged_at, _ = _run_span(ctx, 0, fan_epochs, snapshots)
+    return BaseTrace(
+        host_hashes=hashes,
+        curve_val=ctx.curves_val,
+        curve_test=ctx.curves_test,
+        snapshots=snapshots,
+        status=status,
+        diverged_at=diverged_at,
+    )
+
+
+@semantic
+def run_arm(
+    cfg: Config,
+    data: DataBundle,
+    device: str,
+    episode_seed: int,
+    pathology: str,
+    future: CommonFuture,
+    snap: Snapshot,
+    arm_name: str,
+    read_test: bool,
+) -> ArmResult:
+    # Arm-local materialization: everything is built fresh from snapshot
+    # values; nothing is restored in place, so no state leaks between arms.
+    host = build_host(pathology, derive(episode_seed, "host-init")).to(device)
+    host.attach_stat_hooks()
+    host.load_state_dict(snap.host_state)
+    slot = Slot().to(device)
+    opt = build_optimizer(host, cfg)
+    # Loaded on a fresh 2-group optimizer BEFORE any append_seed_group, so
+    # load_state_dict's unconditional group-count check can never fire. The
+    # deepcopy keeps snap immune to in-place momentum-buffer updates.
+    opt.load_state_dict(copy.deepcopy(snap.opt_state))
+    torch.set_rng_state(snap.cpu_rng)
+    if snap.cuda_rng is not None:
+        torch.cuda.set_rng_state(snap.cuda_rng, torch.device(device))
+    ctx = EpisodeCtx(
+        cfg=cfg,
+        data=data,
+        device=device,
+        episode_seed=episode_seed,
+        pathology=pathology,
+        future=future,
+        host=host,
+        opt=opt,
+        slot=slot,
+        telemetry=[],
+        curves_val=[],
+        curves_test=[] if read_test else None,
+        read_test=read_test,
+    )
+    g_at_init: float | None = None
+    if arm_name in SEED_NAMES:
+        g_at_init = germinate(ctx, arm_name)
+    elif arm_name == "nullseed":
+        germinate(ctx, "conv_light")
+        assert slot.seed is not None
+        # germinate tau-inits the gain NONZERO — the explicit zeroing is the
+        # step an implementer would otherwise miss. The null-seed arm proves
+        # the machinery: germinated, trained, bitwise-identical host.
+        slot.seed.gain.data.zero_()
+        slot.seed.gain.requires_grad_(False)
+        g_at_init = 0.0
+    elif arm_name != "noop":
+        raise ValueError(f"unknown arm: {arm_name}")
+    hashes, status, _, hash_after_training = _run_span(ctx, snap.epoch, hash_capture_epoch=snap.epoch + cfg.stage_k - 1)
+    if status == "ok":
+        r_val = end_state_R(ctx.curves_val)
+        r_test = end_state_R(ctx.curves_test) if ctx.curves_test is not None else None
+    else:
+        r_val = cfg.diverged_r
+        r_test = cfg.diverged_r if read_test else None
+    keep_hashes = arm_name in ("noop", "nullseed")
+    return ArmResult(
+        name=arm_name,
+        status=status,
+        r_val=r_val,
+        r_test=r_test,
+        curve_val=ctx.curves_val,
+        curve_test=ctx.curves_test,
+        init_seed=derive(episode_seed, "arm", arm_name),
+        g_at_init=g_at_init,
+        rms_ratio_blend_entry=slot.rms_ratio_blend_entry,
+        hash_after_training=hash_after_training,
+        host_hashes=hashes if keep_hashes else None,
+        alpha_beta_log=slot.alpha_beta_log if slot.seed is not None else None,
+    )
+
+
+@semantic
+def run_fan(
+    cfg: Config,
+    data: DataBundle,
+    device: str,
+    episode_seed: int,
+    pathology: str,
+    future: CommonFuture,
+    snap: Snapshot,
+    base: BaseTrace,
+    read_test: bool,
+    include_nullseed: bool = False,
+) -> tuple[list[ArmResult], dict[str, object]]:
+    # Twin FIRST: it is the harness-integrity check; a broken twin fails the
+    # fan before any seed arm spends compute.
+    twin = run_arm(cfg, data, device, episode_seed, pathology, future, snap, "noop", read_test)
+    expected = base.host_hashes[snap.epoch :]
+    twin_hashes = twin.host_hashes or []
+    for i in range(min(len(twin_hashes), len(expected))):
+        if twin_hashes[i] != expected[i]:
+            raise TwinDivergence(snap.epoch + i)
+    if len(twin_hashes) != len(expected):
+        raise TwinDivergence(snap.epoch + min(len(twin_hashes), len(expected)))
+    meta: dict[str, object] = {"twin_ok": True}
+    arms: list[ArmResult] = [twin]
+    for name in SEED_NAMES:
+        arms.append(run_arm(cfg, data, device, episode_seed, pathology, future, snap, name, read_test))
+    # Cross-arm value-exactness: through the STE TRAINING stage every finite
+    # arm's host is bitwise-identical to the twin's (non-finite delta shows up
+    # as arm divergence, not a harness abort).
+    k_idx = cfg.stage_k - 1
+    twin_hash_at = twin_hashes[k_idx] if 0 <= k_idx < len(twin_hashes) else None
+    for a in arms:
+        if a.status == "ok" and a.hash_after_training is not None and twin_hash_at is not None:
+            assert a.hash_after_training == twin_hash_at, (a.name, "post-TRAINING host hash mismatch vs twin")
+    if include_nullseed:
+        ns = run_arm(cfg, data, device, episode_seed, pathology, future, snap, "nullseed", read_test)
+        arms.append(ns)
+        if ns.status == "ok" and ns.host_hashes != expected:
+            # HARD STOP: the zero-normalized hash IS the spec's value-exact
+            # check; there is no weaker fallback, curves are never a comparand.
+            raise RuntimeError("null-seed host hashes mismatch base while the twin holds — value-exactness broken")
+        meta["nullseed_ok"] = ns.status == "ok"
+    return arms, meta
 
 
 def main(argv: list[str] | None = None) -> None:
