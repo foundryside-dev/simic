@@ -31,7 +31,7 @@
 - It does not construct replacements.
 - It does not decide continued-tenancy utility.
 - It does not alter Jin-Gitaxias test policy or Isperia adjudication policy.
-- Sedation precedes lysis where safety permits.
+- Sedation precedes lysis where safety permits — and for epistemic reasons besides safety: tenancy evidence is structurally weaker than admission evidence (`isperia.md#continued-tenancy-utility`), so the reversible act is preferred wherever the evidence cannot fully support the irreversible one.
 - A lysis event is emitted once on a real transition.
 
 #### Smell
