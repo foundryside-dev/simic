@@ -41,3 +41,5 @@ tools/diagrams/build/
 
 prompts/
 .claude/worktrees/
+# Run artifacts: CIFAR downloads, record stores, policies, plots.
+runs/
