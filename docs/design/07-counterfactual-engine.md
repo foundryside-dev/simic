@@ -85,6 +85,9 @@ $$
 
 where $\widehat U(c)$ is estimated candidate utility, $\sigma_{\mathrm{exec}}(c)$ is execution and surrogate uncertainty, and $\kappa$ is the versioned assurance coefficient. Admission requires the conservative margin over no-op to exceed the applicable policy threshold.
 
+<!-- hld: added 2026-08-09 (simic-01f9ee1160) -->
+$\kappa$ and $\omega$ (the uncertainty charge inside `u_admit`, `domains/isperia.md`) price **disjoint quantities by pre-registration**, so no source of uncertainty is charged twice. $\sigma_{\mathrm{exec}}$ is *measurement* uncertainty — execution-regime noise and surrogate error, the distance between $\widehat U$ and the Academy-exact value of the same measurement. $U_c$ is *evidence* uncertainty — incompleteness for the assurance class, horizon extrapolation, and data-role shift between what was measured and what the decision needs, present even under exact execution. Under the Academy-exact profile the execution component of $\sigma_{\mathrm{exec}}$ is zero by construction and the conservative margin collapses toward the point estimate; $\omega U_c$ persists, because a candidate measured exactly can still be poorly understood. Neither coefficient is tuned to compensate for the other; both are versioned policy parameters carried by `adjudication_policy_version`. (Tail risk is charged in neither place: it is expressible only through the stage-2 veto, ADR-0004.)
+
 A numerically imperfect Field estimate may be operationally adequate when its margin is large. A small prediction error may be unacceptable near the no-op boundary. Low-margin cases resolve to `REJECT`, `DEFER`, or `REQUIRE_RETEST`; they are never forced through merely because Field execution is cheaper.
 
 #### 14.4.2 Tail-risk veto and lexicographic order

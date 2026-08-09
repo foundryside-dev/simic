@@ -187,7 +187,7 @@ Changing a codename or moving an authority between names requires an architectur
 
 ---
 
-<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended) -->
+<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended), ADR-0011 (INV-39 amended), ADR-0013 (INV-05 amended) -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
 The following are blocking invariants.
@@ -196,7 +196,7 @@ The following are blocking invariants.
 2. **Leyline dependency direction:** contracts and schemas do not import agent implementations.
 3. **Tolaria neutrality:** training and execution code applies no candidate utility weights and issues no verdicts.
 4. **Mainline–branch parity:** live and counterfactual host steps use the same execution semantics unless the difference is explicitly measured.
-5. **Academy exact replay:** identical snapshot plus identical future data produces bitwise-identical traces under Tolaria's Academy-exact determinism contract; non-exact profiles carry measured uncertainty rather than pretending to satisfy this invariant.
+5. **Academy exact replay:** identical snapshot plus identical future data produces bitwise-identical traces under Tolaria's Academy-exact determinism contract, within the profile's declared, pinned execution-stack identity; moving the pin is a recorded re-baselining event, never a silent equivalence claim; non-exact profiles carry measured uncertainty rather than pretending to satisfy this invariant. (ADR-0013)
 6. **Common future:** paired branches receive identical future minibatches and equivalent random streams.
 7. **Direct evidence publication:** Nissa publishes one canonical observation identity independently to Aurelia and Momir; Aurelia is not the designer's telemetry intermediary.
 8. **Observation binding:** `TelemetryEnvelope`, `GrowthIntent`, `GrowthRequest`, Momir proposals and Tolaria trials reconcile to the same observation, host state, region and snapshot.
@@ -230,7 +230,7 @@ The following are blocking invariants.
 36. **Urborg append-only history:** corrections create new records rather than rewriting causal history.
 37. **Blinding by construction:** source fields are absent from QA and adjudication views rather than merely ignored.
 38. **Failure visibility:** invariant breaches fail loudly and are visible through Tamiyo; no silent fallback fabricates valid-looking state.
-39. **Declared scaffold state:** every curriculum, QA and confirmatory run records its execution, host-distribution and design-prior regimes.
+39. **Declared scaffold state:** every curriculum, QA and confirmatory run records its execution, host-distribution, design-prior and counterfactual-anchor regimes. (ADR-0011)
 40. **Independent withdrawal gates:** one scaffold cannot advance because a different scaffold passed its gate.
 41. **One-axis confirmatory transition:** withdrawing multiple scaffolds at once requires a declared interaction experiment and completed single-axis controls.
 42. **Retained reference capability:** withdrawal removes a production dependency, not the Academy replay harness, acquisition fixtures or blinded reference controls.

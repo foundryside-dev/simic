@@ -26,7 +26,7 @@ $$
 \text{verify retained invariants}.
 $$
 
-Each scaffold protects a different failure mode and has an independent gate. Tolaria may be ready for calibrated Field execution while Momir still needs ancestry; Momir may pass null-ancestry generation while Aurelia still needs repeated host trajectories. The architecture therefore records a three-axis `ScaffoldState` rather than one global `curriculum_stage` flag.
+The curriculum runs under the tight/loose/free posture (ADR-0012, Appendix F): every scaffold rung has a decision-aware measuring stick, every loosening is earned by a pre-registered gate, every stick has a re-tightening trigger, and withdrawal converts the wheel into a permanent instrument. Each scaffold protects a different failure mode and has an independent gate. Tolaria may be ready for calibrated Field execution while Momir still needs ancestry; Momir may pass null-ancestry generation while Aurelia still needs repeated host trajectories. The architecture therefore records a four-axis `ScaffoldState` rather than one global `curriculum_stage` flag. The fourth axis is the anchor corpus (ADR-0011): on a declared seed set, scheduled or random decision points fork per-action full-trajectory counterfactuals — the bootstrap source of Aurelia's marginalised commissioning labels, the tenancy-calibration ground truth, and the densified telemetry-sufficiency instrument, generated without a working policy and consumed through authority-partitioned blinded views.
 
 A confirmatory transition withdraws one scaffold at a time. Two or more may change together only when their interaction is the declared experiment and the corresponding single-axis controls have already been measured. This rule prevents a failed run from becoming uninterpretable.
 
@@ -227,7 +227,7 @@ Local Aurelia, Jin-Gitaxias, Isperia and Emrakul behaviour is held fixed initial
 
 ### Stage 9 — Joint few-trajectory, many-variation training
 
-Run the complete system repeatedly on a small set of base host trajectories while recording the full three-axis `ScaffoldState` for every run.
+Run the complete system repeatedly on a small set of base host trajectories while recording the full four-axis `ScaffoldState` for every run.
 
 Begin with exact repetition, then vary one ordinary experimental axis at a time:
 

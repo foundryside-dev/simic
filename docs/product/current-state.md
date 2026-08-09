@@ -1,53 +1,56 @@
-# Current State — Simic        Checkpoint: 2026-08-09 (session 11)
+# Current State — Simic        Checkpoint: 2026-08-09 (session 11, second)
 
 ## The bet right now
-Design hardening — the hld-review burn-down (37 → 0 by 2026-08-31, pacing
-signal) — **wave:1 resumed by owner choice (PDR-0021)**, first closure
-landed (ADR-0010). PDR-0021's re-plan trigger: burn-down not ≤ 33 at the
-2026-08-16 reading fires a date re-plan by PDR. The second Now bet, the
+Design hardening — the hld-review burn-down (32 → 0 by 2026-08-31, pacing
+signal). **Wave:1 is COMPLETE** and PDR-0021's re-plan trigger (≤ 33 by
+2026-08-16) is satisfied a week early; cadence needed is now ~1.5/working
+day. Next band: **wave:2-momir** (8 items). The second Now bet, the
 ADR-0002 information-management regime (simic-357c92664c), remains
-unstarted and needs owner presence at the plainweave seeding gate.
+unstarted and needs owner presence at the plainweave seeding gate — note
+the constitution grew five ADR amendments today, so seeding should happen
+soon to lock the current shapes.
 
 ## In flight
-- Nothing claimed. Five wave:1 items remain; **simic-43f5e2264a
-  (retrospective policy re-adjudication) is teed up by ADR-0010** — its
-  "regression test for judgement" framing is now constitution-adjacent.
-  Critical paths: simic-0bf2c40dec → simic-38a07fad39 (§9 contract shapes,
-  supported by the landed axiom-contract-engineering pack) and
-  simic-0e6445d894 → simic-c90afdb156.
-- Repo and origin **in sync** through PR #5 (483a927); Pages deploy
-  verified green and the live site serves the ADR-0009 wording.
-- simic-b67434134e: Dependabot cryptography bump blocked upstream by
-  mlflow's <50 cap (PDR-0023); executes mechanically when mlflow lifts it.
+- Nothing claimed. Wave:2-momir is the natural next band; the critical
+  path pair simic-0e6445d894 → simic-c90afdb156 (Momir critic ADR) heads
+  it, and simic-0bf2c40dec → simic-38a07fad39 (§9 contract shapes) stays
+  the cross-band leverage play.
+- Session 11 landed five ADRs: 0009 (newsroom demotion), 0010 (INV-28
+  containment accountability), 0011 (INV-39 anchor corpus — owner-proposed,
+  challenged at owner request, confirmed; provenance in simic-954f457e50
+  comments 18–21), 0012 (tight/loose/free posture), 0013 (INV-05
+  execution-stack identity). New standing concepts: the anchor corpus
+  (fourth scaffold axis), the tight/loose/free rung vocabulary, the
+  three-kinds taxonomy, authority-partitioned label routing, the
+  evidentiary tiers (admission > tenancy > allocation).
+- Publish state at write time: local main ahead of origin (wave:1 finale +
+  ADR-0011/0012/0013 + this checkpoint); publish PR queued this session.
+- simic-b67434134e: cryptography bump still blocked upstream (mlflow <50
+  cap, PDR-0023); Dependabot alert #1 dismissed as not-used by owner
+  approval.
 
 ## Open questions / blocked-on-owner
-- **This checkpoint commit is local-only** until the next owner-approved
-  publish (branch protection: publish = PR route, see memory).
-- Optional: dismiss Dependabot alert #1 as "vulnerable code not in use"
-  (external state change — owner's call; PDR-0023).
-- Carried: yzmir-training-state pack still absent; the applied prompt
+- Carried: yzmir-training-state applied prompt
   (`commissioning/yzmir-training-state-engineering-updated-prompt.md`)
-  awaits owner relay to the in-flight upstream build (since session 6).
-  (Session-11 correction: the design-system upstream was already re-synced
-  2026-08-09 — local and claude.ai agree; the "BEHIND local" line this
-  brief carried was stale, per the skill readme's round-trip record.)
+  still awaits owner relay to the in-flight upstream build (since
+  session 6).
+- The §22.11 cost model (simic-642c2c1823, wave:5) grew two new consumers
+  today: the anchor corpus (comment 20) and the Phase B exactness-tax
+  measurement (ADR-0013). It is increasingly the load-bearing unstarted
+  item — consider pulling it forward out of wave order.
 
 ## Last checkpoint did
-- Recorded PDR-0021 (pacing warning answered: wave:1 resumed, date
-  retained, metric-bound re-plan trigger), PDR-0022 (newsroom demoted to
-  the Appendix E rendering — ADR-0009, owner-directed), PDR-0023
-  (cryptography deferral — upstream cap, no override).
-- Metrics: burn-down 38 → 37 (first closure since session 6); warning
-  cleared from "unanswered" to answered-with-trigger.
-- Grant re-confirmed 2026-08-09 (vision.md stamp advanced; both mechanical
-  citation renames ratified — PDR-0020, ADR-0009; scope unchanged).
-- Session also published PRs #4 (design-system recovery arc) and #5
-  (ADR-0009 + ADR-0010 + grant review) with explicit owner approval; both
-  deploys verified.
+- Recorded PDR-0024 (anchor corpus adopted — the challenge cycle is the
+  provenance) and PDR-0025 (curriculum posture set + bitwise bet scoped).
+- Metrics: burn-down 32/22, wave:1 complete, PDR-0021 trigger satisfied;
+  remaining-band breakdown recorded.
+- Earlier same session (first checkpoint): PDR-0021 (pacing answered),
+  PDR-0022 (newsroom demotion), PDR-0023 (cryptography deferral); grant
+  re-confirmed 2026-08-09; PRs #4–#7 published and live-verified.
 
 ## Next session, start here
-Continue wave:1 under PDR-0021's cadence: claim simic-43f5e2264a
-(retrospective re-adjudication, freshly teed up) or simic-0bf2c40dec if
-contract-shape leverage wins. Check the burn-down against the ≤ 33
-trigger at the 2026-08-16 reading — a miss means re-plan by PDR, not
-silent carry.
+Start wave:2-momir: claim simic-0e6445d894 (Momir may search against its
+own critic — the line is judgement formed before the pool is measured; it
+unblocks simic-c90afdb156). Alternatively pull simic-642c2c1823 (cost
+model) forward — it now gates three other decisions' numbers. Check the
+burn-down cadence (~1.5/day to 2026-08-31); PDR-0005 discipline stands.

@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-09 (session 11 checkpoint)
+# Metrics — Simic             Last read: 2026-08-09 (session 11, second checkpoint)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 37 open / 14 closed — **the session-9 pacing warning is ANSWERED (PDR-0021)**: owner chose to resume wave:1 and retain the date; the first closure since session 6 landed same session (simic-d6ea02f9a9 → ADR-0010, containment accountability). Five wave:1 items remain; 22 days needs ~1.8 closures per working day. PDR-0021 carries the re-plan trigger: burn-down not ≤ 33 at the 2026-08-16 reading fires a date re-plan by PDR | 2026-08-09 (session 11 checkpoint) |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 32 open / 22 closed — **wave:1 COMPLETE** (zero `wave:1-augustin` items). Session 11 closed nine: six wave:1 (ADR-0010 containment, re-adjudication, veto signal, learnability boundary, tenancy tiers, ω/κ reconciliation) plus three owner-originated same-day open-and-close (anchor corpus ADR-0011, posture ADR-0012, stack identity ADR-0013 — net zero each). PDR-0021's re-plan trigger (≤ 33 by 2026-08-16) satisfied a week early. Remaining: wave:2-momir 8, wave:3-narset 7, wave:4-leyline 10, wave:5-scoreboard 4, unwaved 3; 22 days needs ~1.5 closures per working day | 2026-08-09 (session 11, second checkpoint) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)

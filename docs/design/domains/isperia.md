@@ -104,7 +104,13 @@ where:
 - \(P_c\) is parameter and memory cost;
 - \(R_c\) is **expected** policy risk — tail risk is expressible only
   through the stage-2 veto, never as a utility charge (ADR-0004);
-- \(U_c\) is uncertainty.
+- \(U_c\) is **evidence** uncertainty — incompleteness for the assurance
+  class, horizon extrapolation, and data-role shift in what was measured.
+  Execution and surrogate noise is priced exactly once, in the decision
+  bound's \(\kappa\sigma_{\mathrm{exec}}\)
+  (`../07-counterfactual-engine.md#1441-execution-uncertainty-and-adjudication-margins`),
+  never here: the two coefficients cover disjoint, pre-registered sources
+  (simic-01f9ee1160).
 
 The no-op candidate has policy utility exactly zero.
 
@@ -127,6 +133,13 @@ G_{c:\mathrm{no-op}}(s,H)
 $$
 
 Installation shock is omitted because a resident growth is no longer integrating. Shared cost terms use shared weights unless a difference is structurally justified and pre-registered — the asymmetry between admission and retention lives in the thresholds, never in per-side weights.
+
+<!-- hld: added 2026-08-09 (simic-e2ae14c8bd, peer review) -->
+The formalism's similarity to admission must not be read as parity of evidence. Admission's \(G_{c:\mathrm{no-op}}\) is measured on matched branches from one snapshot over one future — the intervention effect, cleanly. Tenancy's honest counterfactual — the host that never received the growth — no longer exists: measuring it would mean running a parallel no-op branch for the entire tenure, a permanent doubling of training cost per committed growth. What the re-adaptation branch actually measures is **replaceability at horizon \(H\)**, a different and weaker quantity dominated by the choice of \(H\) (§2.4 in `../01-claim.md`). **Maintenance decisions operate under an explicitly weaker evidentiary standard than admission decisions**, and the machinery leans accordingly: the retention threshold sits below the admission threshold (ADR-0005), and Emrakul is biased toward `SEDATE` over `LYSE` for epistemic reasons as much as safety ones — the reversible act is what a judge may take when the evidence cannot fully support the irreversible one.
+
+The system has three tiers of evidentiary strength, in strictly decreasing order: **admission** (matched common-future branches — the full counterfactual), **tenancy** (re-adaptation at horizon \(H\) — replaceability, not intrinsic value), and **allocation** (Ugin's aggregate outcomes — no per-decision counterfactual at all). Each authority's decision machinery claims no more than its tier can support.
+
+During bootstrap the tenancy tier is anchored: on the declared anchor host set, every admission's no-op branch runs for the full tenure (the anchor corpus, ADR-0011), and the re-adaptation instrument — including the choice of \(H\) — is calibrated against that ground truth at seed-level counting (INV-32). After the scaffold withdraws, the weaker standard is measured, not assumed.
 
 #### Retention hysteresis (ADR-0005)
 

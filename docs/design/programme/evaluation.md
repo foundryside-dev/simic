@@ -191,7 +191,7 @@ Reference-versus-compiled behaviour is certified by Jin-Gitaxias integration tes
 ### 21.15 Scaffold withdrawal tests
 
 - every scaffold has a versioned `ScaffoldManifest`;
-- every run records a reconcilable three-axis `ScaffoldState`;
+- every run records a reconcilable four-axis `ScaffoldState`;
 - each withdrawal gate can pass or fail independently;
 - a multi-axis transition without an interaction experiment fails closed;
 - single-axis controls exist before a declared interaction run;

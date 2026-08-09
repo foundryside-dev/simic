@@ -9,7 +9,7 @@ Tamiyo exposes the system at three levels.
 ### 19.1 Live operational view
 
 - current Tolaria training run, device, precision and execution regime;
-- current three-axis `ScaffoldState` and gate evidence;
+- current four-axis `ScaffoldState` and gate evidence;
 - host loss, optimiser progress and data cursor;
 - current Ugin strategic envelope;
 - current Nissa observation identity and publication recipients;
