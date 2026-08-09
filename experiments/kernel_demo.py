@@ -1410,6 +1410,20 @@ class FanRecord:
 
 
 @semantic
+def fan_identity(
+    episode_seed: int,
+    fan_epoch: int | None,
+    kind: str,
+    refan_k: int | None,
+    policy_checkpoint_id: str | None,
+    iteration: int | None,
+) -> str:
+    # The FULL identity tuple — resume/idempotency skip-sets key on this.
+    ident = json.dumps([episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration])
+    return hashlib.sha256(ident.encode()).hexdigest()
+
+
+@semantic
 def make_fan_record(
     *,
     kind: str,
@@ -1444,7 +1458,6 @@ def make_fan_record(
         raise ValueError(f"unknown seed_namespace: {seed_namespace}")
     if split_role not in SPLIT_ROLES:
         raise ValueError(f"unknown split_role: {split_role}")
-    ident = json.dumps([episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration])
     return FanRecord(
         schema_version=SCHEMA_VERSION,
         kind=kind,
@@ -1467,7 +1480,7 @@ def make_fan_record(
         telemetry=telemetry,
         decisions=decisions,
         gate_results=gate_results,
-        fan_id=hashlib.sha256(ident.encode()).hexdigest(),
+        fan_id=fan_identity(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration),
     )
 
 
@@ -2210,10 +2223,12 @@ def run_selftest(cfg: Config, device: str, certify: bool = False, store_root: st
 
 # section 14 — PREFLIGHT
 @semantic
-def draw_schedule(episode_seed: int, cfg: Config) -> tuple[int, int]:
+def draw_schedule(episode_seed: int, cfg: Config, label: str = "schedule") -> tuple[int, int]:
     # 2 ordered epochs, uniform WITHOUT replacement, inclusive window.
+    # label distinguishes independent draws over the same distribution
+    # (collection uses "schedule"; the frozen eval grid uses "evalgrid").
     lo, hi = cfg.window
-    g = make_generator(derive(episode_seed, "schedule"))
+    g = make_generator(derive(episode_seed, label))
     perm = torch.randperm(hi - lo + 1, generator=g)[:2]
     a, b = sorted(int(lo + i) for i in perm)
     return a, b
@@ -2232,6 +2247,7 @@ def run_collection_episode(
     *,
     manifest_hash: str | None = None,
     worker_count: int = 1,
+    schedule_label: str = "schedule",
 ) -> None:
     if namespace == "preflight":
         split_role = "preflight"
@@ -2239,7 +2255,7 @@ def run_collection_episode(
         split_role = "eval"
     else:
         split_role = train_tune_split(episode_seed)  # recorded at collection time, never re-split
-    fan_epochs = draw_schedule(episode_seed, cfg)
+    fan_epochs = draw_schedule(episode_seed, cfg, schedule_label)
     ctx = make_episode(cfg, data, device, episode_seed, read_test)
     host_init = state_hash(ctx.host)
     trace = run_base(ctx, cfg, fan_epochs=fan_epochs)
@@ -2322,8 +2338,12 @@ def run_refan(
     k: int,
     store: Store,
     worker_id: int,
+    *,
+    namespace: str = "preflight",
+    read_test: bool = False,
+    manifest_hash: str | None = None,
 ) -> None:
-    ctx = make_episode(cfg, data, device, episode_seed)
+    ctx = make_episode(cfg, data, device, episode_seed, read_test)
     host_init = state_hash(ctx.host)
     for e in range(fan_epoch):
         train_one_epoch(ctx, e)
@@ -2331,14 +2351,14 @@ def run_refan(
     future_k = CommonFuture.draw(derive(episode_seed, "refan", k), data.train_x.shape[0], cfg.horizon, cfg)
     # 5 real arms incl. a FRESH no-op under the new future — the base tail is
     # not a valid comparand; the twin is re-based (measured, not compared).
-    arms = [run_arm(cfg, data, device, episode_seed, ctx.pathology, future_k, snap, name, False) for name in ("noop", *SEED_NAMES)]
+    arms = [run_arm(cfg, data, device, episode_seed, ctx.pathology, future_k, snap, name, read_test) for name in ("noop", *SEED_NAMES)]
     store.append(
         worker_id,
         make_fan_record(
             kind="refan",
             episode_seed=episode_seed,
-            seed_namespace="preflight",
-            split_role="preflight",
+            seed_namespace=namespace,
+            split_role="preflight" if namespace == "preflight" else "eval",
             pathology_id=ctx.pathology,
             fan_epoch=fan_epoch,
             refan_k=k,
@@ -2347,7 +2367,7 @@ def run_refan(
             iteration=None,
             config_hash=config_hash(),
             frozen_block_hash=frozen_block_hash(cfg),
-            manifest_hash=None,
+            manifest_hash=manifest_hash,
             common_future_hash=future_k.hash,
             host_init_hash=host_init,
             env=env_block(device, 1),
@@ -2997,6 +3017,442 @@ def run_collect(
     return {"collected": len(todo), "workers": statuses, "halted": halted, "ok": ok}
 
 
+# section 16 — TRAIN AND EVAL
+AGREEMENT_MARGIN = semantic_const("AGREEMENT_MARGIN", 0.15)  # "+15 points (test units)", pre-registered
+N_EVAL_REFANS = semantic_const("N_EVAL_REFANS", 30)  # ceiling estimate sample size
+
+EVAL_COMPARATORS = ("trained", "random", "schedule_only", "fixed_epoch")
+
+
+@semantic
+def wilson_interval(k: int, n: int, alpha: float) -> tuple[float, float]:
+    from statistics import NormalDist
+
+    if n == 0:
+        return (0.0, 1.0)
+    z = NormalDist().inv_cdf(1 - alpha / 2)
+    phat = k / n
+    denom = 1 + z * z / n
+    center = (phat + z * z / (2 * n)) / denom
+    half = z * ((phat * (1 - phat) / n + z * z / (4 * n * n)) ** 0.5) / denom
+    return (center - half, center + half)
+
+
+@semantic
+def class_derangement(classes: list[str], seed: int) -> dict[str, str]:
+    # Deterministic rotation by a seed-derived nonzero shift: always a
+    # derangement (no class maps to itself), always a permutation.
+    ordered = sorted(set(classes))
+    n = len(ordered)
+    if n < 2:
+        raise ValueError("derangement needs >= 2 classes")
+    shift = 1 + derive(seed, "derangement") % (n - 1)
+    return {c: ordered[(ordered.index(c) + shift) % n] for c in ordered}
+
+
+@semantic
+def when_contrast(episodes: list[dict[str, object]]) -> dict[str, float]:
+    # never-germinate contributes lift 0 to the unrestricted mean and is
+    # excluded from the restricted (conditional-on-acting) mean.
+    if not episodes:
+        return {"unrestricted_mean": 0.0, "restricted_mean": 0.0, "germination_rate": 0.0}
+    lifts = [_as_float(e["lift"]) for e in episodes]
+    germ = [bool(e["germinated"]) for e in episodes]
+    acted = [lift for lift, g in zip(lifts, germ, strict=True) if g]
+    return {
+        "unrestricted_mean": sum(lift if g else 0.0 for lift, g in zip(lifts, germ, strict=True)) / len(episodes),
+        "restricted_mean": sum(acted) / len(acted) if acted else 0.0,
+        "germination_rate": len(acted) / len(episodes),
+    }
+
+
+@semantic
+def verdict(results: dict[str, object], cfg: Config) -> dict[str, bool]:
+    # The five pre-registered booleans (spec: Pre-registered numbers). Pure.
+    lift = cast(dict[str, object], results["lift"])
+    agreement = cast(dict[str, object], results["agreement"])
+    money = cast(dict[str, object], results["money_chart"])
+    falsifier = cast(dict[str, object], results["falsifier"])
+    return {
+        "lift_positive": _as_float(lift["trained_mean"]) > 0 and _as_float(lift["trained_p"]) < cfg.alpha_level,
+        "beats_schedule_only": _as_float(lift["paired_vs_schedule_only_p"]) < cfg.alpha_level,
+        "agreement_beats_null": _as_float(agreement["teacher_forced"]) >= _as_float(agreement["majority_null"]) + AGREEMENT_MARGIN,
+        "money_chart": int(_as_float(money["matched"])) >= 3 and _as_float(money["p"]) < cfg.alpha_level,
+        "falsifier_collapses": _as_float(falsifier["deranged_agreement"]) <= _as_float(falsifier["null_ci_hi"]),
+    }
+
+
+@semantic
+def _recorded_extensions(merged: list[FanRecord]) -> int:
+    total = 0
+    for r in merged:
+        if r.kind == "extension_event":
+            n = (r.gate_results or {}).get("n")
+            if isinstance(n, int):
+                total += n
+    return total
+
+
+@semantic
+def run_train(cfg: Config, store_root: str) -> dict[str, object]:
+    root = Path(store_root)
+    manifest = json.loads((root / "frozen.json").read_text(encoding="utf-8"))
+    if manifest["frozen_block_hash"] != frozen_block_hash(cfg) or manifest["config_hash"] != config_hash():
+        raise RuntimeError("train refused: manifest mismatch (live Config/source differ from frozen.json)")
+    store = Store(store_root, cfg.fsync_every)
+    records = load_for_training(store)
+    normalizer = Normalizer.from_json(json.dumps(manifest["normalizer"]))
+    frozen_density = cast(dict[str, float], manifest["fan_density"])
+    # Betas come from the MANIFEST density; the collection recomputation is a
+    # printed diagnostic only — asserted unused by construction (train_policy
+    # receives frozen_density, never `records`-derived density).
+    print(f"collection-density diagnostic (UNUSED for betas): {measure_fan_density(records)}")
+    assert abs(cast(float, manifest["beta_which"]) - cfg.beta_which_frac * frozen_density["best_minus_second"]) < 1e-9
+    pol_dir = root / "policies"
+    pol_dir.mkdir(parents=True, exist_ok=True)
+    out: dict[str, object] = {}
+    for name, mask_fn in (("trained", None), ("schedule_only", schedule_only_mask)):
+        gen = make_generator(derive(cfg.run_seed, "policy", name))
+        policy, info = train_policy(records, cfg, normalizer, gen, frozen_density=frozen_density, mask_fn=mask_fn)
+        ckpt_id = state_hash(policy)  # checkpoints keyed by state-dict hash
+        torch.save(policy.state_dict(), pol_dir / f"{name}_{ckpt_id}.pt")
+        (pol_dir / f"{name}.json").write_text(
+            json.dumps({"checkpoint_id": ckpt_id, "beta_which": info["beta_which"], "beta_now": info["beta_now"], "curve": info["curve"]}),
+            encoding="utf-8",
+        )
+        print(f"{name}: checkpoint {ckpt_id[:12]} tune curve {info['curve']}")
+        out[name] = {"checkpoint_id": ckpt_id, "curve": info["curve"]}
+    return out
+
+
+@semantic
+def _load_policy(cfg: Config, store_root: str, name: str) -> tuple[Policy, str]:
+    root = Path(store_root) / "policies"
+    meta = json.loads((root / f"{name}.json").read_text(encoding="utf-8"))
+    policy = Policy(cfg, make_generator(0))
+    policy.load_state_dict(torch.load(root / f"{name}_{meta['checkpoint_id']}.pt", weights_only=True))
+    return policy, cast(str, meta["checkpoint_id"])
+
+
+@semantic
+def _query_dicts(policy: Policy, normalizer: Normalizer, tele: list[dict[str, object]], mask: bool) -> tuple[float, dict[str, float]]:
+    vecs = [normalizer.apply(_telemetry_vector_from_dict(d)) for d in tele]
+    tokens = torch.stack(vecs).unsqueeze(0).to(next(policy.parameters()).device)
+    if mask:
+        tokens = schedule_only_mask(tokens)
+    prior = policy.training
+    policy.eval()
+    with torch.no_grad():
+        p_logit, seed_logits = policy(tokens, torch.tensor([tokens.shape[1]]))
+        p = float(torch.sigmoid(p_logit[0]))
+        pi = torch.softmax(seed_logits[0], dim=-1)
+    policy.train(prior)
+    return p, {name: float(pi[i]) for i, name in enumerate(SEED_NAMES)}
+
+
+@semantic
+def _test_argmax(rec: FanRecord) -> str:
+    by = _arm_by_name(rec)
+    best_name, best_r = SEED_NAMES[0], float("-inf")
+    for n in SEED_NAMES:
+        r = _as_float(by[n]["r_test"])
+        if r > best_r:
+            best_r, best_name = r, n
+    return best_name
+
+
+@semantic
+def _pi_argmax(pi: dict[str, float]) -> str:
+    best = max(pi.values())
+    return min(n for n, v in pi.items() if v == best)  # lexicographic-in-SEED_NAMES? lowest index
+
+
+@semantic
+def run_eval(
+    cfg: Config, data: DataBundle, device: str, store_root: str, resume: bool = False, void_prereg: bool = False
+) -> dict[str, object]:
+    root = Path(store_root)
+    results_path = root / "eval_results.json"
+    store = Store(store_root, cfg.fsync_every)
+    if results_path.exists():
+        if not void_prereg:
+            raise RuntimeError(
+                "eval refused: eval_results.json exists (one-shot). --void-preregistration overrides AND writes a permanent void_event."
+            )
+        merged0 = store.merge()
+        store.append(
+            0,
+            make_fan_record(
+                kind="void_event",
+                episode_seed=cfg.run_seed,
+                seed_namespace="eval",
+                split_role="eval",
+                pathology_id="all",
+                fan_epoch=None,
+                refan_k=None,
+                schedule_id=make_schedule_id(cfg),
+                policy_checkpoint_id=None,
+                iteration=len([r for r in merged0 if r.kind == "void_event"]),
+                config_hash=config_hash(),
+                frozen_block_hash=frozen_block_hash(cfg),
+                manifest_hash=None,
+                common_future_hash="",
+                host_init_hash="",
+                env={"git_rev": _git_rev()},
+                arms=[],
+                telemetry=[],
+                decisions=None,
+                gate_results={"event": "void_preregistration"},
+            ),
+        )
+    manifest = json.loads((root / "frozen.json").read_text(encoding="utf-8"))
+    if manifest["frozen_block_hash"] != frozen_block_hash(cfg) or manifest["config_hash"] != config_hash():
+        raise RuntimeError("eval refused: manifest mismatch (live Config/source differ from frozen.json)")
+    manifest_hash = cast(str, manifest["manifest_hash"])
+    merged = store.merge()
+    train_eps = {r.episode_seed for r in merged if r.kind == "fan" and r.seed_namespace == "train"}
+    required = cfg.n_collect + _recorded_extensions(merged)
+    if len(train_eps) < required:
+        raise RuntimeError(f"eval refused: incomplete collection ({len(train_eps)} train episodes < {required})")
+    normalizer = Normalizer.from_json(json.dumps(manifest["normalizer"]))
+    trained_pol, trained_id = _load_policy(cfg, store_root, "trained")
+    sched_pol, sched_id = _load_policy(cfg, store_root, "schedule_only")
+    trained_pol.to(device)
+    sched_pol.to(device)
+    existing = {r.fan_id for r in merged}  # crash-resume: completed, never double-counted
+    lo, hi = cfg.window
+    per_comp: dict[str, list[dict[str, object]]] = {c: [] for c in EVAL_COMPARATORS}
+    comp_ckpt = {
+        "trained": f"trained:{trained_id}",
+        "random": "random-null",
+        "schedule_only": f"schedule_only:{sched_id}",
+        "fixed_epoch": f"fixed_epoch:{trained_id}",
+    }
+    for i in range(cfg.n_eval):
+        es = derive(cfg.run_seed, "eval", i)
+        needed = [c for c in EVAL_COMPARATORS if fan_identity(es, None, "policy_run", None, comp_ckpt[c], None) not in existing]
+        r_noop_test: float | None = None
+        if needed:
+            noop_ctx = make_episode(cfg, data, device, es, read_test=True)
+            try:
+                for e in range(cfg.horizon):
+                    train_one_epoch(noop_ctx, e)
+                assert noop_ctx.curves_test is not None
+                r_noop_test = end_state_R(noop_ctx.curves_test)
+            except TelemetryDivergence:
+                r_noop_test = cfg.diverged_r
+        for comp in EVAL_COMPARATORS:
+            fid = fan_identity(es, None, "policy_run", None, comp_ckpt[comp], None)
+            if fid in existing:
+                rec = next(r for r in merged if r.fan_id == fid)
+                summary = (rec.decisions or [{}])[-1]
+                per_comp[comp].append(
+                    {
+                        "episode_seed": es,
+                        "germinated": summary.get("germination_epoch") is not None,
+                        "lift": _as_float(summary.get("lift", 0.0)),
+                        "chosen": summary.get("chosen"),
+                    }
+                )
+                continue
+            assert r_noop_test is not None
+            ctx = make_episode(cfg, data, device, es, read_test=True)
+            decisions: list[dict[str, object]] = []
+            germination_epoch: int | None = None
+            chosen: str | None = None
+            status = "ok"
+            rnd_epoch = lo + derive(es, "random-null") % (hi - lo + 1)
+            rnd_seed = SEED_NAMES[derive(es, "random-null", "seed") % 4]
+            try:
+                for e in range(cfg.horizon):
+                    if germination_epoch is None and lo <= e <= hi:
+                        p = 0.0
+                        fire = False
+                        action: str | None = None
+                        if comp == "random":
+                            fire = e == rnd_epoch  # uniform epoch in window, uniform seed, always acts
+                            p = 1.0 if fire else 0.0
+                            action = rnd_seed if fire else None
+                        elif comp == "fixed_epoch":
+                            fire = e == cfg.t_star  # trained WHICH forced at t_star
+                            if fire:
+                                p, pi = _query_dicts(trained_pol, normalizer, [dataclasses.asdict(t) for t in ctx.telemetry], False)
+                                action = _pi_argmax(pi)
+                        else:
+                            pol = trained_pol if comp == "trained" else sched_pol
+                            mask = comp == "schedule_only"
+                            p, pi = _query_dicts(pol, normalizer, [dataclasses.asdict(t) for t in ctx.telemetry], mask)
+                            fire = p > 0.5  # deterministic deployment rule
+                            action = _pi_argmax(pi) if fire else None
+                        decisions.append({"epoch": e, "p": p, "action": action})
+                        if fire and action is not None:
+                            germinate(ctx, action)
+                            germination_epoch = e
+                            chosen = action
+                    train_one_epoch(ctx, e)
+                assert ctx.curves_test is not None
+                r_test = end_state_R(ctx.curves_test)
+                r_val = end_state_R(ctx.curves_val)
+            except TelemetryDivergence:
+                status = "diverged"
+                r_test = cfg.diverged_r
+                r_val = cfg.diverged_r
+            lift = (r_test - r_noop_test) if germination_epoch is not None else 0.0  # never-germinate = 0
+            decisions.append({"germination_epoch": germination_epoch, "chosen": chosen, "lift": lift, "r_noop_test": r_noop_test})
+            store.append(
+                0,
+                make_fan_record(
+                    kind="policy_run",
+                    episode_seed=es,
+                    seed_namespace="eval",
+                    split_role="eval",
+                    pathology_id=ctx.pathology,
+                    fan_epoch=None,
+                    refan_k=None,
+                    schedule_id=make_schedule_id(cfg),
+                    policy_checkpoint_id=comp_ckpt[comp],
+                    iteration=None,
+                    config_hash=config_hash(),
+                    frozen_block_hash=frozen_block_hash(cfg),
+                    manifest_hash=manifest_hash,
+                    common_future_hash=ctx.future.hash,
+                    host_init_hash="",
+                    env=env_block(device, 1),
+                    arms=[{"name": chosen or "noop", "status": status, "r_val": r_val, "r_test": r_test}],
+                    telemetry=[dataclasses.asdict(t) for t in ctx.telemetry],
+                    decisions=decisions,
+                    gate_results=None,
+                ),
+            )
+            per_comp[comp].append({"episode_seed": es, "germinated": germination_epoch is not None, "lift": lift, "chosen": chosen})
+        # frozen grid: 2 forced fans per eval episode at evalgrid-drawn epochs
+        grid_epochs = draw_schedule(es, cfg, "evalgrid")
+        if any(fan_identity(es, fe, "fan", None, None, None) not in existing for fe in grid_epochs):
+            run_collection_episode(cfg, data, device, es, "eval", store, 0, True, manifest_hash=manifest_hash, schedule_label="evalgrid")
+        if i < N_EVAL_REFANS and fan_identity(es, grid_epochs[0], "refan", 0, None, None) not in existing:
+            run_refan(cfg, data, device, es, grid_epochs[0], 0, store, 0, namespace="eval", read_test=True, manifest_hash=manifest_hash)
+    store.close()
+    merged = Store(store_root, cfg.fsync_every).merge()
+    grid = [r for r in merged if r.kind == "fan" and r.seed_namespace == "eval"]
+    eval_refans = [r for r in merged if r.kind == "refan" and r.seed_namespace == "eval"]
+    # teacher-forced agreement on the grid, vs majority-class and schedule-only nulls
+    hits = 0
+    sched_hits = 0
+    picks: list[str] = []
+    paths: list[str] = []
+    per_point: list[dict[str, float]] = []
+    argmaxes: list[str] = []
+    for g in grid:
+        am = _test_argmax(g)
+        argmaxes.append(am)
+        paths.append(g.pathology_id)
+        p_g, pi_g = _query_dicts(trained_pol, normalizer, g.telemetry, False)
+        pick = _pi_argmax(pi_g)
+        picks.append(pick)
+        hits += pick == am
+        _p_s, pi_s = _query_dicts(sched_pol, normalizer, g.telemetry, True)
+        sched_hits += _pi_argmax(pi_s) == am
+        by = _arm_by_name(g)
+        advantage = max(_as_float(by[n]["r_test"]) for n in SEED_NAMES) - _as_float(by["noop"]["r_test"])
+        per_point.append({"p": p_g, "A": advantage})  # the realized-p-by-sign(A) diagnostic's data
+    n_grid = len(grid)
+    agreement = hits / n_grid if n_grid else 0.0
+    sched_null = sched_hits / n_grid if n_grid else 0.0
+    majority_null = (max(argmaxes.count(n) for n in SEED_NAMES) / n_grid) if n_grid else 0.0
+    # falsifier: telemetry-history derangement across pathology classes
+    mapping = class_derangement(list(PATHOLOGIES), cfg.run_seed)
+    donors: dict[str, list[FanRecord]] = {}
+    for g in sorted(grid, key=lambda r: r.fan_id):
+        donors.setdefault(g.pathology_id, []).append(g)
+    deranged_hits = 0
+    deranged_n = 0
+    for g in sorted(grid, key=lambda r: r.fan_id):
+        pool = donors.get(mapping[g.pathology_id], [])
+        if not pool:
+            continue
+        donor = pool[deranged_n % len(pool)]
+        _p, pi_d = _query_dicts(trained_pol, normalizer, donor.telemetry, False)
+        deranged_hits += _pi_argmax(pi_d) == _test_argmax(g)
+        deranged_n += 1
+    deranged_agreement = deranged_hits / deranged_n if deranged_n else 0.0
+    null_ci = wilson_interval(round(majority_null * n_grid), n_grid, cfg.alpha_level) if n_grid else (0.0, 1.0)
+    # ceiling: refan-vs-fan argmax stability, Sum p^2 estimator (labeled lower bound)
+    matches = 0
+    pairs = 0
+    for rf in eval_refans:
+        twin_fan = next((g for g in grid if g.episode_seed == rf.episode_seed and g.fan_epoch == rf.fan_epoch), None)
+        if twin_fan is None:
+            continue
+        matches += _test_argmax(rf) == _test_argmax(twin_fan)
+        pairs += 1
+    ceiling = matches / pairs if pairs else 0.0
+    ceiling_ci = wilson_interval(matches, pairs, cfg.alpha_level) if pairs else (0.0, 1.0)
+    # statistics
+    trained_lifts = torch.tensor([_as_float(e["lift"]) for e in per_comp["trained"]], dtype=torch.float64)
+    sched_lifts = torch.tensor([_as_float(e["lift"]) for e in per_comp["schedule_only"]], dtype=torch.float64)
+    trained_p = sign_flip_pvalue(trained_lifts, cfg.permutation_resamples, derive(cfg.run_seed, "signflip-trained"))
+    paired_p = sign_flip_pvalue(trained_lifts - sched_lifts, cfg.permutation_resamples, derive(cfg.run_seed, "signflip-paired"))
+    obs_matched, money_p = money_chart_permutation_pvalue(
+        paths, picks, dict(DESIGNED_WINNER), cfg.permutation_resamples, derive(cfg.run_seed, "money")
+    )
+    # restraint regret: what never-germinating left on the table, from the
+    # episode's LAST grid point (+ labeled per-point pairs stored above)
+    regrets: list[float] = []
+    for e_summary in per_comp["trained"]:
+        if e_summary["germinated"]:
+            continue
+        es_r = cast(int, e_summary["episode_seed"])
+        ep_grid = [g for g in grid if g.episode_seed == es_r]
+        if not ep_grid:
+            continue
+        last = max(ep_grid, key=lambda g: g.fan_epoch or 0)
+        by = _arm_by_name(last)
+        regrets.append(max(_as_float(by[n]["r_test"]) for n in SEED_NAMES) - _as_float(by["noop"]["r_test"]))
+    chosen_marginal: dict[str, int] = {}
+    for e_summary in per_comp["trained"]:
+        c = e_summary.get("chosen")
+        if isinstance(c, str):
+            chosen_marginal[c] = chosen_marginal.get(c, 0) + 1
+    density = cast(dict[str, float], manifest["fan_density"])
+    z_power = 1.645 + 0.842  # one-sided alpha=0.05, power 0.8
+    results: dict[str, object] = {
+        "manifest_hash": manifest_hash,
+        "lift": {
+            "trained_mean": float(trained_lifts.mean()) if trained_lifts.numel() else 0.0,
+            "trained_p": trained_p,
+            "paired_vs_schedule_only_p": paired_p,
+            "per_comparator": {
+                c: {
+                    "mean_lift": (sum(_as_float(e["lift"]) for e in v) / len(v)) if v else 0.0,
+                    "germination_rate": (sum(1 for e in v if e["germinated"]) / len(v)) if v else 0.0,
+                }
+                for c, v in per_comp.items()
+            },
+        },
+        "agreement": {"teacher_forced": agreement, "majority_null": majority_null, "schedule_only_null": sched_null},
+        "money_chart": {"matched": obs_matched, "p": money_p},
+        "falsifier": {"deranged_agreement": deranged_agreement, "null_ci_hi": null_ci[1], "derangement": mapping},
+        "ceiling": {"estimate": ceiling, "wilson_ci": ceiling_ci, "pairs": pairs, "label": "lower bound, test units"},
+        "when_contrast": when_contrast(per_comp["trained"]),
+        "restraint_regret": {
+            "last_grid_point_mean": (sum(regrets) / len(regrets)) if regrets else 0.0,
+            "per_point": regrets,
+        },
+        "chosen_seed_marginal": chosen_marginal,
+        "per_grid_point": per_point,
+        "power_note": {
+            "mde_lift_at_n_eval": z_power * density["best_minus_noop"] / (cfg.n_eval**0.5),
+            "mde_agreement_at_grid": z_power * 0.5 / ((cfg.n_eval * 2) ** 0.5),
+            "density_source": "manifest fan_density (gate 3 measurement)",
+        },
+    }
+    results["verdict"] = verdict(results, cfg)
+    tmp = results_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(results, indent=2), encoding="utf-8")
+    os.replace(tmp, results_path)  # atomic
+    return results
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
@@ -3015,6 +3471,9 @@ def main(argv: list[str] | None = None) -> None:
             p.add_argument("--workers", type=int, default=6)
             p.add_argument("--limit", type=int, default=None)
             p.add_argument("--extend", type=int, default=0)
+        if m == "eval":
+            p.add_argument("--resume-eval", action="store_true")
+            p.add_argument("--void-preregistration", action="store_true")
         if m == "replay":
             p.add_argument("fan_id")
     args = ap.parse_args(argv)
@@ -3032,6 +3491,14 @@ def main(argv: list[str] | None = None) -> None:
         result_c = run_collect(cfg, args.store, args.devices.split(","), args.workers, limit=args.limit, extend=args.extend)
         print(result_c)
         raise SystemExit(0 if result_c["ok"] else 1)
+    if args.mode == "train":
+        print(run_train(cfg, args.store))
+        raise SystemExit(0)
+    if args.mode == "eval":
+        data = load_data(cfg, args.device, args.subset)
+        result_e = run_eval(cfg, data, args.device, args.store, resume=args.resume_eval, void_prereg=args.void_preregistration)
+        print(json.dumps(result_e.get("verdict"), indent=2))
+        raise SystemExit(0)
     raise SystemExit(f"not implemented: {args.mode}")
 
 
