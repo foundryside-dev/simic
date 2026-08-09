@@ -756,3 +756,359 @@ because the spec says the store *is* the deliverable to Simic proper.
 
 - **Statement signature**: `determinism-reviewer`, axiom-determinism-and-replay v1.1.0
 - **Issued at**: 2026-08-09T11:07:26Z
+
+---
+
+# Round 2 (rev 3)
+
+- **Reviewed by**: `determinism-reviewer` (axiom-determinism-and-replay v1.1.0)
+- **Subject**: `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` rev 3 (commit `244accb`)
+- **Class reviewed against**: **declared** — rev 3 states Class 1 (single machine, single GPU
+  SKU, pinned environment, bitwise). Round 1's severities were advisory against an inferred
+  class; **round 2's are not.** There is now a contract to review against.
+- **Mode**: spec-update
+- **Issued at**: 2026-08-09T11:24:44Z
+
+## Verdict summary
+
+**15 closed · 4 partial · 0 not closed.** Seven new findings, all arising from rev 3's own
+changes (free-threaded workers, base-run-as-no-op, refanning). None re-opens a round-1 item.
+
+The response is unusually strong. Three things rev 3 did that go beyond what was asked:
+folding the observation normalizer and entropy coefficients into the frozen block; switching
+Adam → SGD, which dissolves the optimizer-restore finding rather than patching it; and turning
+the duplicate-arm control into the **twin arm**, which verifies more than I proposed. Rev 3
+also correctly noticed that under a bitwise contract the duplicate self-agrees trivially, and
+re-derived the noise floor from refanning — a consequence I did not anticipate and which is
+right (see N3 and the scope note under it).
+
+## Round-1 findings — disposition
+
+| # | Round-1 finding | Verdict | Evidence in rev 3 |
+|---|---|---|---|
+| C1 | Class absent; "same seed ⇒ same episode" false on CUDA | **CLOSED** | L66–85: Class 1 declared; all four knobs; TF32 off both + recorded; no AMP; **explicit-matmul `attn`** (took the SDPA flag); no dropout; no clipping; claim scoped to the contract and twin-verified rather than asserted |
+| C2 | Fan record not replayable | **CLOSED** | L295–315: full schema (`episode_seed`, `config_hash`, `frozen_block_hash`, `common_future_hash`, `env`, per-arm `init_seed`); `--replay` re-derives, forces the recorded `fan_epoch`, **refuses** on env mismatch. Re-derivation instead of persisted snapshots is a better answer than the one I proposed — cheaper and it removes the pickle question entirely |
+| H1 | Snapshot enumeration incomplete | **CLOSED** | L259–263: deep-copied `state_dict()` **parameters and buffers**, deep-copied optimizer state, CPU + per-device CUDA RNG, data-stream position; the live-reference trap is called out in the spec text. No scheduler/GradScaler rows needed — fixed LR, no AMP |
+| H2 | Arm-init derivation rule unstated | **CLOSED** | L273–275: `derive(episode_seed, arm_name)`, order-independent. Correctly excludes `fan_epoch`, which is what makes L242–243's new within-episode now-vs-later evidence sound: at two fan epochs the same arm gets a *bitwise identical* module, so the comparison isolates timing |
+| H3 | Chosen-arm execution path never declared symmetric | **CLOSED** | L264–272 — but by a different mechanism than I proposed; see N-note below, and **the twin arm is load-bearing for this, not decorative** |
+| H4 | Arms across cards not comparable | **CLOSED** | L276–279, verbatim with the workspace mechanism |
+| H5 | Optimizer restore across differing param sets | **CLOSED, improved** | L191–197: SGD+Nesterov (dissolves the Adam findings), seed params as a second group with fresh momentum, host group ordering byte-identical; plus assertion L280–283 (host weights bitwise identical across arms at end of TRAINING) — a stronger check than I asked for |
+| H6 | Learner RNG ungoverned | **PARTIAL** | L81–82 closes training-side (policy init, minibatch order) and REINFORCE's removal deletes the sampling slot from training. **Eval-time action selection is still ungoverned** → N5 |
+| H7 | Store writes: no worker model, no atomicity rule | **PARTIAL** | L306–309 per-worker shards close the write-interleaving question completely. L460–461 now *names* the worker model — free-threaded — which resolves the gap and opens N1/N2 |
+| H8 | Store order → learner order → policy not reproducible | **CLOSED** | L306–309: canonical merge on `(episode_seed, fan_epoch)`; input order is a function of content. Minor: `policy_run` records need a tiebreak key if they lack `fan_epoch` |
+| M1 | Common future covers data, not model stochasticity | **CLOSED** | L79: "No dropout anywhere in host, seeds, or policy" — closed by construction, which is the strongest form |
+| M2 | No divergence detection, no test vector | **CLOSED** | Twin arm (L267–272) + `--selftest` (L469–470). Residual is cross-version only → N6 |
+| M3 | Non-finite values break JSONL | **CLOSED, extended** | L288–293: `status="diverged"`, `R_a = null`, curves retained, encoder never emits bare `NaN` — and rev 3 went further, reporting per-seed-type failure rates because dropping such fans would flatter the riskiest arms |
+| M4 | Blindness rule stated for one field, not as a class | **CLOSED** | L116–121, generalized as recommended, with the `--selftest` grep |
+| M5 | Freeze discipline unenforceable | **CLOSED, extended** | L123–131: namespaced `derive(run_seed, ns, i)`, `frozen_block_hash`, `--eval` asserts it; normalizer/entropy/schedule folded into the frozen block |
+| M6 | TF32 unpinned | **CLOSED** | L73–74, off for both, explicitly set and recorded |
+| L1 | Environment identity unrecorded | **CLOSED** | `env` block, L301–303 |
+| L2 | No cost record | **PARTIAL** | L83 records the slowdown measurement. No forbidden-silent-relaxations list → N7 |
+| L3 | Pickle / glob hygiene | **CLOSED** | Re-derivation removes persisted snapshots entirely; content-keyed merge is stronger than a sorted glob |
+| I1 | Gap to Academy exact replay | **CLOSED** | Class 1 + twin arm makes the demo a *better* precedent for the invariant than I expected — continuous verification, not a one-off assertion |
+
+**Note on H3 (the sharpest point in this round).** Rev 3 closes the chosen-arm asymmetry, but
+the compute optimization at L240 reintroduces one in a new place: the base run *is* the no-op
+arm, and the base run is **not** executed by the branch executor — it is the ordinary episode
+loop. So `R_noop` and the four `R_a` now come from genuinely different code paths. Rev 3
+handles this correctly, and elegantly: rather than avoid the asymmetry it **verifies it away**,
+because the twin arm re-runs the no-op continuation *through the branch executor* and demands
+bitwise equality with the base tail. That is the right trade — it buys ~20% compute back and
+converts a structural assumption into a per-fan measurement.
+
+The consequence must be written down: **the twin arm is not optional.** If it is ever put
+behind a flag and the flag is off — or dropped under deadline, which is what happens to the
+thing that costs 20% of fan compute — the base/branch asymmetry returns *silently* and
+`R_chosen − R_noop`, the headline number, is confounded again with no symptom. This belongs
+on N7's forbidden-relaxations list, at the top.
+
+## New findings (rev 3 surfaces)
+
+### N1 — HIGH: no RNG ownership rule, and free-threaded workers make one natural implementation silently corrupting
+
+- **Channel**: RNG isolation (2) / concurrency (6)
+- **Location**: L460–461 (free-threaded workers), L462 (several workers per card), against
+  L259–263 (snapshot captures "CPU and per-device CUDA RNG states") and L273 (`derive(...)`)
+- **Observation**: Rev 3 names the worker model but no RNG *ownership* rule. `derive(...)`
+  describes how sub-seeds are computed; it does not say what object receives them.
+- **Why it matters**: `torch.manual_seed()` sets the process-global CPU generator and every
+  device generator. Under free threads that state is shared by every worker in the process.
+  Seeding an episode by calling `torch.manual_seed(episode_seed)` — the obvious
+  implementation, and the one the current wording invites — means worker A's episode start
+  clobbers worker B's stream mid-initialisation.
+  **I am not claiming this will happen; I am claiming the spec does not rule it out.** If
+  modules are constructed the ordinary way (`nn.Conv2d(...)` reading the global generator
+  without reseeding), no corruption occurs. The exposure is specifically the per-episode
+  reseed. This is the same discipline as round 1's store finding: the unstated rule is the
+  finding.
+- **Why it is HIGH rather than MEDIUM — nothing in the design catches it.** The blast radius
+  is confined to init-time draws (host init, pathology draw, common-future precompute, arm
+  init), because with no dropout and no stochastic layers *nothing downstream of init
+  consumes RNG at all*. That narrowness is good news for the spine and bad news for
+  detection: a corrupted host init produces a valid-looking episode whose host simply does
+  not match its `episode_seed`. The twin arm does **not** catch it (it verifies branch-executor
+  equivalence *within* an episode, not that the episode matched its seed). Assertion L280–283
+  does not catch it (it compares arms to each other, all downstream of the same corrupt init).
+  It surfaces only if someone runs `--replay`, months later, on the one record they happened
+  to check.
+- **Resolving sheet**: `03-rng-isolation-spec.md` items 2–3 (named slots, ownership table)
+  and item 5 (hot-path discipline: hold an owned `Generator`, never a factory call).
+- **Suggested action** — the rule, then the detector:
+  1. *"Every episode owns explicit `torch.Generator` objects (CPU and one per device it
+     touches), seeded by `derive(...)` and passed explicitly to every draw — host init,
+     pathology, common-future precompute, arm init. `torch.manual_seed` /
+     `torch.cuda.manual_seed*` are banned outside process startup."* Module construction
+     that must read a global generator is wrapped so it draws into tensors from the owned
+     generator instead.
+  2. Add **`host_init_hash`** to the fan record, computed over the host `state_dict` at
+     episode start. One field, and it converts a silent corruption into a loud one: `--replay`
+     re-derives the episode and the hash mismatches immediately, at the point of failure
+     rather than 40 epochs downstream. `common_future_hash` already does exactly this job for
+     the data stream — this extends the same idea to the other init-time draw that matters.
+
+### N2 — HIGH: `worker_count` is part of the pinned environment and is not in the env block
+
+- **Channel**: GPU (8) / replay (5)
+- **Location**: L301–303 (env block contents), L462 (several workers per card), L276–279
+  (one device per fan), L311–315 (`--replay` env-mismatch refusal)
+- **Observation**: Rev 3 correctly pins fans to one device on the grounds that cuDNN
+  algorithm selection is workspace-dependent. It then runs several workers per card, so free
+  VRAM on that one card varies with how many co-resident workers are mid-lifecycle — and
+  `worker_count` is not in the env block that `--replay` checks.
+- **Why it matters**: `cudnn.deterministic = True` and `use_deterministic_algorithms(True)`
+  guarantee that the algorithm chosen *is* deterministic. They do not guarantee that the
+  *same* algorithm is chosen under different conditions. With `benchmark = False`, PyTorch
+  takes the heuristic-ranked algorithm list and picks the first whose workspace fits in
+  available memory — so lower free VRAM can select a different (still deterministic)
+  algorithm, producing different bits. The mechanism rev 3 cites for cards applies within a
+  card.
+- **The consequence that makes this a scheduled failure rather than a hypothetical**: the
+  twin arm runs under the *same instantaneous memory pressure* as its base run, milliseconds
+  apart, so **the twin can pass all night while `--replay` fails weeks later** on a quieter
+  or busier machine. The design's two verification instruments are blind to precisely this
+  axis, and the failure appears at the worst moment — when someone is trying to check a
+  published number.
+- **Resolving sheet**: `09-gpu-determinism-config.md` item 7 (cross-device policy — read
+  here as cross-*condition*) and item 9 (class-breaking events); `01-` item 7.
+- **Suggested action**: three cheap moves, in order of value.
+  1. Add `worker_count` and `device_index` to the env block. `--replay` already refuses on
+     env mismatch, so this costs one field and inherits the enforcement.
+  2. **Run `--replay` single-worker** and record that as the replay contract. Reproduction
+     does not need throughput.
+  3. Set an explicit cuDNN workspace limit so selection is pressure-independent by
+     construction rather than by luck. If that proves awkward, (1)+(2) alone are adequate.
+  Note this is one of the few claims here I would want confirmed empirically — the cheap
+  test is a twin-arm run at 1 worker vs at full worker count on the same episode seed.
+
+### N3 — MEDIUM: a refan must re-run the no-op continuation, or paired quantities mix two futures
+
+- **Channel**: Replay (5) / divergence (4)
+- **Location**: L358–367 (pre-flight gate 3, noise floor from ~10 refanned episodes) and
+  L407–411 (oracle ceiling from ~30 refanned eval-grid points)
+- **Observation**: Refanning is defined as "same snapshot, same epoch, a *re-drawn common
+  future*". Two things are unspecified, and the second one changes numbers.
+- **The load-bearing part**: a re-drawn common future changes the data stream from the fan
+  epoch to the horizon **for every arm — including the baseline**. The no-op arm is the base
+  run (L240), whose tail was trained under the *original* future. So unless the no-op
+  continuation is re-run under the new future, a refan compares seed arms under future-2
+  against a baseline under future-1, and the difference absorbs the future change. That
+  contaminates exactly the quantities the pre-registered thresholds are stated against:
+  `mean(R_best − R_noop)` within fans (L358–361), the oracle ceiling that agreement is
+  reported as a fraction of (L407–411), and restraint-regret with no-op eligible (L404–406).
+  **Corollary with a budget consequence**: in a refan the twin arm cannot stand in for the
+  no-op, because the original base tail is no longer a valid comparand. A refan is therefore
+  **5 real arms** (4 seeds + a fresh no-op continuation), plus a 6th if the twin verification
+  is retained — not the 4 that "same snapshot, same epoch" implies. Across ~10 pre-flight
+  and ~30 eval refans that is a real, plannable cost, and it should be in the budget rather
+  than discovered.
+- **The minor part**: the re-drawn future needs a stated derivation —
+  `derive(episode_seed, "refan", k)` for refan index `k`, with `k` and the resulting
+  `common_future_hash` in the record. Otherwise the noise floor and the oracle ceiling are
+  themselves unreproducible, and `--replay` cannot reach a refanned point at all. The schema
+  already carries `common_future_hash`, which *records* which future was used — but a hash
+  identifies, it does not re-derive.
+- **Resolving sheet**: `06-replay-infrastructure-spec.md` item 7 (branching primitives —
+  per-branch input substitution); `02-seed-governance-spec.md` §"Seed Propagation".
+- **Suggested action**: state both — *"A refan re-derives the episode to the fan epoch, draws
+  a fresh common future from `derive(episode_seed, "refan", k)`, and re-executes **all five
+  arms including the no-op continuation** under it. `k` and the resulting
+  `common_future_hash` are recorded; refanned records carry `kind = "refan"` and are excluded
+  from training."* The last clause matters: `--train` must not treat refans as extra fans,
+  or the same episode-epoch appears repeatedly in the objective.
+- **Scope note — the noise floor changed owners.** Rev 3's derived change is correct: under
+  Class 1 the *determinism* noise floor is exactly zero and the twin arm proves it, so the
+  refan-measured quantity is an **experimental-design sensitivity** (how much does `R_a` move
+  under an irrelevant draw), not a determinism quantity. I am verifying only that the
+  mechanism is deterministic, reproducible, and correctly paired. Whether ~10 and ~30 refans
+  give adequate precision for a floor and a ceiling, and whether that ceiling is the right
+  denominator for the agreement thresholds, is the statistics reviewer's call.
+
+### N4 — MEDIUM: twin-arm abort semantics are unspecified in all four dimensions
+
+- **Channel**: Divergence detection (4)
+- **Location**: L267–272 ("must reproduce the base run's tail **bitwise**; any divergence
+  aborts collection")
+- **Observation**: The twin arm is now the demo's primary determinism instrument. What it
+  compares, when it compares, what "abort" does, and what it leaves behind are all unstated.
+- **Why it matters**: a divergence detector that fires without localising costs a day. The
+  pack's position (`05-`) is that the value of a compare-point is the *localisation*, not the
+  alarm.
+  - **What is compared**: "the tail" could mean final weights, the val-accuracy curve, or the
+    full `state_dict` at every epoch. Only the last localises.
+  - **When**: comparing per-epoch names the *first* differing epoch; comparing at the end
+    names only that something differed.
+  - **What aborts**: the worker, or the process? Under free threading these differ, and a
+    worker that dies quietly while its siblings keep collecting produces a store that is part
+    verified and part not, with nothing marking the boundary.
+  - **What survives**: records written before the divergence were each verified by their own
+    twin and remain valid — that should be stated so an abort does not trigger a
+    precautionary discard of a night's collection.
+- **Resolving sheet**: `05-divergence-protocol.md` items on compare-points, hash function,
+  and the localisation procedure.
+- **Suggested action**: *"The twin arm compares a hash of the host `state_dict` (parameters
+  and buffers) at **every epoch** of the tail. On mismatch, collection aborts the whole
+  process and writes a divergence report: first differing epoch, first differing tensor key,
+  `episode_seed`, `fan_epoch`, `device_index`, `worker_count`, and the env block. Shards
+  written before the abort remain valid — every record in them carries its own passed twin."*
+  The per-epoch hash costs almost nothing at this model size and turns an abort into a
+  diagnosis.
+
+### N5 — MEDIUM: eval-time action selection is ungoverned, so the headline comparison is not reproducible
+
+- **Channel**: Seed governance (1) / RNG isolation (2)
+- **Location**: L388–396 (eval battery; "each policy plays its episode live (its own
+  germination choices)"), L414–415 (random and schedule-only baselines), against L81–82
+  (learner RNG covers policy init and minibatch order only)
+- **Observation**: REINFORCE's removal deleted the *training*-time sampling slot, and rev 3
+  correctly claims `--train` bit-reproducibility. But the trained policy still acts live at
+  evaluation, and the spec never says whether it acts by **argmax or by sampling** from
+  `p` and `π(a|s)`. The random baseline is by definition a sampler and has no named RNG at all.
+- **Why it matters**: if evaluation samples, the headline lift, the Wilcoxon test, the money
+  chart and the restraint rate all carry an unrecorded RNG draw, and re-running the frozen
+  eval battery gives different numbers from the same policy and the same 100 seeds — for
+  results that are pre-registered and quoted. The whole point of L388–396's frozen, paired
+  battery is that everything except the policy is held fixed.
+- **Resolving sheet**: `03-rng-isolation-spec.md` item 2 (named slots — this is a missing
+  slot, not a missing value); `02-` item on recording seeds in the run.
+- **Suggested action**: state the rule. Cleanest: *"At evaluation all policies act
+  **greedily** (argmax on NOW and on the seed head); the random baseline draws from
+  `derive(run_seed, "eval_random", episode_seed)`. Evaluation consumes no other randomness."*
+  Greedy removes the slot rather than governing it, and it is the right choice for a
+  pre-registered comparison. If sampling is wanted for a restraint-rate distribution, it
+  needs its own named slot and the draw recorded in the `policy_run` record.
+
+### N6 — LOW: no committed golden test vector
+
+- **Channel**: Divergence detection (4)
+- **Location**: L469–470 (`--selftest`), L83
+- **Observation**: The twin arm proves *internal* consistency within a run: base ≡ branch,
+  snapshot complete, deterministic mode in force. It cannot detect a change that shifts every
+  result consistently — a torch or driver upgrade, or an edit to the host architecture.
+- **Why it matters**: gate Check 10 — one recorded run whose hash all future runs must
+  reproduce is what distinguishes a determinism *property* from a determinism *assertion*.
+  Rev 3's env-mismatch refusal covers the upgrade case partially (it refuses rather than
+  silently drifting), so this is genuinely LOW.
+- **Resolving sheet**: `12-property-test-suite.md` Property 1; gate Check 10.
+- **Suggested action**: commit one small record — a 5-epoch smoke episode at a fixed seed,
+  with its `host_init_hash`, `common_future_hash`, and final host-state hash — and have
+  `--selftest` assert it. Under the env block it should be exact; on env mismatch it reports
+  rather than fails, and becomes the artifact you diff after an upgrade.
+
+### N7 — LOW: the cost record has no forbidden-silent-relaxations list, and the twin arm is the obvious cut
+
+- **Channel**: Cost (cross-cutting)
+- **Location**: L83 ("Deterministic-mode slowdown is measured once in pre-flight and recorded")
+- **Observation**: The measurement is there; the trade record around it is not.
+- **Why it matters**: `13-`'s whole argument is that unrecorded determinism costs get relaxed
+  silently under deadline. Rev 3 has created a perfect candidate: the twin arm is 1 of 5
+  branch arms, ~20% of fan compute, contributes no data to the store, and looks exactly like
+  a free win at 2am against a 300-episode overnight budget. Disabling it silently restores
+  the base/branch asymmetry described under H3 — with no symptom.
+- **Resolving sheet**: `13-cost-of-determinism.md` items 6 (forbidden silent relaxations) and
+  7 (budget-breach response).
+- **Suggested action**: five lines in the file header. *"Class-breaking, not optimisations:
+  disabling the twin arm; `cudnn.benchmark = True`; `use_deterministic_algorithms(warn_only=True)`;
+  enabling TF32 or AMP; changing `worker_count` between collection and replay. If the
+  overnight budget misses, shorten the horizon or reduce episode count — never these."*
+
+## Worker model — the trade, for the lead to pick
+
+Rev 3 chose free-threaded workers (L460–461). N1 and N2 are both downstream of that choice,
+so it is worth stating the alternative plainly rather than only the risk.
+
+- **What free threading buys**: CIFAR-10 resident once per *card* (~180MB) rather than once
+  per worker; no IPC.
+- **What it costs**: every worker shares torch's process-global state — the default
+  generators (N1), the deterministic-mode flags (benign, all workers want them on), and one
+  CUDA context whose memory pressure is the sum of all workers (N2). The CUDA *current
+  device* is thread-local in modern PyTorch, so per-thread device pinning does work as rev 3
+  assumes.
+- **What processes would cost instead**: ~180MB × N per card of duplicated dataset. At 4
+  workers that is ~720MB on a 4060 Ti — comfortable on either the 8GB or 16GB SKU with a
+  150k-parameter host.
+- **The observation that makes this cheap**: the GIL argument that motivates free threading
+  is largely dissolved by rev 3's own no-loader design. With CIFAR-10 GPU-resident and
+  augmentation as tensor ops, episode workers spend nearly all their time awaiting CUDA, and
+  release the GIL while doing so. Free threading is buying throughput the design already had.
+
+One process per worker, each with its own CUDA context, removes N1 entirely and reduces N2 to
+a per-process memory question. I am not filing this as a finding — it is the resolution
+mechanism for two already filed, and the choice is the designer's.
+
+## Confidence Assessment
+
+- **Verdict confidence**: High. Rev 3's `(closes: …)` annotations made disposition checkable
+  against specific text rather than inferred, and each verdict above cites the line range it
+  rests on.
+- **New-finding confidence**: High for N3, N4, N5, N6, N7 — these are statements about what
+  the spec does not say, verified by grep. Medium-High for N2: the workspace-fits-available-
+  memory selection path is real, but I have not confirmed empirically that it bites at this
+  model size, and the cheap test is named in the finding. Medium for N1's *impact*: the
+  mechanism requires a specific implementation choice (per-episode `manual_seed`) that the
+  spec neither mandates nor forbids, which is precisely why it is filed as a missing rule.
+- **Severity confidence**: Materially higher than round 1 — the class is declared, so
+  "class-breaking" has a referent. This is the single biggest improvement in reviewability
+  between the two revisions.
+- **Coverage confidence**: High for the ten channels against rev 3's text. Still zero for
+  the implementation, which does not exist.
+
+## Information Gaps
+
+- **No code.** N1's exposure, the twin arm's comparison granularity, and the refan's arm count
+  are all properties of an implementation that has not been written. These findings are
+  requests for the spec to constrain it.
+- **Empirically unverified**: whether cuDNN algorithm selection actually shifts at this model
+  size under realistic per-card memory pressure (N2), and the deterministic-mode slowdown —
+  rev 3 correctly schedules the latter as a pre-flight measurement.
+- **Not in my scope**: whether ~10 refans give an adequate noise floor and ~30 an adequate
+  oracle ceiling, and whether that ceiling is the right denominator for the agreement
+  thresholds (statistics reviewer). Whether the trust-region term, β-ramp, and SGD contract
+  behave as intended (lifecycle / dynamic-architectures reviewers). I did not read the four
+  sibling reviews, so rev 3 changes that close *their* findings are unassessed here.
+
+## Caveats
+
+- Round-2 severities are measured against rev 3's **declared** Class 1 contract. If the class
+  is later relaxed, N1–N7 re-rate.
+- Verdicts cover the spec text at commit `244accb`. A `(closes: …)` annotation is evidence of
+  intent; only code closes a finding in the end, and four of these (N1's generator rule, N4's
+  comparison granularity, N3's arm count, N5's action rule) are exactly the kind that get
+  closed in prose and reopened in implementation.
+- The twin arm is now load-bearing for the demo's central comparison, not merely for its
+  determinism claim. Treat any change to it as class-breaking.
+
+## Result Statement (Plain Language)
+
+Rev 3 closes fifteen of nineteen round-1 findings outright and leaves nothing unaddressed; the
+four partials are each one sentence from closed. The twin arm is a better instrument than the
+control I proposed — it verifies snapshot completeness, executor equivalence, optimizer
+restore and deterministic mode at once — and it is now what makes the base-run-as-no-op
+optimization safe, which means it must never become optional. The seven new findings all come
+from rev 3's own changes: the free-threaded worker model needs an RNG ownership rule and
+`worker_count` in the env block (a twin arm can pass all night while `--replay` fails weeks
+later), and the refan mechanism must re-run the no-op continuation under the new future or the
+paired numbers the thresholds are stated against will quietly mix two data streams.
+
+---
+- **Statement signature**: `determinism-reviewer`, axiom-determinism-and-replay v1.1.0
+- **Issued at**: 2026-08-09T11:24:44Z

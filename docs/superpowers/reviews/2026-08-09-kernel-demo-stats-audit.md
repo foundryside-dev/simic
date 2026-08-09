@@ -862,3 +862,410 @@ caution.** Per the catalogue's discipline, I have neither returned zero findings
 a quota — every finding cites the spec text at fault, and where the design is genuinely sound
 (AP-19, AP-18, AP-02 within-fan, the CRN precomputation, the shuffle falsifier, the mean-fan
 baseline algebra) I have said so in one line and moved on.
+
+---
+
+# Round 2 (rev 3)
+
+**Target:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` @ `244accb`
+**Prior round:** rev 2 @ `321c136`, 17 findings (2 Critical, 8 High, 7 Medium)
+**Panel context:** rev 3 folds in five SME reviews (morphogenesis, lifecycle, reward,
+statistics, determinism). This round verdicts my 17 and audits only the surfaces rev 3 created.
+
+## Headline
+
+**Rev 3 closes 13 of 17 outright, 3 partially, and 1 (F10) via a substitution that is sound
+as a measurement but uses the wrong estimator.** Several fixes are stronger than what I
+specified — F5, F8, and F13 in particular are structural dissolutions rather than patches.
+
+**Round 2's blast radius is much smaller than round 1's.** No Criticals. Three findings worth
+acting on (R2-1, R2-2, R2-3), one correction to the F10 substitution, and a set of narrow
+residuals. This is not goalpost-moving: R2-1 and R2-2 are properties of *rev 3's own new
+machinery* (offline NOW training; Wilcoxon on a zero-inflated lift), which did not exist in
+rev 2 and therefore could not have been found in round 1.
+
+---
+
+## Part 1 — Round-1 verdicts
+
+| # | Finding | Verdict | Note |
+|---|---|---|---|
+| F1 | AP-20 probe row-split | **CLOSED** | `GroupShuffleSplit` by episode. Bonus: second probe → fan-argmax vs majority-class null, plus realized contingency vs design-intent map. |
+| F2 | AP-03 no-op gate null | **CLOSED** | Binomial test vs the exact 20% null, both directions, per pathology. *"'Not never' is not a gate."* |
+| F3 | AP-01 gate-3 variance components | **CLOSED** | Gate 3 is now within-fan paired; correctly notes common-mode episode variance cancels. |
+| F4 | AP-02 unshared eval seeds | **CLOSED** | 100 shared seeds, paired, Wilcoxon, episode as unit. Composition with F9 honored — see below. |
+| F5 | AP-09 residual CRN channels | **CLOSED+** | Class 1 contract, no dropout, `derive(episode_seed, arm_name)` (non-additive), fans never span devices. The twin arm makes this *continuously verified* rather than the CI check I asked for. |
+| F6 | AP-04/20 no split role | **CLOSED** | `split_role` in schema; loader asserts `train` on every gradient step. |
+| F7 | AP-04 val = reward = report | **CLOSED** | 5k val / 5k test; test is the only reported accuracy; loaders assert. See R2-6 for a residual. |
+| F8 | AP-08 behaviour-policy drift | **CLOSED+** | *Dissolved*, not patched: schedule-driven collection means the policy never gates its own data supply. `schedule_id` / `policy_checkpoint_id` recorded anyway. |
+| F9 | AP-08 policy-triggered fans | **CLOSED** | Frozen `(episode_seed, fan_epoch)` grid, teacher-forced. Spec states the mechanism verbatim. |
+| F10 | AP-03 no oracle ceiling | **CLOSED, estimator wrong** | Refanning adopted; see Part 2. |
+| F11 | AP-10/05 no prereg | **CLOSED** | N_eval, horizon, thresholds, no-peeking all committed. The conjunctive threshold structure also resolves the multiplicity half — see Sound Points. |
+| F12 | AP-07 horizon shopping | **CLOSED** | Horizon 40 committed; 200-epoch flag explicitly may-not-be-quoted; plateau claim restored as testable (~epoch 12–15). |
+| F13 | AP-14 unmechanised freeze | **CLOSED+** | Seed namespaces `derive(run_seed, ns, i)` make dev/eval collision *impossible by construction*; frozen-block hash asserted at `--eval`. |
+| F14 | AP-13 pilot-derived sizing | **PARTIAL** | Still ~30 preflight / ~10 refan episodes, no UCL. Pilot quantities now feed *more* frozen decisions (entropy coefficients, gate-4 and gate-5 thresholds). See R2-5, R2-10. |
+| F15 | AP-06 arm failure | **PARTIAL** | Reporting side fully closed (status, null, curves kept, per-seed failure rates, no bare NaN). Learning and argmax sides undefined — see R2-3. |
+| F16 | AP-17 money-chart reporting | **PARTIAL** | Eyeball criterion gone (the main thing); measured nulls replace uniform chance. Still no n-per-cell and no eval-time chosen-seed marginal — see R2-9. |
+| F17 | AP-11 baseline parity | **CLOSED** | Same architecture and training, input reduced to epoch index; now required, not optional. |
+
+**13 closed · 3 partial · 1 closed-with-correction.**
+
+---
+
+## Part 2 — The F10 substitution (asked directly)
+
+### First, this is adoption, not correction
+
+Round 1 specified *"run each fan **twice under two independent common-future draws**."* That
+**is** refanning. No concession was made — rev 3 implemented what was asked, and correctly
+identified why the naive reading (re-execute the same fan) is vacuous under Class 1: it would
+self-agree bitwise by construction.
+
+### The measurement is right, and for the right reason
+
+Under Class 1, `R_a` is a deterministic function of `(snapshot, epoch, common_future, arm)`.
+The policy conditions on the telemetry prefix — it sees the snapshot's history and **cannot
+see the future draw**. Refanning holds the snapshot and epoch fixed and re-draws exactly the
+component the policy has no access to. That is precisely the right conditioning: *given
+everything the policy knows, how stable is the label?* Holding the pre-germination trajectory
+fixed is correct, not a limitation — the policy's information set includes it.
+
+**Verdict: the substitution is statistically sound.**
+
+### The correction: self-agreement is a *lower bound* on the ceiling, not the ceiling
+
+Let `pᵢ` be the probability arm `i` is the fan argmax, given the prefix, over the draw of the
+common future. Refanning measures **agreement between two independent draws = Σᵢpᵢ²**. But the
+best achievable predictor — which must commit to one arm — scores **maxᵢpᵢ**. And
+
+> **Σᵢpᵢ² ≤ maxᵢpᵢ**, with equality only at a point mass.
+
+Computed across realistic argmax distributions:
+
+| argmax distribution | self-agreement Σp² | true ceiling max p | understated by |
+|---|---|---|---|
+| sharp (.85,.10,.03,.02) | 0.734 | 0.850 | **13.7%** |
+| moderate (.60,.25,.10,.05) | 0.435 | 0.600 | **27.5%** |
+| diffuse (.40,.30,.20,.10) | 0.300 | 0.400 | **25.0%** |
+| uniform (.25,.25,.25,.25) | 0.250 | 0.250 | 0.0% |
+
+**Why this matters concretely:** the ceiling sits in a *pre-registered pass threshold*
+(*"≥ 60% of the oracle ceiling"*). Too small a denominator makes the ratio too large, so the
+threshold is **anti-conservative**. A policy achieving the true optimum `maxᵢpᵢ` reports as
+**1.16×–1.38× "of ceiling"** — clearing a 60% bar by roughly 2×. This is a **bias**, not
+noise, which makes it distinct from R2-5 below; and both push the same direction, so the
+combination is worse than either alone.
+
+**The constraint that discriminates:** whether you need the ceiling as a *reported context
+number* or as a *pass/fail denominator*.
+- If context only → keep Σp², **label it explicitly as a lower bound**, and drop it from the
+  pre-registered threshold.
+- If it stays in the threshold → estimate `maxᵢpᵢ`, which needs **more than two draws per
+  grid point** (with `m` draws, the plug-in `max_i p̂ᵢ` is itself upward-biased at small `m`,
+  so this trades one bias for a smaller, characterisable one).
+
+Not my call to pick — but the threshold cannot keep a lower-bound denominator without being
+labeled anti-conservative.
+
+---
+
+## Part 3 — New surfaces
+
+### R2-1 · Train/deploy mismatch — the real one is not covariate shift · **HIGH**
+
+*(Directly answering the question asked.)*
+
+**The expected finding is not there, and I want to be plain about that.** Schedule-driven
+collection draws fan epochs uniformly from the decision window on **un-intervened** trajectories.
+At eval the policy also acts on un-intervened trajectories within that same window. So the
+deployment state distribution is a **reweighting of the training support, not an extrapolation**
+— full coverage, no unseen state types. That is the benign form of covariate shift, and it is
+strictly better than the policy-gated alternative rev 2 had. **Not a finding.**
+
+**The real mismatch is temporal, not distributional.** `J_now = p·(Σ_a π(a|s)·R_a) + (1−p)·R_noop`
+is a **pointwise** objective: at this epoch, act versus never act. At deployment the policy
+applies `p` **sequentially** down the decision window (epochs 5–15, 11 decision points) until
+it fires. A quantity calibrated pointwise, applied sequentially, does not mean what it meant.
+
+**Rev 3 does not state the deployment rule, and that silence is the reportable gap.** Both
+readings fail, by different mechanisms:
+- *If deployment samples from `p`:* germination probability is `1 − Π(1−pₜ)`. Computed:
+
+  | pointwise `p` | P(germinate over 11 epochs) |
+  |---|---|
+  | 0.05 | 43.1% |
+  | 0.10 | 68.6% |
+  | 0.20 | **91.4%** |
+  | 0.30 | 98.0% |
+
+  A policy trained to be restrained pointwise is **un-restrained sequentially**.
+- *If deployment thresholds `p`:* the arithmetic above does not apply, but the policy fires at
+  the *first* crossing, using a `p` with **no representation of option value** — nothing in
+  `J_now` encodes that a better epoch may come.
+
+This directly threatens the demo's restraint claim (*"she must learn restraint, not
+enthusiasm"*) and the mandatory-no-op spirit. Note the store *already contains* now-vs-later
+evidence — rev 3 says so (fans at different epochs share one baseline) — but `J_now` **does
+not consume it**. The evidence is collected and unused.
+
+- **Fix** — `abstention-and-calibration.md`. Minimum: **state the deployment rule in the spec**,
+  and report realized germination rate against fan-optimal germination rate so inflation is
+  visible. Beyond that, options (not my call): calibrate a threshold on train-split episodes to
+  a target germination rate, frozen before eval; or train NOW against the now-vs-later evidence
+  already in the store.
+- **Effort** — Stating the rule: minutes. Threshold calibration: hours, no new collection.
+- **Confidence** — **High** that the objective is pointwise and application sequential (both
+  read directly off the spec). **High** that the rule is unstated. **Medium** on realized
+  magnitude — depends on the learned `p` scale.
+- **Risk if wrong** — Low. If a calibrated threshold was always intended, this costs one
+  sentence. Reporting the germination rate is free and useful regardless.
+
+### R2-2 · Wilcoxon on zero-inflated lift silently changes the estimand · **HIGH**
+
+- **Evidence** — *"Never-germinating scores exactly 0 by construction. Statistic: Wilcoxon
+  signed-rank on per-episode paired lift."*
+- **Mechanism** — Wilcoxon's standard treatment **discards zero differences** (verified:
+  scipy 1.18 `zero_method` default is `'wilcox'`). Restraint produces *exact* zeros by
+  construction, so they are dropped — and this is **not merely a power loss, it is an estimand
+  change**. The test becomes *"among episodes where the policy acted, is lift positive?"* —
+  not *"is mean lift positive over 100 episodes,"* which is what the demo claims.
+
+  | restraint rate | zeros dropped | effective n |
+  |---|---|---|
+  | 0% | 0 | 100 |
+  | 20% | 20 | 80 |
+  | 40% | 40 | **60** |
+  | 60% | 60 | **40** |
+
+  **The pathological case:** a policy acting on 5 of 100 episodes with positive lift on all 5
+  reaches `p = 1/2⁵ = 0.031` and **clears the pre-registered `p < 0.05` threshold** — on 5%
+  of the eval battery. Also, `zero_method` is a live researcher degree of freedom left open at
+  freeze time: on one simulated zero-inflated sample (40% restraint) I get **p = 0.0134
+  (`wilcox`) vs p = 0.0220 (`zsplit`)** — same data, same test, unregistered choice.
+- **AP-12 tie-in** — any MDE quoted for `n = 100` is wrong, because effective `n` is unknown
+  until the restraint rate is known. No MDE is stated.
+- **Note R2-1 and R2-2 pull opposite directions** — R2-1 inflates germination (fewer zeros,
+  higher effective n), R2-2 rewards restraint with an easier test. **The realized germination
+  rate must be printed next to the p-value or neither number is interpretable.**
+- **Fix** — `paired-comparison-methods.md` + `power-and-sample-size-for-paired-designs.md`.
+  Pre-register `zero_method` explicitly; report germination rate, conditional-on-acting lift,
+  and unconditional mean lift **as three separate numbers**; state the MDE as a function of
+  realized effective n.
+- **Effort** — Pre-registration line plus three reported numbers. Hours.
+- **Confidence** — **High.** Zero-inflation is structural; the scipy default is verified; the
+  5-of-100 case is exact arithmetic.
+- **Risk if wrong** — Very low. Reporting the germination rate alongside cannot mislead.
+
+### R2-3 · `R_a = null` has no defined meaning in learning *or* argmax · **MEDIUM-HIGH**
+
+- **Evidence** — *"A diverged arm is recorded with `status="diverged"`, `R_a = null`."*
+  `J_which = Σ_{a∈4 seeds} π(a|s) · R_a^val`. No rule is given for `null` in that sum.
+- **Mechanism** — Two consequence surfaces from one root cause:
+  1. **Learning.** `null` cannot enter the sum. The implementer's options — drop the fan,
+     impute a floor, or renormalize π over survivors — are three different objectives, and
+     *dropping* reintroduces exactly the bias F15 was raised to prevent. Failure is asymmetric
+     by construction (`conv_heavy`/`attn` vs `norm` at 0.1k), so dropping flatters the riskiest
+     arms. **F15 is closed for reporting and open for learning.**
+  2. **Argmax.** `null` also breaks `argmax_a R_a`, which **gate 1, gate 2b, agreement, and
+     the money chart** all depend on. Is a diverged arm excluded from the argmax, or ranked
+     last? Those give different ground truth, hence different gate outcomes and different
+     agreement scores.
+- **Fix** — `paired-comparison-methods.md`. Declare the value of a diverged arm **in the
+  pre-registration, before collection** (a floor, or last finite accuracy), so the choice is
+  not made after seeing which arms failed. One rule fixes both surfaces. Never drop the fan.
+- **Effort** — One declared convention. Minutes to specify.
+- **Confidence** — **High** that both surfaces are undefined. **Low** on realized impact —
+  with the trust-region term, gain-zero init, and SGD, divergence may be rare. Cheap insurance
+  either way.
+- **Risk if wrong** — Very low. If nothing diverges, the rule never fires.
+
+### R2-4 · Refan protocol: the no-op baseline must be re-drawn too, and the twin arm will abort · **MEDIUM**
+
+- **Evidence** — *"The **base run** — the episode trained with no intervention to the horizon
+  — **is the no-op arm.** No separate no-op branch is trained (~20% compute saved)."* Plus:
+  *"The twin arm re-runs the no-op continuation from the snapshot and must reproduce the base
+  run's tail **bitwise**; any divergence aborts collection."* Plus refanning re-draws the
+  common future.
+- **Mechanism** — Two collisions between the compute optimization and the refan protocol:
+  1. A refan's arms run under a **new** common future, but the base run (= no-op) was computed
+     under the **original** one. Any `R_best − R_noop` or restraint-regret computed on a
+     refanned point compares mismatched futures. **Each refan needs its own no-op continuation
+     re-run under its own draw** — the ~20% saving does not extend to refans.
+  2. A refan's twin arm, compared bitwise against the *original* base run's tail, **must
+     diverge by construction** and would abort collection. It needs re-basing against the
+     refan's own no-op continuation, or disabling for refans.
+- **Impact** — Not a validity threat if caught; a mysterious-abort and a silently-wrong-number
+  trap if not. Gate 3's noise floor and the F10 ceiling both run through this path.
+- **Fix** — `common-random-numbers-and-matching.md`. Specify the refan as a full 6-arm
+  re-execution (4 seeds + no-op + twin) under the new draw, with the twin re-based.
+- **Effort** — Hours. Raises refan cost ~20%, on ~40 points total.
+- **Confidence** — **High** on the mechanism (follows from base-run-is-no-op plus re-drawn
+  future). **Medium** on whether the authors already intend this — it may be obvious in
+  implementation.
+- **Risk if wrong** — Very low. Costs one clarifying paragraph.
+
+### R2-5 · The oracle ceiling sits inside a pass threshold with no uncertainty treatment · **MEDIUM-HIGH**
+
+- **Evidence** — *"~30 eval-grid points refanned"*; threshold *"≥ 60% of the oracle ceiling."*
+- **Mechanism** — The ceiling is a binomial proportion at n=30 and is now **load-bearing in a
+  pre-registered pass criterion**. Wilson 95% CIs:
+
+  | observed ceiling | 95% CI | width |
+  |---|---|---|
+  | 0.60 (18/30) | [0.423, 0.754] | 0.331 |
+  | 0.70 (21/30) | [0.521, 0.833] | 0.312 |
+  | 0.80 (24/30) | [0.627, 0.905] | 0.278 |
+
+  **The verdict flips inside the ceiling's own CI.** At observed ceiling 0.70, an agreement of
+  0.42 gives ratio **0.600 → PASS**; against the CI upper bound 0.833 it gives **0.504 → FAIL**.
+  Stacked on the Σp² bias from Part 2, both errors run the same way.
+- **Fix** — `power-and-sample-size-for-paired-designs.md` + `frontier-and-reliability-reporting.md`.
+  Report the ceiling **with its CI**, and use the **upper** confidence limit as the denominator
+  (conservative direction — a larger denominator makes the ratio harder to clear). Or raise the
+  refan count until the CI is narrow enough for a 60% bar to be meaningful.
+- **Effort** — Using the UCL: minutes. More refans: bounded, tens of episodes.
+- **Confidence** — **High** — the CIs are computed, and the flip is arithmetic.
+- **Risk if wrong** — Low. Using the UCL makes the demo's own headline *harder* to pass, so
+  the error direction is safe.
+
+### R2-6 · Pre-flight gates do not declare val-vs-test, and the retune loop can reach the test 5k · **MEDIUM**
+
+- **Evidence** — `R_a^val` is *"training-time reward"*; `R_a^test` is *"reporting only"* and
+  *"the only accuracy any reported metric uses."* But gates 1–6 speak of *"fan argmax"* and
+  *"fan density"* without saying **which** `R_a`. And: *"Failing gates retunes the sampler and
+  re-runs pre-flight."*
+- **Mechanism** — The test 5k is the **same images in every episode**, across all namespaces.
+  If gate statistics are computed on `R^test`, the pathology sampler is iteratively retuned
+  until contrasts look right *on the test set* — reintroducing calibration-on-report-data
+  (AP-04) through the back door that F7's fix was meant to close. The `preflight`/`eval`
+  namespace separation protects the *episodes* but not the *image set*.
+- **Fix** — `grouped-splits-and-leakage.md`. State explicitly: **all pre-flight gates, all
+  tuning, and the frozen block use `R^val` exclusively; `R^test` appears only in `--report`
+  after freeze.** Assert it in the gate code.
+- **Effort** — One sentence plus an assertion. Minutes.
+- **Confidence** — **High** that it is unstated. **Medium** on severity — the authors plainly
+  intend val-for-training, and this may be assumed rather than overlooked.
+- **Risk if wrong** — Very low. If already intended, cost is one clarifying sentence.
+
+### R2-7 · The pre-flight retune loop is an unrecorded selection process · **MEDIUM**
+
+- **Evidence** — Six gates, and *"Failing gates retunes the sampler and re-runs pre-flight."*
+  The number of retune iterations is unbounded and unrecorded.
+- **Mechanism** — This is best-of-K applied to the **experimental design itself**: sampler
+  configurations are searched until six acceptance criteria pass on ~30 episodes. The
+  protection that matters is real — the frozen block locks before eval, and eval uses a fresh
+  namespace — so **this does not inflate the eval p-value**, and I want that stated clearly.
+  What it does bias is the **pre-flight gate statistics themselves**, which the success
+  criteria promise to report (*"Pre-flight gates 1–6 pass and are reported"*). A binomial test
+  quoted after selecting the config that passes it is a post-selection number.
+- **Fix** — `selection-bias-and-best-of-k.md` + `preregistration-and-exploratory-vs-confirmatory.md`.
+  Record the retune iteration count and the configs tried; label pre-flight gate statistics as
+  **design-construction diagnostics, not evidence**. `K` is then stateable rather than unknown.
+- **Effort** — A counter and a caption. Minutes.
+- **Confidence** — **High** on the mechanism; **Medium** on materiality, since eval is protected.
+- **Risk if wrong** — Very low. Recording K costs nothing and makes the freeze auditable.
+
+### R2-8 to R2-10 · Residuals *(narrow; grouped for readability)*
+
+**R2-8 · Agreement and lift are measured under different state distributions · MEDIUM.**
+Lift uses the policy's *own* chosen epochs (live play); agreement uses the *frozen uniform*
+grid. Both are individually valid — and the split is deliberate and correct, since agreement
+needs policy-independent labels (F9) while lift needs deployment behavior. But they are views
+of skill under two different state distributions, and the pre-registered thresholds require
+both, so a reader will read them as corroborating. They are not. *Fix:* state the
+distributional difference where both are reported. Minutes.
+
+**R2-9 · Money chart still lacks n-per-cell and the eval-time chosen-seed marginal · MEDIUM**
+(F16 residual). The `≥ 3 of 4` criterion is a genuine improvement over "visibly diagonal", but
+with 100 episodes over 4 pathologies (~25 each) per-cell counts matter, and gate 4's
+dominance check runs on *pre-flight fan argmax*, not on the *trained policy's eval choices*.
+*Fix:* report n per cell and the eval chosen-seed marginal. This is not cosmetic — see the
+soundness note below, where the threshold's null depends on that marginal. Hours, no compute.
+
+**R2-10 · Pilot-derived quantities now feed more frozen decisions · MEDIUM** (F14 residual).
+~30 preflight episodes now set: entropy coefficients (as a fraction of measured fan density),
+gate-4's ~40% dominance bar, gate-5's ~2× RMS bar, the telemetry normalizer's median/IQR, and
+(via ~10 refans) the noise floor. All frozen. The UCL recommendation from round 1 was not
+adopted. *Fix:* size from upper confidence limits; re-check contrast at ~100 collected
+episodes as a monitoring flag that cannot alter the frozen block. Minutes.
+
+---
+
+## Sound points worth recording
+
+- **The `≥ 3 of 4` money-chart threshold is well-calibrated.** Under a uniform-argmax null,
+  `P(≥3 of 4 row-argmaxes match) = 13/256 = 5.08%` — coincidentally almost exactly a
+  conventional α. Worth knowing you have this. **Caveat that motivates R2-9:** the null assumes
+  the policy's row-argmax is uniform over 4 seeds. If one seed dominates the eval marginal, the
+  null shifts — which is exactly why the chosen-seed marginal needs reporting.
+- **`R_noop` cancels exactly in the paired trained-vs-schedule-only lift contrast.** Both
+  policies share the episode seed, hence the same base run, so the difference of lifts is
+  `R_chosen^A − R_chosen^B`. That contrast is **doubly paired** — a genuinely nice property,
+  and the strongest statistical feature of the eval design.
+- **The conjunctive threshold structure resolves round-1 F11's multiplicity half.** Requiring
+  *all five* pre-registered conditions makes overall type-I error ≤ the smallest individual α.
+  A conjunction is conservative; no correction is needed. (Everything else in `--report` is
+  implicitly exploratory — worth labeling it so, but it is a nit, not a finding.)
+- **Schedule-driven collection is the right call and dissolves three findings at once**
+  (F8 drift, plus rev 2's absorbing-state and covariate-shift risks). Structural elimination
+  beats statistical correction.
+- **The twin arm is better than what round 1 asked for.** I requested a CI bitwise-reproduction
+  check; rev 3 runs one continuously, in-band, on every fan, aborting on divergence. That
+  converts an assertion into a monitored invariant.
+
+---
+
+## Verdict
+
+**The design can now produce a defensible headline.** Both round-1 Criticals are closed, and
+the eval protocol — frozen shared battery, paired Wilcoxon, policy-independent ground truth,
+measured nulls, oracle ceiling, required strongest-null comparison, pre-registered thresholds
+— is genuinely sound in structure.
+
+**Three things must be settled before the headline is quotable**, and all three are
+specification work, not redesign:
+1. **State the deployment germination rule** and report realized germination rate (R2-1).
+2. **Pre-register `zero_method` and report germination rate beside the p-value** — otherwise
+   the Wilcoxon estimand is not the claimed one (R2-2).
+3. **Either label the ceiling a lower bound and remove it from the threshold, or estimate
+   `maxᵢpᵢ` properly** (Part 2), and use the ceiling's UCL as the denominator (R2-5).
+
+The largest supported claim is unchanged from round 1 and now actually reachable: paired lift
+above both random and schedule-only on a frozen shared battery, with agreement stated against
+measured nulls and a correctly-estimated ceiling, and the diagonal collapsing under shuffle —
+scoped to this host, this slot, these four seeds.
+
+## Confidence, Risk, Gaps, Caveats
+
+**Confidence — Medium-High, and higher than round 1.** Six numbers here are computed rather
+than inferred: the Σp² vs max-p gap (13.7–27.5%), the sequential germination table
+(91.4% at p=0.20), the Wilson CIs and the pass/fail flip (0.600 → 0.504), the Wilcoxon
+zero-method divergence (p = 0.0134 vs 0.0220), the 5-of-100 pathological case (p = 0.031),
+and the 13/256 = 5.08% money-chart null. Verdicts on the 17 round-1 findings are High
+confidence — each is a direct text comparison against rev 3. Realized *magnitudes* remain
+unknown for every finding, since there is still no data.
+
+**Risk.** R2-1, R2-2, R2-6, R2-7, and the residuals are near-zero-risk: they add a reported
+number, a pre-registration line, or an assertion. R2-5's fix (UCL denominator) makes the
+demo's own threshold *harder* to pass — safe direction. Highest-cost recommendations are
+R2-4 (~20% more refan compute) and the Part-2 option of more draws per grid point; if the
+authors keep the ceiling as context only, both shrink substantially. The systemic risk remains
+what it was in round 1: a demo whose stated success criterion is *"a reader can open the one
+file and follow the whole loop"* now targets ≲1000 lines with substantially more machinery.
+Every round-2 fix is a line of prose, a recorded field, or a declared convention — chosen
+deliberately to avoid adding code paths.
+
+**Information gaps.** Unchanged and dominant: **no implementation, no fan store, no results.**
+Specifically unresolvable from here: realized argmax distribution `pᵢ` (sets the true ceiling
+and the size of the Σp² gap); realized germination rate (sets both R2-1's severity and R2-2's
+effective n); realized arm divergence rate (sets R2-3's materiality); the number of pre-flight
+retune iterations (R2-7's `K`); and whether gates use `R^val` or `R^test` (R2-6).
+
+**Caveats.** This remains a **design-only audit** — spec text against catalogue, with no code
+executed and no data examined. The computed numbers above are properties of the *specified
+procedure* under stated assumptions (exchangeability, uniform argmax, binomial sampling), not
+measurements of this system. A clean verdict here is not a clean verdict on the implementation;
+re-audit once `experiments/kernel_demo.py` and a pilot store exist. I audited only the
+statistics — the determinism, lifecycle, reward, and morphogenesis reviews in this directory
+cover surfaces I did not assess, and where rev 3 cites them as jointly closing a finding I
+verified only the statistical half.

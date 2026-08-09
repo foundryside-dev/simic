@@ -571,3 +571,395 @@ Nothing here relitigates the scope pins.
 6. Add pre-flight check 4 and the `RMS(Δ)/RMS(h)` fan-record field, then run the
    30-episode pre-flight **before** the pathology freeze at line 84 (closes F7,
    and converts F1/F3 from reasoned to measured).
+
+---
+
+# Round 2 (rev 3)
+
+**Reviewed:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` @ 244accb
+**Date:** 2026-08-09
+**Asked:** (1) verdict each round-1 finding; (2) assess the new lifecycle
+surfaces — λ × zero-init gain, and twin-arm/branch mechanics touching optimizer
+restore.
+
+## Headline
+
+Rev 3 closes seven of nine round-1 findings outright and materially improves on
+two of my recommendations (pre-flight gate 4 gained an overall-rate limb I did
+not propose; the twin arm is a stronger optimizer-restore check than the
+byte-ordering discipline I asked for). Both of my open questions are answered.
+
+**But the round-1 F3 confound is not closed — it has been re-created through a
+new mechanism.** The zero-init scalar gain `g` was adopted to equalize the arms
+at germination. It does equalize them, at the value zero, which is a degenerate
+equalization: it makes all four arms *dead* at entry and then lets them come
+alive at architecture-dependent rates over the fixed K≈3 TRAINING epochs. The
+bias direction is now the **opposite** of rev 2's — rev 2 favoured whichever
+seed ran away fastest (likely `norm`); rev 3 favours whichever seed bootstraps
+fastest (also `norm`, for a different reason). Same confound, flipped mechanism,
+still pointing at the arm that must win `under-normalized`.
+
+The good news: pre-flight gate 5 is exactly the right detector and it is already
+in the spec. I expect it to fire.
+
+## Part 1 — Round-1 finding verdicts
+
+| # | Finding | Verdict | Note |
+|---|---|---|---|
+| F1 | STE objective linear / unbounded | **Closed** | Trust-region term adopted with output-tensor norms and λ as a fixed harness constant (spec 173–179). One formula error inherited from my round-1 text — see R2-F5. |
+| F2 | Fossilization gradient discontinuity | **Closed** | β-ramp + FOSSILIZING sub-stage adopted (183–187). SGD dissolution reasoning confirmed below; 2 epochs is ample. Residual: see R2-F6. |
+| F3 | Fan fairness / per-seed Δ scale | **NOT CLOSED** | Init contract fixes the *stated* problem (accidental scale at entry) and introduces a new one at the same site. See R2-F1. |
+| F4 | Adam absorbs α scaling | **Closed by dissolution** | Reasoning confirmed below. |
+| F5 | Optimizer lifecycle unspecified | **Closed**, with new findings on the added surface | Contract added (191–197), state deep-copied (259–263), twin arm verifies restore empirically — better than what I asked for. R2-F2 and R2-F4 are findings about the *new* contract, not residue of the old gap. Converged independently with the determinism reviewer's HIGH on the same site. |
+| F6 | Fixed α speed ≠ fixed perturbation speed | **Closed, conditional** | The trust region makes `‖αΔ‖` comparable *provided gate 5 passes*. Inherits R2-F1's risk; per-arm blend curves retained for monitoring (443). |
+| F7 | Pre-flight blind to uniform dominance | **Closed** | Gate 4 (368–371) is stronger than my proposal — the >40%-overall limb catches capacity dominance that the per-pathology limb alone would miss. |
+| F8 | α granularity ambiguity | **Closed** | Per-step, `p=(step+1)/total_steps` (180–182). |
+| F9 | Isolation claim overstated | **Closed** | Reworded to Jacobian-path isolation with the operating-point distinction named as embodiment (166–170). |
+
+### Confirming the two dissolutions (asked explicitly)
+
+**F4 dissolves — confirmed.** SGD's update is `lr · (momentum-smoothed gradient)`.
+Scaling a gradient by α scales the update by α; there is no per-parameter
+normalizer to absorb it. So under SGD the α ramp genuinely does gate Δ's
+learning rate, which is what the design always intended. My round-1 F4 was
+Adam-specific and is void.
+
+**The Adam-lag half of F2 dissolves — confirmed, and 2 epochs is comfortably
+enough.** My 3-epoch figure was calibrated on Adam's second-moment window,
+`1/(1−β₂) ≈ 1000` steps ≈ 2.6 epochs. SGD has no preconditioner, so there is no
+stale-scale state to re-adapt. The only carryover is the momentum buffer, whose
+timescale is `1/(1−μ) ≈ 10` steps at μ=0.9 — about 2.5% of one epoch, i.e.
+negligible. The binding constraint at fossilization is now the raw Jacobian
+magnitude `‖∂Δ/∂h‖`, which the β ramp addresses directly and proportionally
+regardless of its length. **2 epochs (~780 steps of gradual opening) is ample;
+even 1 would likely do. Keep 2 for margin.**
+
+One consequence that cuts the other way and is worth stating in the spec: SGD
+does **not** normalize a sudden gradient-magnitude increase the way Adam would.
+Adam would have damped a fossilization spike automatically; SGD passes it
+straight to the update. Combined with "no gradient clipping anywhere" (79–80,
+adopted deliberately to close reward F3), **the β ramp is now the sole
+stability mitigation at fossilization.** That is an acceptable design — the ramp
+is the right mechanism and it is proportional by construction — but it is a
+single point of failure and should be named as one. The α(t)/β(t) trajectory
+plot (442) and per-arm curves make a failure visible after the fact; that is
+adequate for a demo.
+
+## Part 2 — New lifecycle surfaces
+
+### R2-F1 — HIGH — Zero-init gain creates an architecture-selective bootstrap deadlock
+
+**Spec text at fault:** lines 142–152 — "every seed terminates in a **scalar gain
+`g`, initialized to 0**, so Δ ≡ 0 at germination for all four seeds — no
+accidental-scale confound at entry."
+
+This directly answers the lead's question 2, and the answer is that **the
+duration is not the issue — the asymmetry is.**
+
+With `Δ = g · f(h)` and `g = 0`:
+
+```
+∇_g L      = ⟨δ, f(h)⟩            where δ = ∂L/∂Δ     — nonzero
+∇_{θ_f} L  = g · (∂f/∂θ)ᵀ δ = 0   at g = 0            — exactly zero
+```
+
+At germination the inner module `f` receives **exactly zero gradient**. Only the
+scalar `g` moves, and it moves by the alignment of the *randomly initialized* `f`
+with the descent direction. Once `g ≠ 0`, `f` gets gradient proportional to `g`
+and aligns so that `g·f` points along `−δ`; `g` then grows faster. It is a
+coupled, self-reinforcing takeoff seeded by a small random kick — a symmetry-
+breaking instability, not a deadlock in the permanent sense. It does bootstrap.
+**The problem is that its takeoff time is architecture-dependent, and the spec
+gives all four arms the same fixed K≈3 epochs.**
+
+Per seed, at initialization:
+
+- **`norm`** — `f₀ = GroupNorm(h) − h` with γ=1, β=0 is **not random**. It is a
+  deterministic, meaningful function that already computes the correction the
+  seed exists to provide. On an under-normalized host `⟨δ, f₀⟩` is systematically
+  signed from step 1, so `g` grows immediately and consistently. `norm`
+  effectively skips the bootstrap.
+- **`attn`, `conv_light`, `conv_heavy`** — `f₀` is a random-init network (LN and
+  internal BN fix its *scale* at O(1), but not its *direction*). `⟨δ, f₀⟩` is a
+  near-zero-mean random variable, so `g` starts as a random walk near zero and
+  `f`'s gradient stays near zero with it. Takeoff is slower, and slower still the
+  more parameters must organize — worst for `conv_heavy` at 60k.
+
+So rev 3 equalizes the arms at germination by making them all identically dead,
+then lets them diverge at rates set by architecture. That is the round-1 F3
+confound in new clothes, with a *predictable* direction this time: **biased in
+favour of `norm` and against the high-parameter random-init seeds.** Note that
+rev 2's bias pointed the same way for the opposite reason (`norm`'s GroupNorm β
+was the most runaway-prone parameter under the linear objective). Rev 3 flipped
+the mechanism without moving the bias.
+
+**The critical observation: zero-init `g` buys nothing here.** Its stated purpose
+is invisibility and entry equalization, but —
+
+- **Invisibility is already guaranteed by STE**, for *any* Δ. `h + (Δ − Δ.detach())`
+  is bit-identical to `h` whatever Δ is. `g = 0` adds nothing.
+- **Blend-entry continuity is already guaranteed by α**, which starts at
+  `p = 1/total_steps ≈ 0`. `g = 0` adds nothing there either.
+- The equalization that actually matters is at **blend entry**, not germination —
+  and that is precisely what gate 5 measures.
+
+**Fix — normalize at a nonzero τ instead of at zero.** Initialize `g` per seed so
+that `RMS(Δ)/RMS(h) = τ` at germination, with τ a single fixed harness constant
+shared by all four arms (measure `f₀`'s output RMS on one batch at germination
+and set `g = τ·RMS(h)/RMS(f₀)`). This:
+
+- keeps the entry equalization the spec wants — and makes it non-degenerate, at
+  the same value gate 5 checks at exit;
+- gives `f` a nonzero gradient from step 1, removing the takeoff asymmetry
+  entirely;
+- costs nothing in invisibility (STE) or blend continuity (α);
+- remains a harness property invisible to the policy, so scope pin line 52 holds.
+
+**Rejected alternative, for the record:** making TRAINING duration adaptive
+("train until `RMS(Δ)/RMS(h) ≥ τ`, capped at K_max"). This looks attractive but
+is *worse* — arms would then reach BLENDING and FOSSILIZED at different epochs,
+so they would have different full-influence runways at the horizon, which breaks
+the matched comparison that the fan depends on. Do not do this.
+
+### R2-F2 — HIGH — Weight decay on the zero-init gain is a decay-to-death trap
+
+**Spec text at fault:** line 192 — "SGD + Nesterov momentum (fixed LR and weight
+decay, stated in code)." No no-decay exclusion list appears anywhere in the spec.
+
+If weight decay applies uniformly to the seed param group, the gain obeys
+
+```
+dg/dstep ∝ ⟨−δ, f⟩ − (lr · wd) · g
+```
+
+For the three random-init seeds, `⟨−δ, f₀⟩ ≈ 0` during exactly the window in
+which `f` cannot improve (because its own gradient is ∝ `g`). Weight decay
+supplies a restoring force toward zero during precisely that window. The
+bootstrap of R2-F1 is a small signal racing an exponential pull toward the state
+it is trying to escape.
+
+This is a well-known interaction — it is why ReZero, LayerScale, and every
+production zero-init-residual-gain implementation exclude the gain from weight
+decay, alongside biases and normalization parameters.
+
+**Fix:** state an explicit no-decay list in the optimizer contract: the scalar
+gain `g`, all normalization affine parameters (GN/LN/BN γ and β), and all biases
+are excluded from weight decay. One clause at line 191–197.
+
+**Relationship to R2-F1 — adopt both, for distinct reasons.** τ-init moves `g`
+off the absorbing point, so weight decay is no longer racing a near-zero signal;
+that removes the *trap*. It does not remove the *distortion*: the equilibrium
+`g* = ⟨−δ, f⟩ / wd` remains an artifact of the weight-decay coefficient rather
+than of the task, and it scales differently per seed because `⟨−δ, f⟩` does. The
+no-decay list is what makes the gain's magnitude a property of the trust region
+(λ, τ) rather than of an unrelated regularization constant. Neither fix
+subsumes the other.
+
+### R2-F3 — MEDIUM — Gate 5 is the right detector, but its failure routes to the wrong remedy
+
+**Spec text at fault:** gate 5 at lines 372–375, read against the remedy clause
+at line 383 — "Failing gates retunes the sampler and re-runs pre-flight."
+
+Gate 5 (`RMS(Δ)/RMS(h)` at blend entry, arms within ~2×) is exactly the right
+instrument, correctly placed, and I expect **it will fire** on rev 3 as written,
+because R2-F1 predicts a spread that is architectural rather than incidental.
+
+The problem is the remedy. Retuning the *pathology sampler* cannot fix a
+bootstrap asymmetry rooted in the seed parameterization — the sampler controls
+the host's deficiency, not the rate at which a random-init 60k block organizes
+itself. An implementer following line 383 literally will retune the sampler,
+watch gate 5 keep failing, and conclude the pathologies are the problem.
+
+**Fix:** make the remedy table gate-specific. Gates 1, 2, 4 and 6 route to the
+pathology sampler. **Gate 5 routes to the seed init constant τ, λ, or the seed
+LR — never to the sampler.** Gate 3 routes to the horizon or the averaging
+window. One sentence at line 383.
+
+### R2-F4 — MEDIUM — The twin arm cannot verify the seed param-group path
+
+**Spec text at fault:** the twin arm, lines 267–272, read against the optimizer
+contract at 191–197.
+
+The twin arm is the strongest thing in rev 3 and I want to be clear it is a
+better answer than what I asked for in round 1 — it verifies snapshot
+completeness, branch-executor equivalence, optimizer restore, and that
+deterministic mode is actually in force, continuously rather than once. Step 6's
+cross-arm host-weight assertion (280–283) is also excellent, and it happens to
+catch the most likely implementation error in the trust-region term: if someone
+forgets the `.detach()` on `‖h‖²`, host gradients change and step 6 fires.
+
+But the twin arm runs the **no-op** continuation, so it never appends a seed
+param group. The single thing that most distinguishes a seed arm from the base
+run — creating a second param group at germination, with its own momentum
+buffers, alongside a restored host group — is precisely what the twin arm cannot
+exercise. Step 6 covers this partially, but only through **end of TRAINING**;
+after that the host legitimately diverges across arms and no bitwise assertion is
+possible.
+
+**Fix — add a null-seed arm.** An arm that appends a real seed param group whose
+gain is frozen at zero (so `Δ ≡ 0` identically, for the whole lifecycle). Under
+the delta contract this arm must reproduce the base run **bitwise through the
+entire horizon**, because:
+
+- TRAINING: `h + (0 − 0) = h`; trust-region term is 0 with zero gradient.
+- BLENDING: `h + α·0 = h` for every α.
+- FOSSILIZING/FOSSILIZED: `lerp` feeds a Δ that is identically zero for every β.
+
+So it is a valid null, and it verifies everything the twin arm cannot: param-
+group append ordering, seed-group momentum isolation, the α/β schedule
+machinery, the STE code path, and per-arm seed-init RNG derivation — through
+BLENDING and FOSSILIZING, where step 6's assertion cannot reach.
+
+Cost is one extra arm per fan (~20% of fan compute). That is real, so run it on a
+**subsample** — every 10th fan, plus always in `--selftest`. The twin arm stays
+on every fan as the cheap continuous check; the null-seed arm is the periodic
+deep check.
+
+**Reconciled with the determinism review — complementary, not duplicate.** Their
+HIGH "Optimizer-state rehydration across arms with different parameter sets is
+unspecified" (determinism review L283–306) is the source of rev 3's second-param-
+group contract, and it converged independently with my round-1 F5 on the same
+site. Their proposed assertion is *"on the duplicate no-op arm, the two
+optimizers must hash equal after restore"* — a check at the **branch point**, on
+an arm they explicitly specify as having **one group** ("The no-op arm has one
+group", L304). That is precisely the blind spot R2-F4 names, stated in their own
+words. Their check verifies host-group restore is bit-identical; the null-seed
+arm verifies that the *two-group* configuration stays bit-identical **through
+BLENDING and FOSSILIZING**, where neither their hash check nor step 6's
+assertion can reach. Adopt both; neither substitutes for the other.
+
+### R2-F5 — LOW — `g` notation collision, and the `Δ*` formula drops a factor
+
+Two small errors at the same site, one of which I introduced in round 1 and
+should own.
+
+**(a) Collision.** Line 143 defines `g` as the **scalar gain**. Line 175 writes
+the trust-region minimizer as `Δ* = −g/(2λ)`, where `g` means **the loss gradient
+`∂L/∂Δ`** — my round-1 notation. Two different `g`s, 32 lines apart, in a
+document whose stated success criterion is that a reader can follow the file
+top-to-bottom.
+
+**(b) Missing factor — my error, inherited.** With the normalizer in place the
+stationary point is
+
+```
+δ + 2λΔ/‖h‖² = 0   ⟹   Δ* = −δ · ‖h‖² / (2λ)
+```
+
+Line 175's `Δ* = −g/(2λ)` omits the `‖h‖²`. My round-1 text stated the
+unnormalized form and rev 3 copied it faithfully; the error is mine.
+
+**Fix:** rewrite line 175 as `Δ* = −(∂L/∂Δ)·‖h‖²/(2λ)`. This resolves both at
+once and requires no change to the seed table's use of `g`.
+
+### R2-F6 — LOW — β ramps linearly where α ramps on a cosine
+
+**Spec text at fault:** line 184 — "β ramps 0 → 1 linearly", against line 180's
+cosine ease for α.
+
+A linear ramp has nonzero slope at both endpoints, so the FOSSILIZING →
+FOSSILIZED join carries a slope discontinuity in the gradient-coupling schedule.
+The cosine ease `0.5(1−cos πp)` was chosen for α precisely because it is C¹ at
+both ends; the same argument applies to β, and arguably more so, since β's ramp
+is the sole fossilization mitigation (see the SGD note in Part 1).
+
+**Fix:** use the same cosine ease for β. It is the same helper function, it costs
+nothing, and it makes "one blend waveform" true of both schedules rather than
+one — which is closer to what scope pin line 52 says than the current text is.
+
+## Confidence Assessment
+
+**Overall Confidence:** High on the round-1 verdicts and the two dissolutions;
+High on R2-F2/F4/F5/F6; High on R2-F1's *mechanism* with Moderate on its
+*magnitude*.
+
+| Item | Confidence | Basis |
+|---|---|---|
+| Round-1 verdicts (all 9) | **High** | Each checked against specific rev-3 line ranges, cited above. |
+| F4 dissolution | **High** | SGD has no per-parameter normalizer; gradient scaling passes through to the update. Elementary. |
+| F2 Adam-lag dissolution; 2 epochs adequate | **High** | `1/(1−μ) ≈ 10` steps vs `1/(1−β₂) ≈ 1000`. Two orders of magnitude; the conclusion is not sensitive to the exact μ. |
+| R2-F1 mechanism (`∇_{θ_f}L = 0` at `g=0`; takeoff is coupled and architecture-dependent) | **High** | Direct differentiation of `Δ = g·f(h)`. Not an inference. |
+| R2-F1 *magnitude* — that the asymmetry is large enough to matter over K≈3 | **Moderate** | Rests on `⟨δ, GN(h)−h⟩` being systematically signed on an under-normalized host (reasoned, plausible, unmeasured) versus `⟨δ, f₀⟩ ≈ 0` for random init (solid). Gate 5 measures exactly this — the honest position is that the mechanism is certain and the size is empirical. |
+| R2-F1 fix (τ-init) is safe | **High** | STE guarantees bit-identical forward for any Δ (verified round 1); α starts at `1/total_steps`. Neither property depends on `g = 0`. |
+| R2-F2 weight-decay trap | **High** on mechanism | The `−lr·wd·g` term is arithmetic. Confirmed by grep that no exclusion list exists in the spec. Severity depends on the unstated `wd` value — hence the fix is stated as unconditional standard practice rather than tuned. |
+| R2-F3 remedy misrouting | **High** | Line 383 says "retunes the sampler" with no gate-specific branching; verified by reading. |
+| R2-F4 twin-arm blind spot | **High** | The twin arm is defined as a no-op continuation (267–268); a no-op arm appends no seed param group by construction. |
+| R2-F4 null-seed arm is a valid bitwise null | **High** | Walked each lifecycle stage with `Δ ≡ 0`; every stage reduces to `h`. |
+| R2-F5 both errors | **High** | Both verified by grep against lines 143, 175, and by re-deriving the stationary point. |
+
+## Risk Assessment
+
+**Implementation Risk:** Low–Medium (all recommendations are pre-implementation
+spec edits). **Reversibility:** Easy — no code exists yet.
+
+| Risk | Severity | Likelihood | Mitigation |
+|---|---|---|---|
+| R2-F1 ships → arms enter BLENDING at architecture-determined magnitudes; the WHICH head trains on confounded labels and the money chart is partly an artifact | **High** — same blast radius as round-1 F3 | Moderate–High; mechanism is certain, size is not | τ-init (primary). Gate 5 is a real backstop — this is *detected*, not silent, which is the material difference from round 1. |
+| R2-F2 ships → gain pinned near zero for random-init seeds; arm looks like a genuine null result | **High** if it fires | Moderate; depends on the unstated `wd` | No-decay list. One clause, standard practice, no downside. |
+| R2-F3 ships → gate 5 fires, implementer retunes the sampler, concludes pathologies are at fault, possibly loosens the band to pass | **Medium**, but corrosive — it would launder the confound past the freeze | Moderate if gate 5 fires at all | Gate-specific remedy table |
+| R2-F4 ships → a param-group or momentum-isolation bug survives into BLENDING/FOSSILIZING unverified | Medium | Low–Moderate; step 6 already covers TRAINING | Null-seed arm on a 1-in-10 subsample + `--selftest` |
+| Null-seed arm adds ~20% fan compute if run on every fan | Low | Certain if unsubsampled | Subsample explicitly; the twin arm remains the per-fan check |
+| R2-F5 ships → implementer reads `Δ* = −g/(2λ)` with `g` as the gain and mis-implements the trust region | Medium | Moderate — the collision is genuinely confusing | One-line formula rewrite |
+| τ-init makes Δ's germination magnitude an artifact of τ | Low | Certain by construction | Accepted deliberately, same argument as λ in round 1: a *shared* artifact is a fair comparison, a *per-seed* one is not. Record τ in the fan record beside λ. |
+| Over-fitting the design to reviewer findings — rev 3 added λ, τ, β-length, entropy coefficients, exploration schedule as harness constants | Low–Medium | Present | Scope pin line 52 already anticipates this and holds (none are policy-visible). Worth watching that the *count* of frozen constants stays auditable via `frozen_block_hash`. |
+
+## Information Gaps
+
+- **Weight-decay value, seed LR, and momentum μ.** All stated as "fixed … stated
+  in code" (192–196) but no numbers appear. R2-F2's severity and the exact
+  momentum timescale in Part 1 both depend on them. My μ=0.9 is assumed.
+- **Whether `f`'s output projection is zero-init in addition to the gain.** If
+  `conv_heavy`'s final BN γ or the `attn` output projection is *also* zero-init,
+  the bootstrap is deadlocked harder than R2-F1 describes (two nested zeros).
+  The table (147–152) does not say.
+- **τ, if adopted.** Its value is an empirical question the pre-flight answers;
+  gate 5's ~2× band is the natural place to calibrate it.
+- **Magnitude of `‖∂Δ/∂h‖` at fossilization.** Still unmeasured, and still the
+  quantity that determines whether the β ramp's length matters at all. The
+  α(t)/β(t) plot plus per-arm curves will show it after the fact.
+- **The other panel reviews.** I reconciled R2-F4 against the determinism
+  review's optimizer-rehydration HIGH (result recorded under R2-F4:
+  complementary, no conflict). I have **not** read the reward, statistics, or
+  morphogenesis reviews. R2-F1's confound has downstream consequences for the
+  WHICH objective and for gate 4's dominance logic, which are those reviewers'
+  territory; if any of them reasoned about per-seed Δ magnitude, that is
+  unreconciled.
+- **No implementation exists.** All findings are against spec text.
+
+## Caveats & Required Follow-ups
+
+**What must be verified before relying on this:**
+
+1. **Confirm the seed-module output projections are *not* zero-init.** If they
+   are, R2-F1 understates the problem materially.
+2. **Get the weight-decay value.** If `wd = 0` on the seed group already, R2-F2
+   is moot; the spec should then say so explicitly rather than leaving it to code.
+3. **Treat R2-F1's size as empirical.** I am confident in the mechanism and
+   deliberately not confident in the magnitude. Gate 5 on the pre-flight
+   episodes settles it — and that run is already planned, so the cost of finding
+   out is zero.
+
+**Assumptions:** μ ≈ 0.9; bs = 128 on 50k train (391 steps/epoch); GroupNorm
+init γ=1, β=0; internal BN γ init 1; standard (non-zero) init on inner
+projections.
+
+**What this review does NOT cover:** the reward/learning redesign (REINFORCE
+removal, `J_now`/`J_which`, entropy coupling) — reward reviewer's territory; the
+determinism contract, twin-arm bitwise machinery and store concurrency beyond
+where they touch optimizer restore — determinism reviewer's; the statistical
+protocol (nulls, ceiling, Wilcoxon, GroupShuffleSplit) — statistics reviewer's.
+I did not reconcile against those four reviews.
+
+**Recommended next steps, in order:**
+
+1. **τ-init replacing zero-init `g`** (R2-F1) — the one finding that changes a
+   result rather than a safeguard.
+2. **No-decay list in the optimizer contract** (R2-F2) — one clause, standard,
+   no downside, partially redundant with (1) but adopt both.
+3. **Gate-specific remedy table** (R2-F3) — one sentence at line 383; cheap
+   insurance against laundering the confound past the freeze.
+4. **Fix the `g` collision and the `Δ*` factor** (R2-F5) — pure text, my error.
+5. **Cosine β ramp** (R2-F6) — one-line consistency edit.
+6. **Null-seed arm on a 1-in-10 subsample plus `--selftest`** (R2-F4) — the only
+   item with a compute cost; defer if the schedule is tight, since step 6 already
+   covers the highest-risk window.

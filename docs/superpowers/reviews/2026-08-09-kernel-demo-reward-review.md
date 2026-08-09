@@ -628,3 +628,491 @@ The following would materially sharpen this review:
 - Sparse-reward exploration machinery (curiosity/RND): deliberately not
   recommended. F1's fix removes the sparsity rather than compensating for it,
   which is the better move here and keeps the demo single-file.
+
+---
+---
+
+# Round 2 (rev 3)
+
+**Reviewed:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` at
+`244accb` ("rev 3 — five-SME panel round 1 findings folded in").
+**Scope:** reward design only. Scope pins hold; the exploration schedule is
+accepted as a harness property, not a policy knob.
+
+Rev 3 is a genuine restructure, not a patch. The central move — both heads
+trained offline on full information, with collection driven by a fixed
+exploration schedule and the common future drawn once per episode — is exactly
+the recommendation from Round 1, adopted in a stronger form than proposed. Ten
+of thirteen round-1 findings are closed outright, two of them exceeded.
+
+**Bookkeeping rule used below**, stated so the dispositions are checkable:
+
+> **Closed** — the named mechanism is gone.
+> **Partial** — the mechanism persists in altered form.
+> A *downstream consequence of a landed fix* gets a **new number**, not a
+> Partial. Rev 3 earns its closures; new consequences are new work.
+
+---
+
+## Part 1 — Disposition of round-1 findings
+
+| # | Round-1 finding | Verdict | Basis in rev 3 |
+|---|---|---|---|
+| **F1** | Two-head coupling + starvation loop | **Closed** | §Episodes: collection is schedule-driven, "never from the policy"; §Learning: `J_now` is the two-arm full-information objective proposed verbatim. The policy cannot gate its own data supply, so the absorbing state is unreachable by construction. |
+| **F1b** | WAIT-prefix credit smearing | **Closed** | REINFORCE exits the design; there is no trajectory return to smear. *Superseded by N1* — the timing problem returns via a different mechanism. |
+| **F2** | Entropy coefficients unspecified/uncalibrated; one β cannot serve two heads | **Partial** | Fan-density units adopted, frozen, reported — the calibration *unit* problem is solved. The *relative-strength* mechanism persists: §Learning says "coefficients expressed as a fixed fraction of the measured pre-flight fan density", which reads as one fraction, and one fraction lands the two heads at very different equilibrium sharpness. See **N5**. |
+| **F3** | Arm-matching integrity | **Closed, exceeded** | The bitwise host-weight assertion landed (§fan step 6). Both channels closed *by absence and stated*: no gradient clipping anywhere, no dropout anywhere. The **twin arm** (§fan step 3) is strictly stronger than what I proposed — a continuous per-fan verification of snapshot completeness, branch-executor equivalence, optimizer restore, and that deterministic mode is actually in force. This is the best-executed fix in the rev. |
+| **F4** | Eval blind to restraint quality | **Closed** | §Evaluation: fans forced on a frozen grid, restraint regret vs fan-optimal *with no-op eligible*. The named mechanism — a 0 being unattributable between correct restraint and missed opportunity — is gone. The regret metric's own per-*t* bias is a different mechanism: **N2**. |
+| **F5** | Common future drawn per-fan | **Closed, exceeded** | §Episodes, ordered first as recommended: base run *is* the no-op arm (~20% saved), fans at different *t* share a baseline. Note the payoff is banked but unspent — the store now contains now-vs-later evidence that no objective consumes (**N1**). |
+| **F6** | Horizon adequacy unmeasured | **Closed** | Pre-flight gate 6: fan density per scheduled fan epoch, gate is non-collapse, "measured, not asserted in either direction". Exactly the shape requested. |
+| **F7** | WHICH entropy depressing WHEN's reward | **Closed** | `J_now` uses the *expected* value `Σ_a π(a\|s)·R_a`, not a sampled arm, and recomputes it against the current π. Both fixes I offered, taken together. |
+| **F8** | Capacity confound; wrong chance rates | **Closed, exceeded** | Gate 4 (no seed is argmax in >~40% of fans, nor a majority within every pathology) *plus* §Evaluation deleting uniform-chance rates entirely in favour of the majority-class rate and the schedule-only policy. |
+| **F9** | Head arity ambiguous; 5-way metric orphaned | **Closed** | §Action space states `a` ranges over the four seeds only, "no-op is never a fifth softmax class"; the no-op label lands in `J_now`, which is where the core observation pointed. |
+| **F10** | Shared-trunk interference | **Closed** | With REINFORCE gone both heads are dense and offline. Worth recording that the restructure also left them *naturally* scale-matched: `J_which`'s logit gradient is `π_i(R_i − R̄)` and `J_now`'s is `p(1−p)·A`, both ≈ 0.2–0.25 × fan density. No hand-tuned loss weight is needed. (The coupling that *does* remain is **N6**.) |
+| **F11** | Pre-flight probes the intermediate, not the target | **Closed** | Gate 2b: a second probe telemetry → fan argmax against the majority-class null, plus the realized pathology × fan-argmax contingency table checked against the design-intent winner map. |
+| **F12** | Fossilization backward discontinuity | **Closed** | The FOSSILIZING β-ramp with `lerp(h.detach(), h, β)` is a clean solution I did not anticipate: value-identical to `h` at every β, so it opens the host's Jacobian path gradually with *zero* forward perturbation. SGD+Nesterov removes the stale-second-moment half independently. |
+| **F13** | Reward split = reporting split | **Closed** | 5k val / 5k test by fixed seed, test-only reporting, loaders assert the partition. Consequence of the landed fix: **N4**. |
+
+**Tally: 10 Closed (3 exceeded), 2 Closed-and-superseded-by-new-work, 1 Partial.**
+
+---
+
+## Part 2 — New findings
+
+Seven findings against rev 3. Two are Critical. Both Criticals are one-line
+spec fixes.
+
+---
+
+### N3 — `R_a = null` for diverged arms has no defined handling in either objective · **Critical**
+
+**Spec text at fault** — §fan step 8:
+> A **diverged arm** (non-finite loss) is recorded with `status="diverged"`,
+> `R_a = null`, curves retained up to failure. The fan is kept
+
+and §Learning:
+> `J_which = Σ_{a∈4 seeds} π(a|s) · R_a^val`
+
+The record format is now correct — this closes the *serialization* half that
+the determinism and statistics reviewers raised, and the reasoning for keeping
+diverged fans ("dropping such fans would flatter exactly the riskiest arms")
+is right. But **the objective is a sum over all four arms, and `null` has no
+defined value in it.** The spec never says what `J_which` does when an arm
+diverged. The statistics audit asked for `R_a` to be "defined explicitly for
+non-completed" arms; rev 3 defined the *status field*, not the *number the
+gradient sees*.
+
+This is the single most dangerous open item in rev 3, because the default
+answer is the founding defect class. `R_a` is an accuracy in [0,1]; the
+natural-looking coercion `null → 0.0` is not "bad", it is *catastrophic* —
+below random guessing at 0.1 — so it would make any seed with a nonzero
+divergence rate wildly repulsive on a magnitude no measurement supports. That
+is precisely the reward-`None`→0 coercion recorded as one of the three
+unmeasured-means-zero defects that the reset exists to make unrepresentable.
+A silent `nan` propagation is worse: it destroys the update without a signal.
+
+**Also forbidden, less obviously:** dropping the arm and renormalizing π over
+survivors. It changes the objective's support per-fan, and — decisively — it
+makes divergence **invisible to the policy**. A seed that wins big when it
+works and diverges 15% of the time would be scored only on its wins. The
+policy must be able to see the risk it is choosing.
+
+**Fix — state the imputation in §Learning. This is an owner decision with two
+defensible answers and one forbidden one:**
+
+- *"The crashed model is what you get"* — `R_a` = val accuracy at the arm's
+  last finite epoch. A real measurement, no constant, end-state-only in
+  spirit. Caveat the owner should weigh: an arm that crashes at epoch 25 may
+  score *above* a healthy-but-mediocre arm, so a spike-then-crash arm can be
+  under-penalized.
+- *"You roll back and end where you started"* — `R_a = R_noop^val` for that
+  fan. Makes divergence exactly worthless rather than harmful, no constant
+  introduced, and pairs naturally with the existing no-op anchor.
+- **Forbidden: `0.0`, or any fixed penalty constant.** The first is the
+  predecessor's coercion; the second is a shaped term and violates the scope
+  pin.
+
+Whichever is chosen, the per-seed divergence rate is already reported (§fan
+step 8) — so the reader can see what the imputation is doing. The finding is
+that the spec is *silent* at exactly the point where the founding defect class
+recurs; the fix is "state it", not "state my preference".
+
+---
+
+### N1 — `J_now` is linear in *p*, so it trains a per-*t* threshold that is deployed as a stopping rule · **Critical**
+
+**Spec text at fault** — §Learning:
+> `J_now = p·(Σ_a π(a|s)·R_a^val) + (1−p)·R_noop^val`
+
+against §Action space:
+> At most one germination per run.
+
+and §Evaluation:
+> each policy plays its episode live (its own germination choices)
+
+`J_now` is **linear in `p`** — both `X = Σ_a π(a|s)R_a` and `Y = R_noop` are
+constants with respect to `p`. With an entropy term the closed-form optimum is
+`p(s_t) = σ(A(s_t) / β_now)` where `A(s_t) = X − Y`. So the NOW head is trained
+as an **independent per-epoch classifier on sign(A)**: at each *t* it answers
+"does acting here beat never acting", scored against that *t*'s own no-op —
+and no term anywhere compares *t* against *t'*.
+
+Deployment is not a classifier. It is a **stopping rule**: one germination per
+run, fired at the first epoch where NOW trips. Composing the two:
+
+> **The policy germinates at the earliest epoch in the decision window where
+> `A > 0`.** Not the best epoch — the first acceptable one.
+
+Worked case: `A(s_6) = +0.01`, `A(s_12) = +0.04`. `J_now` drives `p(s_6) → 1`
+and `p(s_12) → 1` (t=12 gets 4× the gradient, but both saturate). Live play
+fires at t=6 and never reaches t=12. The policy banks +0.01 with +0.04
+measured and sitting in the store. The lift metric records this as a success.
+
+Three things make this worth a Critical:
+
+1. **The mechanism is certain, and independent of the F6 question.** It
+   follows from the objective's linearity plus one-germination-per-run,
+   whatever the shape of `A` vs *t*. Only the *cost* is conditional — gate 6
+   already measures density per scheduled epoch, so the eventual size is
+   knowable, and I am not asserting a direction here either.
+2. **It makes a claim the design cannot support.** Line 43–44: "inject the
+   right structure **at the right time**." Nothing in `J_now` trains
+   *at the right time*; it trains *at a time when acting beats not acting*.
+   (Line 24's "at better moments than doing nothing" is fine — that weak
+   reading is exactly what `J_now` delivers. The claim to fix is line 43–44.)
+3. **The evidence to do better is already in the store, and rev 3 put it
+   there.** F5's per-episode common future means fans at different *t* in one
+   episode share a baseline, so `A(s_t)` and `A(s_t')` are directly
+   comparable. §Episodes says so explicitly — "the store natively contains
+   **now-vs-later** evidence within an episode" — and then no objective or
+   metric reads it. This is banked capability going unspent.
+
+**Fix, in ascending cost — any one is acceptable, (b) is recommended:**
+
+- **(a) Scope the claim.** Rewrite line 43–44 to "at a moment when
+  intervention beats inaction", and record "earliest-positive, not
+  best-*t*" as an acknowledged limitation alongside the existing ones.
+  This is honest and costs nothing. Do this regardless of whether (b) or (c)
+  is taken.
+- **(b) Make the schedule always draw exactly 2 ordered fan epochs per
+  episode** (rather than "1–2"). Every episode then yields one paired
+  now-vs-later comparison at no extra base-run cost — the marginal cost is
+  4 arms, since the base run is shared. Then *report* the diagnostic:
+  fraction of episodes where `A(t_late) > A(t_early)`, and the deployed
+  policy's realized germination epoch versus the grid's `argmax_t A`. That
+  turns an unmeasured bias into a measured one, which is the standard this
+  rev has held everywhere else.
+- **(c) Train the stopping rule.** With (b)'s paired data, target
+  `p(s_t)` against "acting at *t* beats the best of {act later, never}"
+  rather than against "acting at *t* beats never". A larger change; only
+  worth it if (b)'s diagnostic shows the gap is material.
+
+Sub-point to state in the spec either way: **§Evaluation does not say whether
+live play samples `p` or thresholds it.** At `p ≈ σ(A/β_now)` and the
+coefficients implied by §Learning, `p` is saturated (see N5), so the two are
+nearly equivalent here — but the eval statistics differ and the choice should
+not be left to the implementation.
+
+---
+
+### N4 — the val-reward / test-report split introduces a second, unmeasured ceiling on agreement · **High**
+
+**Spec text at fault** — §Host and task:
+> Val accuracy feeds telemetry and the training-time reward `R_a`. Test
+> accuracy … is the **only** accuracy any reported metric uses.
+
+and §Evaluation:
+> **Oracle ceiling:** ~30 eval-grid points **refanned** (same snapshot and
+> epoch, re-drawn common future) … the argmax's agreement rate across the two
+> draws is the ceiling.
+
+The partition itself is correct and closes F13. The consequence is a **units
+mismatch in the ceiling**.
+
+The training label is `argmax_a R_a^val` on 5k images; the reported score is
+against `argmax_a R_a^test` on a *different, independent* 5k. Single-arm
+accuracy on 5k has SE ≈ 0.0065; the paired between-arm difference is
+correlated and lands nearer 0.004. If fan density (best − second) is of order
+0.01, then **val-argmax and test-argmax disagree on a non-trivial fraction of
+fans for pure sampling reasons** — a ceiling on measured agreement that has
+nothing to do with the policy, and that the pre-registered threshold
+("≥ 60% of the oracle ceiling", "≥ majority-class + 15 points") is applied on
+top of without accounting for it.
+
+The refan ceiling cannot see this. Refanning re-draws the common future but
+uses the **same 5k val set every time**, so the val-sampling component is
+shared across both draws and cancels. Gate 3's noise floor has the same blind
+spot: it measures training stochasticity, not label noise.
+
+**Fix — two named numbers, both nearly free because rev 3 already stores
+`R_val` and `R_test` per arm (§fan step 7):**
+
+- **Compute the oracle ceiling in test units** — the agreement of
+  `argmax_a R_a^test` across the two refan draws — since reported agreement is
+  scored in test units. As written the ceiling is a val-units number bounding
+  a test-units score.
+- **Report `P(argmax_a R_a^val = argmax_a R_a^test)`** directly from the
+  stored per-arm values across all pre-flight fans. This is a direct
+  measurement of how much of the *training label* is noise, and it belongs
+  next to fan density in the pre-flight report.
+
+**Related, same root:** gate 2b's telemetry → fan-argmax probe uses
+val-derived features (val accuracy, val loss, loss deltas are all in the
+`TelemetryRecord`) against a val-derived label, so shared val noise inflates
+it. Score that probe against **test**-argmax as well, and report both.
+
+---
+
+### N2 — restraint regret and grid agreement inherit `J_now`'s per-*t* independence, penalizing correct waiting · **High**
+
+**Spec text at fault** — §Evaluation:
+> **Restraint quality:** regret vs fan-optimal *with no-op eligible* on the
+> frozen grid
+
+This metric closed F4 and is the right instrument. But it is computed at each
+grid point independently: a policy that declines at *t* is scored against
+`max(R_noop, max_a R_a)` **at that same *t***. So a decline at *t=6* that is
+followed by a better action at *t=12* is recorded as regret of
+`A(s_6)` — when it was the correct decision.
+
+The metric therefore **systematically penalizes correct waiting**, in exactly
+the direction that makes N1's earliest-positive policy look *better* than a
+correctly-patient one. The two findings compound: `J_now` trains the policy to
+fire early, and the restraint metric rewards it for doing so.
+
+**Fix.** With N1(b)'s guaranteed paired fan epochs, the correct counterfactual
+for a WAIT at grid point *t* is `max(R_noop, max_{t' > t} best-at-t')` within
+the same episode, not `max(R_noop, max_a R_a)` at *t* alone. If N1(b) is not
+adopted, then report restraint regret **only at the last grid point of the
+decision window**, where "wait" and "never" coincide and the per-*t* form is
+unbiased — a smaller number honestly computed beats a larger one that is
+biased in the flattering direction.
+
+---
+
+### N7 — eval-time germination is not confined to the trained window · **Medium**
+
+**Spec text at fault** — §Evaluation:
+> each policy plays its episode live (its own germination choices)
+
+§Episodes fixes collection germination to "1–2 fan epochs drawn uniformly from
+the decision window", and §Pre-registered numbers gives the window as 5–15. So
+`p(s_t)` is trained only for `t ∈ [5, 15]`. Nothing in §Evaluation restricts
+live play to that window.
+
+Within the window, the schedule-vs-policy distribution difference is benign
+and in the favourable direction: the uniform schedule covers a *superset* of
+the states the policy visits, so `p` is trained on more of the space than it
+is deployed on. That is the answer to the OOD-timing question as posed — **no
+adverse covariate shift inside the window.**
+
+Outside it, there is a genuine one. If live play can fire at epoch 3 or epoch
+20, `p(s_t)` there is pure extrapolation from a 2-layer transformer that never
+saw a label at that *t*, and N1's earliest-positive dynamics mean it *will*
+fire at the first extrapolated positive. Under a fixed 40-epoch horizon an
+epoch-20 germination also leaves only 12 full-influence epochs against the
+≥15 the pre-registered numbers assume.
+
+**Fix.** One line in §Evaluation: live germination is confined to the same
+decision window the exploration schedule covers, enforced by construction
+(the NOW head is not queried outside it), not by the policy's discretion.
+
+---
+
+### N6 — `J_now` back-propagates into π, silently reweighting the WHICH objective · **Medium**
+
+`J_now`'s `X` term is `Σ_a π(a|s)·R_a`, which depends on the WHICH head. So
+gradient flows from `J_now` into π:
+
+```
+dJ_now/dz_i = p · π_i(R_i − R̄)        (on top of J_which's π_i(R_i − R̄))
+```
+
+The WHICH head therefore trains at an effective **`(1 + p)×`** learning rate,
+while its entropy term is unchanged. Two consequences, neither stated:
+
+- **β_which's calibration drifts during training.** It is frozen against a
+  pre-flight fan density, but the reward-side term it balances grows by up to
+  2× as `p` sharpens. A coefficient chosen to be correct at initialization is
+  ~half strength by convergence.
+- **The training distribution is reweighted.** Fans where acting is clearly
+  right (`p → 1`) contribute ~2× the WHICH gradient of fans where restraint is
+  right (`p → 0`). The WHICH head is trained hardest on exactly the cases
+  where the NOW head has already decided, and least on the ambiguous ones.
+
+**Fix — either is fine, state which:** stop-gradient π inside `J_now`'s `X`
+term (`X = Σ_a π(a|s).detach() · R_a`), which cleanly decouples the heads'
+regularization and is the recommended default; or keep the coupling and fold
+`(1 + p)` into β_which's calibration explicitly.
+
+---
+
+### N5 — one fraction-of-fan-density does not regularize the two heads equally · **Medium** *(completes F2)*
+
+**Spec text at fault** — §Learning:
+> **Entropy** terms on both heads, coefficients expressed as a fixed fraction
+> of the measured pre-flight **fan density**
+
+Fan-density units are the right choice and close the F2 unit problem. On the
+NOW head the result is genuinely elegant, and worth stating in the spec
+because it converts coefficient-picking from guesswork into a design choice.
+Both the reward and entropy gradients on the NOW logit carry the same `p(1−p)`
+factor, so it cancels exactly and the equilibrium is closed-form:
+
+```
+p(s) = σ( A(s) / β_now )        # β_now is a temperature on the advantage
+```
+
+So β_now should be chosen by **target confidence**, not by a fraction: "p = 0.9
+when the advantage equals one fan density" gives `β_now = fan_density / 2.2`.
+Pick the number the owner actually has an opinion about.
+
+The problem is that a *single* fraction then lands the two heads at very
+different sharpness. At c = 0.05, `A/β_now = 20` puts `p` at ~1 − 2×10⁻⁹ —
+fully saturated, entropy doing nothing, which is precisely the hard threshold
+N1 depends on. The WHICH head at the same c also sharpens (its reward term
+beats entropy by roughly an order of magnitude), but from a different starting
+geometry and to a different equilibrium, because its reward gradient is damped
+by `π_i` while its entropy gradient is not. The honest claim is not "WHICH
+stays soft" — it is that **one fraction yields two different equilibrium
+sharpnesses, neither of them chosen.**
+
+**Fix.** Two independently named constants, `c_which` and `c_now`, each
+calibrated to a stated target (for NOW, the target `p` at one fan density; for
+WHICH, the target `max_a π(a)` at one fan density), both frozen and both in
+`--report`.
+
+**Also:** §Learning says entropy is reported "alongside the restraint rate so
+a reader can see the regularizer is not manufacturing restraint." That guards
+the wrong direction. Entropy pulls `p` toward 0.5; on restraint cases
+(`A < 0`, `p → 0`) it manufactures **action**, not restraint. The diagnostic
+that answers the intended question is the realized `p` distribution **split by
+sign(A)** — if `p` is materially above 0 on the `A < 0` side, the regularizer
+is buying action the evidence does not support.
+
+---
+
+### N8 — the frozen block does not enumerate the constants that change `R_a` · **Medium**
+
+§Scope pins names "λ trust-region, β-ramp length, entropy coefficients,
+exploration schedule" as harness properties fixed before collection. But
+§Freeze discipline enumerates the frozen block as "pathology definitions, the
+telemetry normalizer, entropy coefficients, and the exploration schedule", and
+§Pre-flight repeats "(pathologies, normalizer, entropy coefficients,
+schedule)". **λ, the stage lengths K/M/F, and the horizon are outside the
+hashed block that `--eval` asserts.**
+
+This matters for reward validity specifically because λ changes `R_a` *per
+arm*: `Δ* = −g/(2λ)` shrinks each arm's delta by an amount that depends on
+that arm's achievable ‖Δ‖ per unit of loss reduction, which differs sharply
+between a 0.1k `norm` and a 60k `conv_heavy`. Gate 5 exists precisely to tune
+λ until arms "enter within ~2×" — that is legitimate harness equalization, and
+exactly why it must be inside the freeze. Stage lengths and horizon change
+`R_a` through runway (the F6 mechanism).
+
+**Fix.** Add λ, K/M/F, and the horizon to the frozen-block enumeration in
+§Freeze discipline so `frozen_block_hash` covers them. One-line edit; makes
+the existing `--eval` assertion actually protect the reward.
+
+---
+
+### N9 — pre-flight gate 1's binomial test uses fans as the unit · **Low** *(route: statistics)*
+
+Gate 1 tests no-op win rate against the exact 20% null — the right null, and a
+clear improvement. But the unit is the **fan**, and with "1–2 fan epochs per
+episode" two fans from one episode share a base run, a pathology draw, and a
+host initialization. They are not independent Bernoulli trials, so the
+binomial test's CI is too narrow and the gate over-rejects.
+
+Cheapest fix is to aggregate to one value per episode before testing. Flagged
+here because it is a reward-relevant gate; the unit-of-analysis question
+proper belongs to `yzmir-counterfactual-statistics`, which already owns it.
+
+---
+
+## Confidence Assessment — Round 2
+
+**Overall Confidence:** High on the dispositions (rev 3's text is explicit and
+checkable); Moderate–High on the new findings.
+
+| Finding | Confidence | Basis |
+|---|---|---|
+| Part 1 dispositions | **High** | Each verdict cites rev 3 text that names the round-1 mechanism directly. |
+| N3 null handling | **High** | The gap is textual: §fan step 8 defines `R_a = null`, §Learning sums over all four arms, no rule connects them. Which imputation is best is an owner call, not a confidence question. |
+| N1 stopping rule | **High** on mechanism; **Conditional** on cost | Linearity in `p` is algebra; one-germination-per-run is §Action space. How much value the earliest-positive rule leaves behind depends on gate 6's density-vs-*t* curve, which is unmeasured — deliberately not asserted, consistent with F6. |
+| N4 val/test ceiling | **High** on the mechanism and the units mismatch; **Moderate** on magnitude | SE arithmetic on 5k is standard; the disagreement rate depends on unmeasured fan density, and the fix is to measure it rather than estimate it. |
+| N2 regret bias | **High** | Follows from the metric being computed per grid point, stated in §Evaluation. |
+| N7 eval window | **Moderate** | The gap is an omission, not a contrary statement — the implementation may well confine the window anyway. Raised because the lead asked about OOD timing by name and this is where it actually bites. |
+| N6 π coupling | **High** | `X = Σπ·R_a` is differentiable in π unless explicitly detached; the spec does not detach. |
+| N5 entropy asymmetry | **High** on the closed form; **Moderate** on saturation magnitude | `p = σ(A/β_now)` is exact. The saturation figure assumes c ≈ 0.05 and A ≈ one fan density, neither pinned by the spec. |
+| N8 frozen block | **High** | Three enumerations in rev 3 disagree with §Scope pins about what is inside the block. |
+| N9 gate unit | **High** on non-independence; **Low** on materiality | At 1–2 fans/episode the inflation is modest. |
+
+---
+
+## Risk Assessment — Round 2
+
+**Implementation Risk:** **Low–Medium** (down from Medium/High at rev 2).
+**Reversibility:** **Easy** — no finding requires re-collection. The two
+irreversible round-1 blockers (F3, F5) are both closed, which is the single
+most important fact in this round.
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| A `null → 0.0` (or `nan`) coercion enters `J_which` at implementation time and silently corrupts every WHICH gradient touching a diverged arm | **Critical** | N3 — state the imputation in §Learning *before* implementation; add a `--selftest` case asserting a fan with a diverged arm produces a finite, bounded objective. |
+| Trained policy always fires at window start; headline lift passes anyway; timing skill is claimed but never demonstrated | **Critical** | N1(a) unconditionally (scope the line 43–44 claim); N1(b) to measure the gap. |
+| Agreement threshold judged against a ceiling in the wrong units — pass or fail both unsafe | **High** | N4 — ceiling in test units, plus report `P(val-argmax = test-argmax)`. |
+| Restraint regret reads better for an impatient policy than a correct one | **High** | N2 — pair against later grid points, or restrict to the last grid point. |
+| NOW head queried far outside its trained window during live eval | **Medium** | N7 — confine by construction. |
+| β_which effectively halves over training; WHICH under-trained on restraint cases | **Medium** | N6 — detach π inside `J_now`'s `X`. |
+| Frozen-block hash asserted at `--eval` does not cover λ, which changes `R_a` per arm | **Medium** | N8 — one-line enumeration fix. |
+
+---
+
+## Information Gaps — Round 2
+
+1. [ ] **Measured fan density** — still the load-bearing unknown, now for more:
+       both entropy coefficients (N5), N4's val/test disagreement rate, and
+       N1's cost. Gate 3 produces it; nothing downstream should be tuned
+       before it exists.
+2. [ ] **Gate 6's density-vs-*t* curve.** Determines how much N1's
+       earliest-positive rule actually costs.
+3. [ ] **Observed per-seed divergence rate.** If it is ~0, N3 is latent rather
+       than active — but it must still be stated, because "it did not happen
+       in our runs" is not a contract.
+4. [ ] **`P(argmax R_val = argmax R_test)`** from pre-flight fans (N4). Free
+       from data rev 3 already stores.
+5. [ ] **Whether live eval play is window-confined** in the intended
+       implementation (N7) — may already be true and merely unstated.
+
+---
+
+## Caveats & Required Follow-ups — Round 2
+
+**Before implementation:**
+- [ ] N3 and N1(a) are one-line spec edits and should land before any code.
+      Both are cheap; both are unrecoverable-in-reporting if missed.
+- [ ] N7 and N8 are also one-line edits — batch them with the above.
+
+**Assumptions made:**
+- `J_which` and `J_now` are summed into one loss over the same records with no
+  stated relative weight. Rev 3 does not say otherwise; N6 and the F10 note
+  depend on it.
+- Live eval play fires at the first epoch where NOW trips (the natural reading
+  of "plays its episode live" plus "at most one germination per run"). If the
+  implementation instead scores all epochs and picks the argmax, N1 largely
+  dissolves — which would be worth stating explicitly in §Evaluation either
+  way.
+- Fan density is of order 10⁻². All magnitude claims in N4 and N5 scale with
+  it.
+
+**Not analyzed:**
+- Determinism, lifecycle, morphogenesis and statistics findings from the
+  sibling reviews, except where rev 3's response to them changes the reward
+  (N8's frozen block, N3's record format, N4's split). N9 is explicitly routed
+  back to statistics.
+- Whether 300 collection episodes × 1–2 fans suffices to fit a ~100k-param
+  policy — a sample-size question, not a reward-design one; route to
+  `yzmir-counterfactual-statistics`.
+- The trust-region term λ as a *lifecycle* choice (it is dynarch F1's fix); N8
+  addresses only its status as an unfrozen constant that moves `R_a`.

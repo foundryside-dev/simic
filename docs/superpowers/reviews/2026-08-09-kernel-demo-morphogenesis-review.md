@@ -630,3 +630,575 @@ This analysis does **not** cover:
 5. Add the fan-admission integrity check and the one-sentence statement of why
    there is no governor (F9), plus the claim-scoping sentence (Part 4).
 6. Then implement, with `--selftest` (F3.4) written before `--collect`.
+
+---
+---
+
+# Round 2 (rev 3)
+
+**Reviewed:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` @ 244accb (478 lines)
+**Round-1 baseline:** rev 2, 20 findings + one claim-scoping requirement.
+
+## Verdict
+
+**Round 1 is discharged.** 19 of 20 findings closed, 1 partially closed, 1 not
+closed. Critically, the closures are **structural, not cosmetic** — I checked
+each fix against the mechanism it was supposed to discharge rather than against
+the `(closes: …)` label, and in four cases the spec fixed the root cause more
+thoroughly than I asked for:
+
+- **The twin arm** (step 3) is strictly better than the per-arm
+  `common_future_hash` I proposed. A hash proves the *inputs* matched; a
+  bitwise no-op re-execution from the snapshot proves the whole
+  snapshot/restore/executor path matched, continuously, on every fan. It
+  converts my one-time assertion into a standing invariant.
+- **Median/IQR normalization** (line 222-226) is the right choice over the
+  mean/std I suggested — the spiky-grad-norm pathology is precisely where a
+  mean/std normalizer would be dragged around by the outliers that carry the
+  signal.
+- **The FOSSILIZING β-ramp** (line 183-187) is a real fix where I had only
+  asked for a plot marker. `lerp(h.detach(), h, β)` being value-identical to
+  `h` for every β is a genuinely elegant way to ramp gradient coupling without
+  touching the forward value, and it discharges F17 properly rather than
+  documenting around it.
+- **Deleting REINFORCE entirely** discharges F2, F8 and F16 at the root
+  instead of patching each. Removing the policy from its own data-supply loop
+  is the correct structural answer, and it is a strictly stronger fix than the
+  forced-exploration fraction I proposed.
+
+The Class 1 determinism contract, the `derive(run_seed, ns, i)` namespacing,
+the base-run-as-no-op-arm economy, and the oracle-ceiling concept are all
+additions I did not ask for and that improve the design.
+
+**Fourteen new findings** follow. Two are High and would leave a headline
+number unsupported or a training run undiagnosable; none require widening the
+scope pins. The two newest surfaces — schedule-driven collection and the
+teacher-forced eval grid — are where most of them live, as expected.
+
+---
+
+## Part 1 — Round-1 disposition
+
+| # | Round-1 finding | Verdict | Evidence in rev 3 |
+|---|---|---|---|
+| F1 | Money-chart null wrong (uniform prior) | **Closed** | Uniform rates not reported at all (L412); nulls are measured majority-class + schedule-only (L413-415). Pre-flight gate 4 (L368-371) is the seed-dominance check, with the ~40% threshold. See N4 for a residual on *which accuracy* defines the argmax. |
+| F2 | WHEN zero-gradient absorbing state | **Closed (root cause removed)** | REINFORCE deleted (L317-324); collection germination comes from a fixed randomized schedule (L248-255), so the policy cannot gate its own data. Stronger than the fix I proposed. An *optimization-side* analogue is filed fresh as N5 — it is a different mechanism, not a reopening. |
+| F3 | Matched-arm integrity unverified + concurrency | **Closed, over-delivered** | Twin arm (L267-272), all arms one device (L276-279), full Class 1 flag set (L66-85), `common_future_hash` in schema (L302), `--selftest` (L454). Residuals N3, N11. |
+| F4 | No train/eval split — leakage | **Closed** | `split_role ∈ {preflight, train, eval}` (L298); loader asserts `split_role == "train"` on every record entering a gradient step (L339-340). Residual N2 concerns a *different* split. |
+| F5 | No observation normalization | **Closed, over-delivered** | Median/IQR per-feature normalizer fitted on pre-flight, frozen with the pathologies (L222-226). The spec also names the linear-probe-gate gap explicitly. |
+| F6 | Schedule-only baseline not required | **Closed** | Now a pre-registered pass threshold (L431) and a success criterion (L473-474). |
+| F7 | Fan record cannot be replayed or ablated | **Partially closed** | Schema at L295-304 carries everything I asked for except **`schema_version`** — see prose below. `--replay` (L311-315) with env-mismatch refusal is more than I asked for. |
+| F8 | Decision-point covariate shift | **Closed** | Schedule-driven collection (L248-255) removes the policy-induced state distribution entirely. |
+| F9 | Governor / arm-integrity gate | **Closed, over-delivered** | Twin arm (step 3), bitwise host-weight assertion at end of TRAINING (step 6), `status="diverged"` with retained curves and per-seed failure rates (step 8). Residual N3 is about how step 6 classifies a failure, not whether the gate exists. The one-sentence *declaration* of why there is no governor is still absent — noted, not blocking. |
+| F10 | Non-finite telemetry reaches policy input | **NOT closed** | See prose below. |
+| F11 | Falsifier 4b self-inconsistent | **Closed** | L416-421 resolves it: histories swapped whole, epoch alignment preserved positionally, epoch-index field position-consistent by construction. Residual N6 is a *different* defect in the same control. |
+| F12 | Fan density on wrong quantity | **Closed, over-delivered** | Gate 3 (L358-367) measures within-fan paired quantities, and correctly notes that under Class 1 a naive re-execution measures a trivial zero — hence the refanned noise floor. That correction is better than my finding. Residuals N9, N8. |
+| F13 | Trained-vs-random not paired | **Closed** | `N_eval = 100` seeds shared by every policy, paired by seed (L390-391). |
+| F14 | Entropy coefficient manufactures restraint | **Closed, over-delivered** | Frozen with the block, reported beside restraint rate (L334-338), and expressed as a fraction of measured fan density — a principled unit I had not suggested. |
+| F15 | No precommitted stopping rule | **Closed** | Pre-registered numbers block (L423-435): N_eval, thresholds, test, one-shot evaluation. Residual N7 concerns the test's handling of zeros; N2 concerns a *different* missing stopping rule (policy training). |
+| F16 | Trunk interference guard thin | **Closed** | Both heads now train offline on the same store; the interference mechanism is gone with REINFORCE. Residual N5. |
+| F17 | Fossilization gradient-path discontinuity | **Closed, over-delivered** | FOSSILIZING β-ramp sub-stage (L183-187). |
+| F18 | Optimizer ownership unspecified | **Closed** | SGD + Nesterov, seed params as a second group at germination, byte-identical host group ordering (L191-197). Choosing SGD over Adam also dissolves several sibling-review findings. |
+| F19 | Val/test conflation | **Closed** | 5k/5k split by fixed seed, loaders assert the partition (L94-98). Residual N4. |
+| F20 | Param cost / dominance linkage | **Closed** | Gate 4 (L368-371) states the capacity-dominance rationale explicitly. |
+| Part 4 | Claim-scoping sentence | **Closed** | L24-29 is a better version than I asked for. But it now asserts "at better moments," which N1 shows is unsupported by the eval battery. |
+
+### F7 residual — `schema_version` is absent
+
+The schema at L295-304 is otherwise complete. It has no `schema_version` field.
+This is a small gap with a specific consequence: the store is explicitly
+intended to outlive the demo as "the counterfactual atlas early Momir needs"
+(L34-36), so it *will* be read by code that was not written against this
+revision of the dataclass. `config_hash` and `frozen_block_hash` identify the
+*run*, not the *record format* — a reader can detect that a record came from a
+different configuration but not that it should be parsed differently. One
+field. **Severity: Low, cost: one line.**
+
+### F10 — not closed
+
+Rev 3 handles non-finite **arm outcomes** thoroughly (step 8: `status="diverged"`,
+`R_a = null`, curves retained, encoder maps non-finite to `null` rather than
+bare `NaN`). It does not handle non-finite **telemetry fields**.
+
+The record contract at L218-221 still says only that a missing field is a
+construction error. The generalized blindness rule (L116-121) constrains fields
+to be *deterministic functions of host state* — a `+inf` grad-norm variance
+satisfies that rule perfectly. The median/IQR normalizer maps `inf` to `inf`.
+The path is: under-normalized pathology (deliberately induced, L108) → grad-norm
+variance overflows → non-finite token → non-finite policy gradient → policy
+weights destroyed silently mid-`--train`.
+
+The demo is *designed* to produce hosts with spiky gradients, so this is not a
+remote edge case; it is the headline pathology. Fix is unchanged from round 1
+and is one assertion at the same site as the missing-field rule: assert
+finiteness at `TelemetryRecord` construction, clamp-with-a-flag rather than
+propagate, and record the clamp in the fan record. **Severity: Medium.**
+
+---
+
+## Part 2 — New findings
+
+### N1 · Nothing in the eval battery isolates WHEN — HIGH
+
+**Spec text at fault:** L24-27 (*"picks better interventions, **at better
+moments**, than doing nothing"*), L392-394 (lift protocol), L397-403 (frozen
+grid).
+
+Three separate gaps compose into one hole:
+
+**(a) The live decision rule is undefined.** L392 says each policy "plays its
+episode live (its own germination choices)." Nothing states how the NOW logit
+`p` becomes an action — sampled Bernoulli, thresholded at 0.5, thresholded at
+something else. This materially changes the result and is currently
+implementation-defined.
+
+**(b) The trained NOW objective is pointwise "now vs never," so the natural
+live rule is greedy-earliest.** `J_now = p·(Σ_a π(a|s)·R_a^val) + (1−p)·R_noop^val`
+(L330-332) is evaluated at each labeled decision point independently. Its
+optimum at state *s* is `p = 1` iff acting at *s* beats never acting from *s*.
+It contains no comparison against acting at *s+1*. A policy that walks the
+decision window and fires at the first epoch where that condition holds is
+**exactly optimal for the objective it was trained on** — and it is
+germinate-as-early-as-viable, not "at better moments."
+
+The spec is aware the data supports better: L242-243 says fans at different
+epochs of one episode share one baseline, so the store "natively contains
+now-vs-later evidence within an episode." That is true. `J_now` does not
+consume it. The evidence is collected and then discarded by the objective.
+
+**(c) No null in the eval battery would detect this.** The frozen grid
+(L397-403) is teacher-forced at pre-registered epochs — it measures WHICH,
+correctly and deliberately. Live lift measures WHICH+WHEN jointly, and a
+greedy-earliest policy scores positive lift. Schedule-only is telemetry-blind,
+so beating it establishes "telemetry helps," which both heads contribute to.
+**There is no comparison anywhere in the protocol whose difference is
+attributable to WHEN.**
+
+**Fix — one null, nearly free, plus one sentence:**
+
+1. Add a **fixed-epoch null**: the *trained WHICH head* with germination forced
+   at a single pre-registered epoch, run on the same 100 paired eval seeds. No
+   retraining, no new objective, no new collection — it reuses the trained
+   policy and the existing battery. `trained_live_lift − fixed_epoch_lift` is
+   the WHEN contribution, measured directly. Pre-register it alongside the
+   schedule-only threshold.
+2. **Specify the live decision rule** explicitly in the spec (L392).
+3. If the fixed-epoch null is not beaten, **drop "at better moments" from L26**
+   and report the demo as a WHICH result. That is an honest, zero-cost outcome
+   and the claim-scope paragraph is already written in the right style to
+   absorb it.
+
+I am deliberately *not* recommending a now-vs-later training objective. The
+owner removed REINFORCE to simplify the learning story; adding an objective
+back immediately would trade that gain away. Measure WHEN first; only if it is
+provably absent is a training change worth discussing.
+
+### N2 · No held-out set inside the train split, and no stopping rule for `--train` — HIGH
+
+**Spec text at fault:** L298 (`split_role ∈ {preflight, train, eval}`), L428
+(*"Collection: 300 train-namespace episodes"*), L428-429 (*"evaluated once, no
+peeking before collection completes, no augmenting after"*).
+
+The eval protection is correct and I do not want it weakened. But it leaves
+`--train` with **no signal at all for when to stop.** There are exactly three
+namespaces; `train` is monolithic; `eval` is one-shot and un-peekable. So the
+policy is trained for... some number of steps, chosen how?
+
+The data volume makes this acute rather than theoretical. 300 episodes × 1–2
+scheduled fans ≈ **450 fans**, each labelling 4 arms, against a ~100k-parameter
+causal transformer over 40-token sequences. That is a small corpus for that
+capacity, and rev 3 *reduced* it from rev 2's "high hundreds to thousands" while
+simultaneously making it non-augmentable. Overfitting is the expected outcome,
+not a tail risk — and with no held-out signal it is **indistinguishable from
+"the approach does not work."** That is the same false-negative class as round-1
+F5: the demo fails for a fitting reason and reads as a negative result about the
+claim.
+
+**Fix — partition data you already have, using machinery you already built:**
+
+1. Split the `train` namespace into `train` / `tune` **by episode** (grouped —
+   all fans of an episode go to the same side, per INV-32). The
+   `derive(run_seed, ns, i)` namespacing already supports this; it costs a
+   fourth `split_role` value and one loader assertion.
+2. Select the policy checkpoint on `tune`. Never touch `eval`.
+3. Report the `tune` learning curve in `--report`. This is what makes "we needed
+   more fans" diagnosable rather than fatal — and if the curve is still climbing
+   at 450 fans, that is a cheap, honest finding rather than a failed demo.
+
+Note this also gives `policy_checkpoint_id` (already in the schema, L300)
+something principled to identify.
+
+### N3 · Step 6's assertion misclassifies legitimate seed divergence as a harness bug — MEDIUM-HIGH
+
+**Spec text at fault:** L280-283.
+
+> **Assertion:** host weights are bitwise identical across all arms at the end
+> of TRAINING (STE forward is value-exact and the host backward is unaffected
+> by Δ, so divergence = harness bug…)
+
+The reasoning is correct in exact arithmetic *and* in IEEE-754: `Δ − Δ.detach()`
+is exactly `0.0` and `h + 0.0` is exactly `h`. The assertion is sound. **Except
+when Δ is non-finite** — then `Δ − Δ` is `NaN`, `h + NaN` is `NaN`, and the host
+is destroyed during the stage the spec describes as "provably invisible."
+
+That case is not a harness bug. It is a seed whose delta overflowed — a
+legitimate arm divergence, and one this demo goes out of its way to produce
+(deliberately pathological hosts, a `conv_heavy` arm at 40% of host capacity,
+crash-and-burn arms wanted as a headline plot at L286-287). The trust-region
+term makes it less likely, not impossible.
+
+As written, the two mechanisms collide: step 8 says a non-finite arm is recorded
+as `status="diverged"` and the fan is kept; step 6 says any bitwise mismatch is
+a harness bug. A non-finite Δ triggers step 6 first, and the run aborts on an
+event step 8 explicitly plans for.
+
+**Fix:** condition step 6 on arm finiteness. Check `isfinite(Δ)` first; if
+non-finite, route to step 8 (`status="diverged"`, curves retained, fan kept) and
+do **not** evaluate the bitwise assertion for that arm. The assertion then means
+what it is supposed to mean — *given a finite delta*, any host divergence is a
+harness bug — and keeps its full diagnostic force for the other arms.
+
+### N4 · Which accuracy defines the fan argmax is undefined, and the oracle ceiling does not bound that noise — MEDIUM-HIGH
+
+**Spec text at fault:** L96-98 (*"Test accuracy … is the **only** accuracy any
+reported metric uses"*), L284-286 (`R_a^val` trains, `R_a^test` reports),
+L407-411 (oracle ceiling).
+
+Agreement, the money chart, and pre-flight gates 1/2b/4 are all defined against
+"the fan argmax." Rev 3 now has **two** per-arm rewards and does not say which
+one defines it. Both readings are defective:
+
+- **Test-argmax** (which L98 mandates for reported metrics): the policy is
+  trained on val labels and scored against test labels. With 5k/5k splits and
+  arms frequently separated by well under a point of accuracy, val-argmax and
+  test-argmax will disagree on a material fraction of fans. Agreement is
+  depressed by pure label noise.
+- **Val-argmax**: consistent with training, but contradicts L98.
+
+Either way, the **pre-registered thresholds at L432-434** — "≥ majority-class
+null + 15 points" and "≥ 60% of the oracle ceiling" and "row-argmax matches the
+designed winner for ≥ 3 of 4 pathologies" — were committed against an
+unquantified noise floor.
+
+And the oracle ceiling does not rescue it. The ceiling (L407-411) measures
+argmax stability across **re-drawn common futures** — a different and equally
+real noise source, but not this one. Nothing in the protocol bounds val↔test
+argmax disagreement.
+
+**Fix, and it is free because both numbers are already stored per arm
+(L302-303):**
+
+1. State explicitly which accuracy defines the fan argmax for agreement and for
+   the money chart. Recommend **val** for agreement (consistency with the
+   training label is what "agreement" means) and **test** for lift and all
+   reported accuracy levels, with L98 amended to say so rather than reading as
+   an absolute.
+2. Add **val↔test argmax agreement** to the ceiling measurement. It is a
+   two-line computation over data already in the store, and it converts the
+   ceiling from bounding one noise source to bounding both.
+3. Re-derive the L432-434 thresholds against the combined ceiling before freeze.
+
+### N5 · The two objectives' combination is unspecified; one reading attenuates WHICH's gradient — MEDIUM
+
+**Spec text at fault:** L326-332.
+
+The spec lists `J_which = Σ_a π(a|s)·R_a^val` and
+`J_now = p·(Σ_a π(a|s)·R_a^val) + (1−p)·R_noop^val` and never states how they
+combine into one loss, nor whether `π` inside `J_now` carries gradient.
+
+If both are summed and `π` is live in both, there is no problem — π receives
+`(1+p)·∇(Σπ R_a)`, which never vanishes. But a plausible reading is that
+`J_now` is the composed objective and `J_which` is descriptive, in which case
+`∂J_now/∂π ∝ p`: if the NOW head saturates toward 0 early — which it will while
+π is near-uniform and `Σπ R_a ≈ mean_a R_a` sits below `R_noop` for any
+pathology where three of four seeds are wrong — then WHICH's gradient is scaled
+toward zero, π stays uniform, and `p` stays off. That is round-1 F2's absorbing
+structure re-expressed in the offline optimization. The data-supply half is
+genuinely and permanently fixed; this is a distinct mechanism in a different
+place.
+
+**Fix — specify, do not add machinery:** state the total loss explicitly
+(`L = −(J_which + J_now) + entropy terms`) and **detach `π` inside `J_now`**.
+Detaching makes the NOW head's target "act if the *current* WHICH policy's
+expected value beats no-op," which is the correct decision-theoretic target for
+the composed policy, and it removes the coupling entirely. The cost is that π no
+longer receives pressure toward states where acting matters — an acceptable
+trade when the state distribution is fixed by the exploration schedule anyway.
+
+### N6 · The falsifier's swap can preserve the signal it is meant to destroy — MEDIUM
+
+**Spec text at fault:** L416-421.
+
+> the trained policy is re-scored on the frozen grid with telemetry *histories
+> swapped between eval episodes of the same horizon*
+
+Every eval episode has horizon 40 (L425), so "same horizon" is not a constraint
+— the swap is effectively unrestricted. Roughly a quarter of unrestricted swaps
+pair episodes **of the same pathology**, and a same-pathology swap *preserves
+the diagnostic content*: the policy reads under-normalized telemetry and picks
+`norm`, correctly, on an episode that genuinely is under-normalized.
+
+So the diagonal partially survives **by construction**, and the pass criterion
+— "shuffled-telemetry agreement collapses to within the null's CI" (L434-435) —
+can fail for a policy that is doing exactly the diagnosis the demo claims. This
+is a false negative on the demo's own honesty check, which is the worst place to
+have one.
+
+**Fix:** constrain the swap to a **derangement across pathology classes** —
+every episode receives a history from an episode of a *different* pathology.
+One line in the shuffle construction, and it makes the control mean what it
+says.
+
+### N7 · Wilcoxon drops zero-difference pairs, so effective n is not the pre-registered 100 — MEDIUM
+
+**Spec text at fault:** L392-396, L430-431.
+
+> Never-germinating scores exactly 0 by construction. Statistic: Wilcoxon
+> signed-rank on per-episode paired lift, episode as the unit.
+
+The unit choice is right (INV-32, closes round-1 F4's second edge). But the
+standard Wilcoxon signed-rank procedure **discards zero-difference pairs before
+ranking**. For the "trained lift > 0" test, every episode where the policy
+correctly restrained contributes exactly 0 and is dropped. If restraint is 30%
+— which the design *wants*, since the mild pathology is one of four and no-op is
+its designed winner — the headline test runs on ~70 pairs, not the
+pre-registered 100, and the dropped episodes are precisely the ones where the
+policy did the right thing.
+
+The paired trained-vs-schedule-only test is less affected (only pairs where both
+policies score identically drop out), but the effective n there is also not 100.
+
+**Fix — pre-register the handling, do not change the test:**
+
+1. State that the lift test is **conditional on acting**, and report the
+   effective n alongside the p-value.
+2. Report the restraint rate as a first-class number beside it.
+3. Let **restraint-regret on the frozen grid** (L404-406, already specified and
+   a good metric) carry the restraint half of the claim — it distinguishes "0
+   from correct restraint" from "0 from leaving value unclaimed," which is
+   exactly what the dropped pairs contain.
+
+Optionally use Pratt's method (retains zeros in the ranking) if a single
+all-episode number is wanted; either choice is fine, but it must be committed
+before freeze.
+
+### N8 · Pre-flight gates treat fans as independent when they cluster by episode — MEDIUM
+
+**Spec text at fault:** L344-379, specifically gate 1's binomial test.
+
+The base run is the no-op arm (L239-241), and multiple fans of one episode share
+that single baseline (L242-243). So within an episode, every fan's
+`R_a − R_noop` shares one common error term — the fans are **positively
+correlated by construction**, not independent draws.
+
+Gate 1 runs a **binomial test** on no-op win rate across fans. Gate 4's ~40%
+dominance threshold and gate 3's density averages aggregate across fans the same
+way. With 1–2 fans per episode the inflation is modest, but a binomial test is
+an explicit independence claim and this is the same INV-32 clustering issue the
+eval protocol handles correctly one section later.
+
+**Fix:** cluster the pre-flight gates by episode — either use one randomly
+chosen fan per episode for gate 1's binomial test, or cluster-bootstrap by
+episode for all three gates. The eval protocol already made the right choice;
+the gates should match it.
+
+### N9 · Refanning must re-run the no-op arm — MEDIUM-LOW
+
+**Spec text at fault:** L363-367 and L407-411.
+
+Refanning re-draws the common future from the snapshot to measure how much `R_a`
+moves under irrelevant conditions. Correct idea, and the observation that a
+naive re-execution measures a trivial zero under Class 1 is sharper than my
+round-1 F12.
+
+But the no-op arm **is the base run** (L239-241), and the base run's tail was
+trained under the *original* common future. If the refan re-runs only the four
+seed arms under the new draw and reuses the original `R_noop`, then every
+`R_a − R_noop` in the refan mixes two draws, and the no-op arm gets a systematic
+advantage or disadvantage that is pure artifact.
+
+**Fix:** state that a refan re-runs **all five arms including a fresh no-op
+continuation** from the snapshot under the re-drawn future. This costs the ~20%
+the base-run economy saved, but only on the ~10 pre-flight and ~30 eval refan
+points — a rounding error against 300 collection episodes.
+
+### N10 · `policy_run` is a declared record kind with no definition — MEDIUM-LOW
+
+**Spec text at fault:** L298 (`kind ∈ {fan, policy_run}`).
+
+`policy_run` appears exactly once in the spec and is never defined. The schema
+enumerated at L295-304 is fan-shaped: `fan_epoch`, `common_future_hash`, a
+per-arm array. A live eval episode has one chosen arm and a base run — a
+different shape.
+
+This is round-1 F7's heterogeneous-union defect, half-reintroduced by the rename
+from my proposed `kind ∈ {fan, never_germinated}`. The `kind` discriminator
+exists, which is the important half; the second kind's fields do not.
+
+**Fix:** either define `policy_run`'s fields explicitly, or state that it shares
+the fan shape with a single-element arm array and a null `fan_epoch` when the
+policy never germinated. Either is fine; leaving it undefined means the first
+reader guesses.
+
+### N11 · Twin-arm abort granularity is unspecified — LOW
+
+**Spec text at fault:** L269 (*"any divergence aborts collection"*).
+
+The strictness is **correct** and I am not recommending it be softened — a
+bitwise determinism claim that tolerates a divergence rate is not a bitwise
+claim. The gap is only that "aborts collection" does not say whether it aborts
+*this episode* or *the whole run*, and the two have very different operational
+consequences for an overnight 300-episode collection across several workers.
+
+**Fix:** say which. If the whole run — which is defensible — the fan record for
+the failed episode should still be written with a `twin_divergence` status so
+the failure is diagnosable from the store rather than only from a stack trace.
+
+---
+
+## Part 3 — Low findings
+
+| # | Finding | Spec text | Fix |
+|---|---|---|---|
+| N12 | **Oracle ceiling estimated from ~30 points.** A proportion from n=30 carries roughly ±18pp at 95%. The pre-registered "≥60% of the oracle ceiling" threshold divides by a noisy denominator, so the gate's effective strictness is unknown at freeze time. | L407-411, L433 | Report the ceiling with a CI and pre-register the rule against its **lower** bound; or raise n. Compounds with N4 — fix N4 first, then re-derive. |
+| N13 | **Trust-region minimizer formula drops `‖h‖²`.** With `L(Δ) ≈ L(0) + g·Δ + λ‖Δ‖²/‖h‖²` (‖h‖² detached), the minimizer is `Δ* = −g‖h‖²/(2λ)`, not `−g/(2λ)`. Also a **notation collision**: `g` is the scalar gain at L143 and the loss gradient at L177. | L173-179 | Correct the formula and rename one of the two `g`s. The design intent is right; the stated algebra is what an implementer will copy. |
+| N14 | **`derive(run_seed, ns, i)` is unspecified.** The namespacing design is right, but arithmetic mixes (`seed + i`) collide and wide-multiply mixes overflow `manual_seed`. | L124-125, L273-275 | Specify it as a hash-based mix (e.g. truncated SHA-256 of the tuple) masked to 64 bits. One line, and it is a documented footgun in this domain. |
+| N15 | **Pre-flight retune rounds are unbounded and undisclosed.** Eval is properly protected so this is not test-set engineering — but a sampler that needed fifteen rounds to pass gate 2b is a different object than one that passed first try, and nothing records which. | L382-384 | Record the retune-round count and the gate that failed each round in the frozen block; report it. Same disclosure discipline already accepted for the freeze. |
+| N16 | **Eval grid epochs vs collection schedule distribution.** The exploration schedule draws uniformly from the decision window (L250-252); the eval grid uses "pre-registered epochs" (L398). If the two distributions differ, the teacher-forced agreement is measured off the training state distribution. | L250-252 vs L398 | State that the grid's `fan_epoch`s are drawn from the same distribution as the exploration schedule. |
+
+---
+
+## Round 2 discipline scorecard
+
+| # | Discipline | Round 1 | Rev 3 | Basis |
+|---|---|---|---|---|
+| 1 | Deterministic given seed | Fail | **Pass** | Class 1 contract with the full flag set (L66-85), namespaced seeds, order-independent arm init, `--selftest`, and the twin arm as a continuous verifier rather than a one-time test. Residual N14 (`derive` unspecified) is a specification gap inside a sound design. |
+| 2 | Ablation-friendly schemas | Fail | **Pass** | Provenance-complete record (L295-304), sharded writes with content-ordered canonical merge (L306-309). Two gaps: no `schema_version` (F7 residual), `policy_run` undefined (N10). Neither undermines the design. |
+| 3 | Governor as non-policy | Cannot Determine | **Pass** | The substance is present: twin arm, cross-arm bitwise assertion, diverged-arm status with retained curves and reported per-seed failure rates. Residual N3 (the assertion misclassifies a legitimate divergence) is a bug in the gate, not an absence of one. The one-sentence declaration of *why* there is no governor is still missing — worth adding, not scorecard-blocking. |
+| 4 | Replay log completeness | Fail | **Pass** | `--replay` by re-derivation under the recorded config, env-block mismatch **refuses** rather than warns (L311-315). |
+| 5 | Counterfactual replay | Fail | **Pass** | Any fan re-derivable from `episode_seed` + `fan_epoch`; refanning is a first-class operation used for the noise floor and the ceiling. Residual N9. |
+| 6 | Baselines run | Partial | **Pass** | Schedule-only required in the pass thresholds; measured majority-class null replaces uniform chance; oracle ceiling bounds the metric; base run *is* the no-op. Stronger than most published work. The one baseline still absent is the WHEN null — N1. |
+| 7 | Multi-seed reporting | Fail | **Partial** | `N_eval = 100` paired episodes, episode as the unit, Wilcoxon, pre-registered thresholds — the structure is right. Open: N7 (zeros drop, effective n ≠ 100), N8 (pre-flight gates ignore episode clustering), N12 (ceiling CI), and N2 (no held-out set for checkpoint selection). |
+
+## Round 2 critical path
+
+1. **N1's fixed-epoch null** — it is the only thing standing between the spec's
+   stated claim ("at better moments") and an unsupported half of it, and it
+   costs one extra pass over an already-frozen battery with an already-trained
+   policy. Pre-register it *before* freeze or the option is gone.
+2. **N2's train/tune split** — must be decided before `--collect` writes its
+   first shard, because it is a partition of the collected episodes. After
+   collection it is still possible but the `split_role` values are already
+   burned into the records.
+3. **N3, N4** — before `--collect` and before freeze respectively. N3 prevents
+   an overnight run aborting on an event the spec plans for; N4 prevents
+   thresholds being pre-registered against unquantified noise.
+4. **N5, N6, N7, N8** — specification fixes, before implementation of the
+   relevant component.
+
+Everything else is a line-level correction that can ride along.
+
+---
+
+## Round 2 — Confidence Assessment
+
+**Overall Confidence:** High on the round-1 dispositions (each checked against
+the mechanism, not the label). Moderate-to-High on new findings; still no code,
+so all findings are against design text.
+
+| Finding | Confidence | Basis |
+|---|---|---|
+| Round-1 dispositions (all 21 rows) | **High** | Each verified against specific rev-3 line ranges cited in the table; the four "over-delivered" calls are judgements about fix quality, not facts |
+| F10 not closed | **High** | L218-221 and L116-121 read directly; the blindness rule constrains determinism, not finiteness, and `inf` satisfies it |
+| N1(a) live rule undefined | **High** | L392-394 contains no decision rule; verified by absence across the whole eval section |
+| N1(b) greedy-earliest is objective-optimal | **High** | Follows directly from the form of `J_now` at L330-332 — pointwise in *s*, no *s+1* term |
+| N1(c) no WHEN null exists | **High** | Enumerated every comparison in L386-421; none isolates WHEN |
+| N2 no stopping rule / no held-out | **High** on absence (three namespaces, L298; one-shot eval, L428-429); **Moderate** on 450 fans being insufficient — that is a judgement about capacity vs corpus, not a measured fact |
+| N3 non-finite Δ misclassified | **High** — `Δ − Δ = NaN` for non-finite Δ is IEEE-754; step 6 (L280-283) and step 8 (L288-293) give conflicting dispositions for the same event |
+| N4 argmax accuracy undefined | **High** on the ambiguity (L98 vs L284-286 read directly); **Moderate** on the magnitude of val↔test disagreement — depends on arm separation, which pre-flight will measure |
+| N5 objective combination unspecified | **High** on the ambiguity; **Moderate** on the degenerate branch being reachable — depends on which reading is implemented |
+| N6 same-pathology swaps | **High** — four pathologies, unrestricted swap, so ~25% same-class pairing is arithmetic |
+| N7 Wilcoxon drops zeros | **High** — standard procedure; L394's "exactly 0 by construction" makes the interaction certain |
+| N8 fan clustering | **High** — the shared base run (L239-243) makes within-episode fans correlated by construction; gate 1 (L346-350) is an explicit binomial test |
+| N9 refan no-op arm | **Moderate** — the spec says "the argmax's agreement rate across the two draws," which *may* imply all arms are re-run; the base-run-as-no-op identity makes it easy to implement wrongly either way |
+| N10 `policy_run` undefined | **High** — one occurrence at L298, verified absent elsewhere |
+| N13 dropped `‖h‖²` | **High** — differentiating `λ‖Δ‖²/‖h‖²` with `‖h‖²` detached gives `2λΔ/‖h‖²`; the stated minimizer omits the factor |
+
+## Round 2 — Risk Assessment
+
+**Implementation Risk of adopting Round 2:** Low. Every fix is a
+specification change, a data partition, an assertion condition, or one
+additional eval pass. None touches the scope pins, the seed menu, the lifecycle,
+the reward definition, or the learning objectives' form.
+
+| Risk | Severity | Likelihood | Mitigation |
+|---|---|---|---|
+| Demo ships and "at better moments" is quoted, with no measurement behind it | High | **High** if N1 is not adopted | N1's fixed-epoch null, pre-registered before freeze |
+| Policy overfits ~450 fans; result reads as "the approach doesn't work" | High | Medium-High | N2 train/tune split + reported learning curve |
+| Overnight collection aborts on a legitimate crash-and-burn arm | Medium | Medium | N3 — condition step 6 on finiteness |
+| Pre-registered thresholds committed against unquantified label noise, then missed or gamed | Medium-High | Medium | N4 — define the argmax accuracy, extend the ceiling, re-derive before freeze |
+| Honesty falsifier fails against a genuinely good policy | Medium | Medium | N6 — derangement across pathology classes |
+| Headline p-value computed on ~70 pairs while "N_eval = 100" is reported | Medium | **High** if unaddressed | N7 — pre-register the zero handling and report effective n |
+| Fixing N1 by adding a now-vs-later objective, undoing rev 3's simplification | Medium | Low-Medium | Explicitly out of scope in N1's fix — measure WHEN before changing how it is trained |
+| Line budget: rev 3 already moved from ≲800 to ≲1000 lines | Low-Medium | Medium | Round 2 adds one eval pass, one split value, one assertion condition, and specification text — very little new logic |
+
+## Round 2 — Information Gaps
+
+1. [ ] **Pre-flight gate 3/5 outputs** — arm separation magnitude determines
+       whether N4's val↔test disagreement is a rounding error or a headline
+       problem. Measurable in the ~30 pre-flight episodes already planned.
+2. [ ] **Intended combination of `J_which` and `J_now`** (N5) — I flagged both
+       readings; the owner presumably has one in mind.
+3. [ ] **Intended live decision rule for `p`** (N1a) — same.
+4. [ ] **Whether the four other panel reviews** (lifecycle, reward, statistics,
+       determinism, per L5-7) filed findings that overlap N1-N16. I reviewed
+       rev 3 against my own round-1 findings and the morphogenetic-RL
+       disciplines only, and did not read the sibling reviews. Several rev-3
+       `(closes: …)` notes cite reward-review findings adjacent to N1 and N5;
+       there may be duplication or, worse, a sibling finding that rev 3's fix
+       reopened and I would not have recognized.
+5. [ ] **Still no implementation.** `experiments/kernel_demo.py` does not exist;
+       every finding is against design text.
+
+## Round 2 — Caveats & Required Follow-ups
+
+### Before relying on this analysis
+
+- [ ] Reconcile against the four sibling panel reviews (gap 4) before treating
+      N1-N16 as the complete round-2 set.
+- [ ] Confirm with the owner which reading of N5 and N1(a) was intended; if the
+      non-degenerate reading was always the plan, both collapse to
+      "write it down."
+
+### Assumptions made
+
+- The scope pins at L47-64 remain owner-approved and fixed; I evaluated the
+  rev-3 statement that the new harness constants (λ, β-ramp, entropy,
+  exploration schedule) are harness properties rather than policy knobs, and
+  **agree** — none is visible in the policy's action or observation space.
+- Wilcoxon signed-rank means the standard zero-dropping procedure (N7); if
+  Pratt's method was intended, N7 is already closed.
+- All eval episodes share horizon 40 (L425), which is what makes N6's "same
+  horizon" constraint vacuous.
+- "The fan argmax" means a single quantity throughout (N4 is the observation
+  that it now has two candidate definitions).
+
+### Limitations
+
+Unchanged from round 1: this review does not cover the RL algorithm's
+hyperparameters, host-side training mechanics beyond the isolation and
+optimizer contracts, low-level PyTorch beyond the determinism flag set, or
+statistical power sizing. N2's "450 fans is thin" is a capacity judgement, not
+a power calculation — `yzmir-counterfactual-statistics` should size the
+corpus properly if the owner wants that number defended rather than
+monitored via N2's learning curve.
+
+### Recommended next steps
+
+1. Decide N1 (fixed-epoch null + live decision rule) and N2 (train/tune split)
+   — both must land before freeze/collect respectively.
+2. Apply N3 and N4 before any collection run.
+3. Specify N5, N6, N7, N8; correct N9-N16 inline.
+4. Reconcile with the sibling panel reviews.
+5. Then implement, with `--selftest` before `--collect` — unchanged from
+   round 1, and rev 3 has already put `--selftest` in the mode list.
