@@ -2208,6 +2208,617 @@ def run_selftest(cfg: Config, device: str, certify: bool = False, store_root: st
     return result
 
 
+# section 14 — PREFLIGHT
+@semantic
+def draw_schedule(episode_seed: int, cfg: Config) -> tuple[int, int]:
+    # 2 ordered epochs, uniform WITHOUT replacement, inclusive window.
+    lo, hi = cfg.window
+    g = make_generator(derive(episode_seed, "schedule"))
+    perm = torch.randperm(hi - lo + 1, generator=g)[:2]
+    a, b = sorted(int(lo + i) for i in perm)
+    return a, b
+
+
+@semantic
+def run_collection_episode(
+    cfg: Config,
+    data: DataBundle,
+    device: str,
+    episode_seed: int,
+    namespace: str,
+    store: Store,
+    worker_id: int,
+    read_test: bool,
+    *,
+    manifest_hash: str | None = None,
+    worker_count: int = 1,
+) -> None:
+    if namespace == "preflight":
+        split_role = "preflight"
+    elif namespace == "eval":
+        split_role = "eval"
+    else:
+        split_role = train_tune_split(episode_seed)  # recorded at collection time, never re-split
+    fan_epochs = draw_schedule(episode_seed, cfg)
+    ctx = make_episode(cfg, data, device, episode_seed, read_test)
+    host_init = state_hash(ctx.host)
+    trace = run_base(ctx, cfg, fan_epochs=fan_epochs)
+    env = env_block(device, worker_count)
+    # The 1-in-10 null-seed subsample wired into the COLLECTION path, not only
+    # selftest.
+    include_nullseed = derive(episode_seed, "nullseed-subsample") % 10 == 0
+    for fe in fan_epochs:
+        snap = trace.snapshots.get(fe)
+        if snap is None:
+            continue  # scheduled after a base divergence; recorded in the void_event below
+        arms, _meta = run_fan(
+            cfg, data, device, episode_seed, ctx.pathology, ctx.future, snap, trace, read_test, include_nullseed=include_nullseed
+        )
+        store.append(
+            worker_id,
+            make_fan_record(
+                kind="fan",
+                episode_seed=episode_seed,
+                seed_namespace=namespace,
+                split_role=split_role,
+                pathology_id=ctx.pathology,
+                fan_epoch=fe,
+                refan_k=None,
+                schedule_id=make_schedule_id(cfg),
+                policy_checkpoint_id=None,
+                iteration=None,
+                config_hash=config_hash(),
+                frozen_block_hash=frozen_block_hash(cfg),
+                manifest_hash=manifest_hash,
+                common_future_hash=ctx.future.hash,
+                host_init_hash=host_init,
+                env=env,
+                arms=[dataclasses.asdict(a) for a in arms],
+                telemetry=[dataclasses.asdict(t) for t in ctx.telemetry[:fe]],
+                decisions=None,
+                gate_results=None,
+            ),
+        )
+    if trace.status == "diverged":
+        skipped = [fe for fe in fan_epochs if fe not in trace.snapshots]
+        store.append(
+            worker_id,
+            make_fan_record(
+                kind="void_event",
+                episode_seed=episode_seed,
+                seed_namespace=namespace,
+                split_role=split_role,
+                pathology_id=ctx.pathology,
+                fan_epoch=None,
+                refan_k=None,
+                schedule_id=make_schedule_id(cfg),
+                policy_checkpoint_id=None,
+                iteration=None,
+                config_hash=config_hash(),
+                frozen_block_hash=frozen_block_hash(cfg),
+                manifest_hash=manifest_hash,
+                common_future_hash=ctx.future.hash,
+                host_init_hash=host_init,
+                env=env,
+                arms=[],
+                telemetry=[],
+                decisions=None,
+                gate_results={
+                    "event": "base_divergence",
+                    "diverged_at": trace.diverged_at,
+                    "skipped_fan_epochs": skipped,
+                },
+            ),
+        )
+
+
+@semantic
+def run_refan(
+    cfg: Config,
+    data: DataBundle,
+    device: str,
+    episode_seed: int,
+    fan_epoch: int,
+    k: int,
+    store: Store,
+    worker_id: int,
+) -> None:
+    ctx = make_episode(cfg, data, device, episode_seed)
+    host_init = state_hash(ctx.host)
+    for e in range(fan_epoch):
+        train_one_epoch(ctx, e)
+    snap = take_snapshot(ctx)
+    future_k = CommonFuture.draw(derive(episode_seed, "refan", k), data.train_x.shape[0], cfg.horizon, cfg)
+    # 5 real arms incl. a FRESH no-op under the new future — the base tail is
+    # not a valid comparand; the twin is re-based (measured, not compared).
+    arms = [run_arm(cfg, data, device, episode_seed, ctx.pathology, future_k, snap, name, False) for name in ("noop", *SEED_NAMES)]
+    store.append(
+        worker_id,
+        make_fan_record(
+            kind="refan",
+            episode_seed=episode_seed,
+            seed_namespace="preflight",
+            split_role="preflight",
+            pathology_id=ctx.pathology,
+            fan_epoch=fan_epoch,
+            refan_k=k,
+            schedule_id=make_schedule_id(cfg),
+            policy_checkpoint_id=None,
+            iteration=None,
+            config_hash=config_hash(),
+            frozen_block_hash=frozen_block_hash(cfg),
+            manifest_hash=None,
+            common_future_hash=future_k.hash,
+            host_init_hash=host_init,
+            env=env_block(device, 1),
+            arms=[dataclasses.asdict(a) for a in arms],
+            telemetry=[dataclasses.asdict(t) for t in ctx.telemetry],
+            decisions=None,
+            gate_results=None,
+        ),
+    )
+
+
+@semantic
+@dataclass
+class GateResult:
+    ok: bool
+    reason: str | None
+    detail: dict[str, object]
+    remedy: str
+
+
+@semantic
+def _arm_by_name(rec: FanRecord) -> dict[str, dict[str, object]]:
+    return {str(a["name"]): a for a in rec.arms}
+
+
+@semantic
+def _all_arms_diverged(records: list[FanRecord]) -> bool:
+    arms = [a for r in records for a in r.arms]
+    return bool(arms) and all(a.get("status") == "diverged" for a in arms)
+
+
+@semantic
+def _first_fans(records: list[FanRecord]) -> list[FanRecord]:
+    # Gate unit: the FIRST fan per episode (lowest fan_epoch) — one unit per
+    # trajectory, no pseudo-replication.
+    best: dict[int, FanRecord] = {}
+    for r in records:
+        if r.kind != "fan" or r.fan_epoch is None:
+            continue
+        cur = best.get(r.episode_seed)
+        if cur is None or (cur.fan_epoch is not None and r.fan_epoch < cur.fan_epoch):
+            best[r.episode_seed] = r
+    return [best[k] for k in sorted(best)]
+
+
+@semantic
+def _val_argmax(rec: FanRecord, include_noop: bool) -> str:
+    names = [*SEED_NAMES, "noop"] if include_noop else list(SEED_NAMES)
+    by = _arm_by_name(rec)
+    best_name, best_r = names[0], float("-inf")
+    for n in names:  # ties break to the first name in SEED_NAMES(+noop) order
+        r = _as_float(by[n]["r_val"])
+        if r > best_r:
+            best_r, best_name = r, n
+    return best_name
+
+
+@semantic
+def gate1_noop_sanity(records: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "sampler"
+    first = _first_fans(records)
+    if not first:
+        return GateResult(False, "no fan records", {}, remedy)
+    if _all_arms_diverged(first):
+        return GateResult(False, "all arms diverged", {}, remedy)
+    mild = [r for r in first if r.pathology_id == "mild"]
+    wins = sum(1 for r in mild if _val_argmax(r, include_noop=True) == "noop")
+    bad_modal: list[str] = []
+    for path in PATHOLOGIES:
+        if path == "mild":
+            continue
+        grp = [r for r in first if r.pathology_id == path]
+        if not grp:
+            continue
+        tally: dict[str, int] = {}
+        for r in grp:
+            w = _val_argmax(r, include_noop=True)
+            tally[w] = tally.get(w, 0) + 1
+        top = max(tally.values())
+        modal = min(n for n, c in tally.items() if c == top)
+        if modal == "noop":
+            bad_modal.append(path)  # D1: no-op modal in a TARGETED pathology
+    ok = wins >= cfg.gate1_min_mild_noop_wins and not bad_modal
+    reason = None if ok else f"mild no-op wins {wins} < {cfg.gate1_min_mild_noop_wins} or no-op modal in {bad_modal}"
+    return GateResult(ok, reason, {"mild_noop_wins": wins, "noop_modal_in": bad_modal}, remedy)
+
+
+@semantic
+def gate2_signal(records: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "sampler"
+    first = _first_fans(records)
+    if not first:
+        return GateResult(False, "no fan records", {}, remedy)
+    xs: list[torch.Tensor] = []
+    y_path: list[int] = []
+    y_win: list[int] = []
+    hold_mask: list[bool] = []
+    contingency: dict[str, dict[str, int]] = {}
+    for r in first:
+        xs.append(torch.stack([_telemetry_vector_from_dict(d) for d in r.telemetry]).mean(0))
+        y_path.append(PATHOLOGIES.index(r.pathology_id))
+        w = _val_argmax(r, include_noop=False)
+        y_win.append(SEED_NAMES.index(w))
+        hold_mask.append(derive(r.episode_seed, "probe-split") % 5 == 0)  # D13: by-EPISODE split
+        contingency.setdefault(r.pathology_id, {})
+        contingency[r.pathology_id][w] = contingency[r.pathology_id].get(w, 0) + 1
+    x = torch.stack(xs)
+    yp, yw = torch.tensor(y_path), torch.tensor(y_win)
+    hold = torch.tensor(hold_mask)
+    if not bool(hold.any()) or bool(hold.all()):
+        return GateResult(False, "degenerate probe split", {"holdout": int(hold.sum())}, remedy)
+
+    def probe_acc(y: torch.Tensor, label: str) -> float:
+        with rng_scope(make_generator(derive(cfg.run_seed, "gate2-probe", label))):
+            probe = nn.Linear(TELEMETRY_DIM, 4)
+        opt = torch.optim.Adam(probe.parameters(), lr=0.05)
+        xt, yt = x[~hold], y[~hold]
+        for _ in range(200):
+            loss = torch.nn.functional.cross_entropy(probe(xt), yt)
+            opt.zero_grad(set_to_none=True)
+            loss.backward()  # type: ignore[no-untyped-call]
+            opt.step()
+        with torch.no_grad():
+            preds = cast(torch.Tensor, probe(x[hold])).argmax(1)
+        return float((preds == y[hold]).float().mean())
+
+    path_acc = probe_acc(yp, "pathology")
+    win_acc = probe_acc(yw, "winner")
+    counts = torch.bincount(yw[hold], minlength=4)
+    majority = float(counts.max()) / float(counts.sum())
+    ok = path_acc > cfg.gate2_probe_min_acc and win_acc > majority
+    reason = (
+        None if ok else f"path probe {path_acc:.2f} (min {cfg.gate2_probe_min_acc}) / winner probe {win_acc:.2f} vs majority {majority:.2f}"
+    )
+    detail: dict[str, object] = {
+        "path_acc": path_acc,
+        "win_acc": win_acc,
+        "majority": majority,
+        "contingency": contingency,
+        "designed": dict(DESIGNED_WINNER),
+    }
+    return GateResult(ok, reason, detail, remedy)
+
+
+@semantic
+def gate3_contrast(records: list[FanRecord], refans: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "averaging window, horizon"
+    density = measure_fan_density(_first_fans(records))
+    floor = measure_fan_density(refans)  # measured from the preflight refans
+    checks = {k: density[k] > cfg.gate3_contrast_mult * floor[k] for k in density}
+    ok = all(checks.values())
+    failing = [k for k, v in checks.items() if not v]
+    reason = None if ok else f"density not > {cfg.gate3_contrast_mult}x refan floor for {failing}"
+    return GateResult(ok, reason, {"density": density, "floor": floor}, remedy)
+
+
+@semantic
+def gate4_dominance(records: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "sampler / menu balance — menu balance = Task 5 reopen + Phase A re-run, priced, not a knob"
+    first = _first_fans(records)
+    if not first:
+        return GateResult(False, "no fan records", {}, remedy)
+    if _all_arms_diverged(first):
+        return GateResult(False, "all arms diverged", {}, remedy)
+    wins: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
+    per_path: dict[str, dict[str, int]] = {}
+    for r in first:
+        w = _val_argmax(r, include_noop=False)
+        wins[w] += 1
+        per_path.setdefault(r.pathology_id, {})
+        per_path[r.pathology_id][w] = per_path[r.pathology_id].get(w, 0) + 1
+    frac = {n: wins[n] / len(first) for n in SEED_NAMES}
+    over = [n for n, f in frac.items() if f > cfg.gate4_dominance_max]
+    majority_everywhere = [n for n in SEED_NAMES if all(per_path[p].get(n, 0) > 0.5 * sum(per_path[p].values()) for p in per_path)]
+    ok = not over and not majority_everywhere
+    reason = None if ok else f"dominance: {over} over {cfg.gate4_dominance_max}; majority everywhere: {majority_everywhere}"
+    return GateResult(ok, reason, {"win_frac": frac, "per_pathology": per_path}, remedy)
+
+
+@semantic
+def gate5_magnitude(records: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "tau, lambda, seed_lr — never the sampler"
+    lo, hi = cfg.tau / cfg.gate5_rms_band, cfg.tau * cfg.gate5_rms_band
+    means: dict[str, float] = {}
+    out_of_band: list[str] = []
+    for name in SEED_NAMES:
+        vals: list[float] = []
+        for r in records:
+            if r.kind != "fan":
+                continue
+            a = _arm_by_name(r).get(name)
+            v = None if a is None else a.get("rms_ratio_blend_entry")
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                vals.append(float(v))
+        if not vals:
+            means[name] = float("nan")
+            out_of_band.append(name)  # no measurement is a failure, not a pass
+            continue
+        m = sum(vals) / len(vals)
+        means[name] = m
+        if not (lo <= m <= hi):
+            out_of_band.append(name)
+    ok = not out_of_band
+    reason = None if ok else f"mean rms_ratio_blend_entry outside [{lo:.4f}, {hi:.4f}] for {out_of_band}"
+    return GateResult(ok, reason, {"means": means, "band": [lo, hi]}, remedy)
+
+
+@semantic
+def gate6_horizon(records: list[FanRecord], cfg: Config) -> GateResult:
+    remedy = "horizon, window"
+    lo, hi = cfg.window
+    mid = (lo + hi) / 2
+    fans = [r for r in records if r.kind == "fan" and r.fan_epoch is not None]
+    early = [r for r in fans if r.fan_epoch is not None and r.fan_epoch <= mid]
+    late = [r for r in fans if r.fan_epoch is not None and r.fan_epoch > mid]
+    if not early or not late:
+        return GateResult(False, "no early or no late fans", {"early": len(early), "late": len(late)}, remedy)
+    de, dl = measure_fan_density(early), measure_fan_density(late)
+    checks = {k: dl[k] >= cfg.gate6_late_density_mult * de[k] for k in de}
+    ok = all(checks.values())
+    failing = [k for k, v in checks.items() if not v]
+    reason = None if ok else f"late density < {cfg.gate6_late_density_mult}x early for {failing}"
+    return GateResult(ok, reason, {"early": de, "late": dl}, remedy)
+
+
+@semantic
+def gate7_now_vs_later(records: list[FanRecord], cfg: Config) -> GateResult:
+    # Report-only: never blocks.
+    by_ep: dict[int, list[FanRecord]] = {}
+    for r in records:
+        if r.kind == "fan" and r.fan_epoch is not None:
+            by_ep.setdefault(r.episode_seed, []).append(r)
+    gaps: list[float] = []
+    for recs in by_ep.values():
+        if len(recs) < 2:
+            continue
+        recs = sorted(recs, key=lambda r: r.fan_epoch or 0)
+
+        def best(rec: FanRecord) -> float:
+            by = _arm_by_name(rec)
+            return max(_as_float(by[n]["r_val"]) for n in SEED_NAMES)
+
+        gaps.append(best(recs[-1]) - best(recs[0]))
+    detail: dict[str, object] = {
+        "pairs": len(gaps),
+        "p_later_better": (sum(1 for g in gaps if g > 0) / len(gaps)) if gaps else None,
+        "mean_gap": (sum(gaps) / len(gaps)) if gaps else None,
+    }
+    return GateResult(True, None, detail, "report-only")
+
+
+@semantic
+def gate8_pressure(cfg: Config, data: DataBundle, device: str, worker_count: int) -> GateResult:
+    remedy = "worker count"
+    if torch.device(device).type != "cuda":
+        return GateResult(True, "skipped (GPU-only)", {"skipped": True, "concurrency_factor": None}, remedy)
+    import subprocess
+    import sys
+    import time
+
+    tiny = dataclasses.replace(cfg, horizon=4, stage_k=1, stage_m=1, stage_f=1, batch_size=64)
+    es = derive(cfg.run_seed, "gate8")
+
+    def run_once() -> tuple[str, float]:
+        t0 = time.perf_counter()
+        ctx = make_episode(tiny, data, device, es)
+        trace = run_base(ctx, tiny, fan_epochs=(1,))
+        arm = run_arm(tiny, data, device, es, ctx.pathology, ctx.future, trace.snapshots[1], "noop", False)
+        torch.cuda.synchronize(torch.device(device))
+        return (arm.host_hashes or [""])[-1], time.perf_counter() - t0
+
+    h_solo, t_solo = run_once()
+    sibling = (
+        "import dataclasses, torch\n"
+        "import experiments.kernel_demo as k\n"
+        "k.enable_class1()\n"
+        f"tiny = dataclasses.replace(k.Config(), horizon=4, stage_k=1, stage_m=1, stage_f=1, batch_size=64)\n"
+        f"bundle = k._tiny_bundle_for_selftest({device!r})\n"
+        f"ctx = k.make_episode(tiny, bundle, {device!r}, k.derive(tiny.run_seed, 'gate8-sibling'))\n"
+        "k.run_base(ctx, tiny, fan_epochs=())\n"
+    )
+    procs = [subprocess.Popen([sys.executable, "-c", sibling]) for _ in range(max(0, worker_count - 1))]
+    h_pressured, t_pressured = run_once()  # timed while siblings run
+    for p in procs:
+        p.wait()
+    match = h_pressured == h_solo
+    concurrency_factor = t_pressured / t_solo if t_solo > 0 else float("inf")
+    reason = None if match else "twin hash changed under worker pressure"
+    detail: dict[str, object] = {
+        "solo_s": t_solo,
+        "pressured_s": t_pressured,
+        "concurrency_factor": concurrency_factor,  # the measured factor for the runtime table
+        "worker_count": worker_count,
+        "match": match,
+    }
+    return GateResult(match, reason, detail, remedy)
+
+
+def _git_rev() -> str:
+    import subprocess
+
+    return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def _worktree_clean() -> bool:
+    import subprocess
+
+    out = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+    return out.stdout.strip() == ""
+
+
+@semantic
+def dataclass_gates_ok(gates: dict[str, dict[str, object]]) -> bool:
+    return all(bool(g["ok"]) for g in gates.values())
+
+
+@semantic
+def freeze_manifest(
+    cfg: Config,
+    store_root: str,
+    gates: dict[str, dict[str, object]],
+    normalizer: Normalizer,
+    fan_density: dict[str, float],
+    det_mode_cost: dict[str, float] | None,
+    concurrency_factor: float | None,
+    gate8_outcome: dict[str, object] | None,
+) -> dict[str, object]:
+    not_ok = [name for name, g in gates.items() if not g["ok"]]
+    if not_ok:
+        raise RuntimeError(f"freeze refused: gates not ok: {not_ok}")
+    if not _worktree_clean():
+        raise RuntimeError("freeze refused: worktree dirty")
+    certified_path = Path(store_root) / "certified.json"
+    if not certified_path.exists():
+        raise RuntimeError("freeze refused: no certified.json (run selftest --certify first)")
+    certified = json.loads(certified_path.read_text(encoding="utf-8"))
+    head = _git_rev()
+    if head != certified["git_rev"]:
+        raise RuntimeError(f"freeze refused: HEAD {head} != certified rev {certified['git_rev']}")
+    manifest: dict[str, object] = {
+        "frozen_block_hash": frozen_block_hash(cfg),
+        "config_hash": config_hash(),
+        "git_rev": head,
+        "certified_rev": certified["git_rev"],
+        "spec_rev": "98083fd",
+        "normalizer": json.loads(normalizer.to_json()),
+        "fan_density": fan_density,
+        "beta_which": cfg.beta_which_frac * fan_density["best_minus_second"],
+        "beta_now": fan_density["best_minus_noop"] / cfg.beta_now_div,
+        "schedule_id": make_schedule_id(cfg),
+        "data_split_id": data_split_id(cfg),
+        "gate_results": gates,
+        "gate8_outcome": gate8_outcome,
+        "det_mode_cost": det_mode_cost,
+        "concurrency_factor": concurrency_factor,
+        # Echoed for owner sign-off at freeze.
+        "plan_authored_constants": {
+            "tau_eps": cfg.tau_eps,
+            "preflight_refans": cfg.preflight_refans,
+            "gate1_min_mild_noop_wins": cfg.gate1_min_mild_noop_wins,
+            "gate2_probe_min_acc": cfg.gate2_probe_min_acc,
+            "gate3_contrast_mult": cfg.gate3_contrast_mult,
+            "gate4_dominance_max": cfg.gate4_dominance_max,
+            "gate5_rms_band": cfg.gate5_rms_band,
+            "gate6_late_density_mult": cfg.gate6_late_density_mult,
+            "policy_lr": cfg.policy_lr,
+            "policy_batch_size": cfg.policy_batch_size,
+            "policy_steps": cfg.policy_steps,
+            "warmup_frac": cfg.warmup_frac,
+            "eval_chunk": cfg.eval_chunk,
+            "fsync_every": cfg.fsync_every,
+        },
+    }
+    manifest["manifest_hash"] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+    root = Path(store_root)
+    root.mkdir(parents=True, exist_ok=True)
+    tmp = root / "frozen.json.tmp"
+    tmp.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    os.replace(tmp, root / "frozen.json")  # atomic
+    return manifest
+
+
+@semantic
+def run_preflight(cfg: Config, data: DataBundle, device: str, store_root: str, freeze: bool = False) -> dict[str, object]:
+    store = Store(store_root, cfg.fsync_every)
+    merged = store.merge()
+    have_fans = {r.episode_seed for r in merged if r.kind == "fan" and r.seed_namespace == "preflight"}
+    for i in range(cfg.n_preflight):
+        es = derive(cfg.run_seed, "preflight", i)
+        if es not in have_fans:
+            run_collection_episode(cfg, data, device, es, "preflight", store, worker_id=0, read_test=False)
+    merged = store.merge()
+    have_refans = {(r.episode_seed, r.refan_k) for r in merged if r.kind == "refan"}
+    for k in range(cfg.preflight_refans):  # these supply gate 3's noise floor
+        es = derive(cfg.run_seed, "preflight", k % cfg.n_preflight)
+        if (es, k) not in have_refans:
+            run_refan(cfg, data, device, es, draw_schedule(es, cfg)[0], k, store, worker_id=0)
+    merged = store.merge()
+    fans = [r for r in merged if r.kind == "fan" and r.seed_namespace == "preflight"]
+    refans = [r for r in merged if r.kind == "refan"]
+    normalizer = Normalizer()
+    vecs = [_telemetry_vector_from_dict(d) for r in fans for d in r.telemetry]
+    if vecs:
+        normalizer.fit(vecs)
+    print(f"normalizer: {normalizer.to_json()}")
+    density = measure_fan_density(_first_fans(fans))
+    gates: dict[str, GateResult] = {
+        "gate1_noop_sanity": gate1_noop_sanity(fans, cfg),
+        "gate2_signal": gate2_signal(fans, cfg),
+        "gate3_contrast": gate3_contrast(fans, refans, cfg),
+        "gate4_dominance": gate4_dominance(fans, cfg),
+        "gate5_magnitude": gate5_magnitude(fans, cfg),
+        "gate6_horizon": gate6_horizon(fans, cfg),
+        "gate7_now_vs_later": gate7_now_vs_later(fans, cfg),
+        "gate8_pressure": gate8_pressure(cfg, data, device, worker_count=2),
+    }
+    # gate_results payloads store plain dicts, never dataclass instances.
+    gate_dicts = {name: dataclasses.asdict(g) for name, g in gates.items()}
+    for name, g in gates.items():
+        print(f"{name:22s} {'OK  ' if g.ok else 'FAIL'} {g.reason or ''}  [remedy: {g.remedy}]")
+    iteration = len([r for r in merged if r.kind == "preflight_iter"])  # derived from store state
+    store.append(
+        0,
+        make_fan_record(
+            kind="preflight_iter",
+            episode_seed=cfg.run_seed,
+            seed_namespace="preflight",
+            split_role="preflight",
+            pathology_id="all",
+            fan_epoch=None,
+            refan_k=None,
+            schedule_id=make_schedule_id(cfg),
+            policy_checkpoint_id=None,
+            iteration=iteration,
+            config_hash=config_hash(),
+            frozen_block_hash=frozen_block_hash(cfg),
+            manifest_hash=None,
+            common_future_hash="",
+            host_init_hash="",
+            env={"git_rev": _git_rev()},
+            arms=[],
+            telemetry=[],
+            decisions=None,
+            gate_results=cast(dict[str, object], gate_dicts),
+        ),
+    )
+    store.close()
+    result: dict[str, object] = {
+        "gates": gate_dicts,
+        "density": density,
+        "iteration": iteration,
+        "normalizer": json.loads(normalizer.to_json()),
+    }
+    if freeze:
+        certified_path = Path(store_root) / "certified.json"
+        certified = json.loads(certified_path.read_text(encoding="utf-8")) if certified_path.exists() else {}
+        g8 = gate_dicts["gate8_pressure"]
+        concurrency = cast(dict[str, object], g8["detail"]).get("concurrency_factor")
+        result["manifest"] = freeze_manifest(
+            cfg,
+            store_root,
+            gate_dicts,
+            normalizer,
+            density,
+            cast("dict[str, float] | None", certified.get("det_mode_cost")),
+            cast("float | None", concurrency),
+            g8,
+        )
+    return result
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
@@ -2219,6 +2830,8 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--subset", type=int, default=None)  # dev-speed flag
         if m == "selftest":
             p.add_argument("--certify", action="store_true")
+        if m == "preflight":
+            p.add_argument("--freeze", action="store_true")
         if m == "replay":
             p.add_argument("fan_id")
     args = ap.parse_args(argv)
@@ -2228,6 +2841,10 @@ def main(argv: list[str] | None = None) -> None:
         for name, step in cast(dict[str, dict[str, object]], result["steps"]).items():
             print(f"{name:28s} {step['status']}")
         raise SystemExit(0 if result["ok"] else 1)
+    if args.mode == "preflight":
+        data = load_data(cfg, args.device, args.subset)
+        out = run_preflight(cfg, data, args.device, args.store, freeze=args.freeze)
+        raise SystemExit(0 if dataclass_gates_ok(cast(dict[str, dict[str, object]], out["gates"])) else 1)
     raise SystemExit(f"not implemented: {args.mode}")
 
 
