@@ -16,6 +16,8 @@ import enum
 import hashlib
 import inspect
 import math
+import os
+import platform
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import cast
@@ -204,11 +206,6 @@ def config_hash() -> str:
 
 
 MODES = ("selftest", "preflight", "collect", "train", "eval", "report", "replay")
-
-
-@semantic
-def enable_class1() -> None:  # real body lands in Task 7
-    pass
 
 
 # section 2 — DATA
@@ -601,25 +598,6 @@ def build_host(pathology: str, init_seed: int) -> Host:
         return Host(pathology)
 
 
-@semantic
-def host_init_hash(host: Host) -> str:
-    # Standalone here (sorted state_dict bytes, sha256); Task 7 rebinds this name to the
-    # zero-normalized state_hash. Unlike config_hash/frozen_block_hash (whose _NON_SEMANTIC
-    # entries read "an edit changes every hash by construction"), an edit here — e.g. skipping
-    # BN buffers — changes recorded host identities WITHOUT moving config_hash, and those
-    # identities feed the bitwise-identity assertions (host_hashes, hash_after_training). That
-    # is gate-outcome-affecting, so this stays on the semantic surface (plan L928 makes the
-    # same call for the state_hash name this rebinds to in Task 7).
-    h = hashlib.sha256()
-    sd = host.state_dict()
-    for name in sorted(sd):
-        arr = sd[name].detach().cpu().contiguous().numpy().tobytes()
-        h.update(name.encode())
-        h.update(len(arr).to_bytes(8, "big"))
-        h.update(arr)
-    return h.hexdigest()
-
-
 # section 5 — SEEDS
 SEED_NAMES = semantic_const("SEED_NAMES", ("norm", "attn", "conv_light", "conv_heavy"))
 
@@ -879,6 +857,92 @@ def append_seed_group(opt: torch.optim.SGD, seed: SeedDelta, cfg: Config) -> Non
     decay, no_decay = split_decay_groups(seed)
     opt.add_param_group({"params": [p for _, p in decay], "lr": cfg.seed_lr, "weight_decay": cfg.wd})
     opt.add_param_group({"params": [p for _, p in no_decay], "lr": cfg.seed_lr, "weight_decay": 0.0})
+
+
+# section 7 — DETERMINISM (Class 1)
+FORBIDDEN_RELAXATIONS: tuple[str, ...] = (
+    # Spec list (each voids the Class 1 claim and the headline) + D10.
+    # Documentation-only (printed by --selftest): deliberately NOT a
+    # semantic_const — see the semantic_const comment above.
+    "disabling the twin arm",
+    "disabling deterministic algorithms",
+    "enabling TF32",
+    "enabling cudnn.benchmark",
+    "enabling AMP",
+    "adding gradient clipping",
+    "adding dropout",
+    "running fans across devices",
+    "torch.compile (D10: compiled kernels void deterministic-algorithm guarantees)",
+)
+
+
+@semantic
+def enable_class1() -> None:
+    # MUST be the first statement of every process (main() and every worker).
+    val = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+    if val is None:
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    elif val != ":4096:8":
+        # A tolerated stray value is a silent Class-1 relaxation.
+        raise RuntimeError(f"CUBLAS_WORKSPACE_CONFIG={val!r} (expected unset or ':4096:8')")
+    torch.use_deterministic_algorithms(True)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cuda.matmul.allow_tf32 = False
+    torch.backends.cudnn.allow_tf32 = False
+
+
+@semantic
+def state_hash(module: nn.Module) -> str:
+    # Zero-normalized (D8): -0.0 and +0.0 hash identically; a signed zero is a
+    # value-identical state that must not fail the bitwise-identity assertions.
+    h = hashlib.sha256()
+    sd = module.state_dict()
+    for name in sorted(sd):
+        v = sd[name].detach().cpu().contiguous()
+        v = torch.where(v == 0, torch.zeros_like(v), v)
+        arr = v.numpy().tobytes()
+        h.update(name.encode())
+        h.update(len(arr).to_bytes(8, "big"))
+        h.update(arr)
+    return h.hexdigest()
+
+
+# Rebinds Task 4's standalone version (retired) to the zero-normalized hash;
+# stays on the semantic surface by identity with state_hash.
+host_init_hash = state_hash
+
+REPLAY_REFUSAL_KEYS = semantic_const(
+    "REPLAY_REFUSAL_KEYS",
+    (
+        # worker_count/device_index are provenance-only: the composition of
+        # worker_count-in-key + single-worker replay was a proven deadlock.
+        "torch_version",
+        "cuda_version",
+        "cudnn_version",
+        "python_version",
+        "gpu_name",
+        "tf32_matmul",
+        "tf32_cudnn",
+    ),
+)
+
+
+@semantic
+def env_block(device: str, worker_count: int) -> dict[str, object]:
+    dev = torch.device(device)
+    is_cuda = dev.type == "cuda"
+    return {
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda,
+        "cudnn_version": torch.backends.cudnn.version(),  # type: ignore[no-untyped-call]
+        "python_version": platform.python_version(),
+        "gpu_name": torch.cuda.get_device_name(dev) if is_cuda else "cpu",
+        "tf32_matmul": torch.backends.cuda.matmul.allow_tf32,
+        "tf32_cudnn": torch.backends.cudnn.allow_tf32,
+        "worker_count": worker_count,
+        "device_index": dev.index,
+    }
 
 
 def main(argv: list[str] | None = None) -> None:
