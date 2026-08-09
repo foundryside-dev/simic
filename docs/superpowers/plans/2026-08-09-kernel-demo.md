@@ -1,4 +1,4 @@
-# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.1
+# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.2
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **This document is self-contained: no task requires any prior plan revision.**
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.14, torch 2.13.0+cu130 (installed, CUDA verified on 2× RTX 4060 Ti), torchvision 0.28.0+cu130 (added in Task 1), pytest. matplotlib (dev group) for the sidecar only.
 
-**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). Reviews live under `docs/superpowers/reviews/`.
+**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). rev 3.2 = re-verdict fixes: `semantic_const` registry for behavior-changing module constants (M9; tensors registered as defining float tuples — tensor `repr` is neither tamper-evident nor print-options-stable), `Callable[..., object]` bound for `@semantic` (mypy-strict-verified at module level incl. typed call sites), `GateResult` restored, Phase C runtime wording, `tau_init` on the semantic surface. Reviews live under `docs/superpowers/reviews/`.
 
 ## Global Constraints (inherited by every task)
 
@@ -62,7 +62,7 @@
 **Operational phases (post-Task-18, strictly ordered, never interleaved with code edits):**
 - **Phase A — Certify:** full suite; `selftest --device cuda:0 --certify` (zero skipped steps) writes `certified.json` = `{git_rev, selftest_results, det_mode_cost}`; `wardline scan . --fail-on ERROR`; mypy/ruff; final commit; clean worktree. Any later edit to sections 4/5/6/8/9 returns here.
 - **Phase B — Preflight & freeze (user present):** dry-run preflights (`preflight_iter` records; sampler tuning per gate remedies; gate-4's "menu balance" remedy = Task 5 reopen + Phase A re-run, priced not improvised). `preflight --freeze` refuses unless all gates ok ∧ worktree clean ∧ `HEAD == certified.json["git_rev"]`; writes `frozen.json` atomically.
-- **Phase C — Collect (overnight):** idempotent; halt-on-divergence.
+- **Phase C — Collect (overnight → next-day; 13–20 h planning case, gate 8 confirms):** idempotent; halt-on-divergence.
 - **Phase D — Train.** **Phase E — Eval (user present, one-shot, resume-safe).** **Phase F — Report + replay spot-check.**
 
 **Runtime budget (per-epoch floor measured; concurrency scaling is a planning assumption until gate 8):** 2.78 s/epoch floor under real Class-1 flags on this hardware. Collection ≈ 300 episodes × ~340 epochs ≈ 79 GPU-h; eval battery ≈ 48k epochs ≈ 37 GPU-h. **VRAM measured ≈ 0.85–1.05 GB/worker → 6 workers/card fits with ~2× margin (15.6 GiB usable).** Dividing by 12 workers gives collect ≈ 6.6 h / eval ≈ 3.1 h **assuming linear scaling — unverified**; six processes timesharing one GPU realistically deliver ~4–6× aggregate, so the planning case is collect ≈ 13–20 h wall-clock. Gate 8 measures the true concurrency factor before anything is committed. (The 2.78 s floor was measured on the old ~289k host; the 162k host runs faster, partially offsetting.) Gate 8 records wall-clock at 1-vs-N workers, yielding the true concurrency factor and the spec-mandated deterministic-mode cost from a run already required.
@@ -83,9 +83,9 @@
   (torchvision ships no py.typed; strict mypy hard-fails otherwise — verified).
 - Create: `experiments/__init__.py`, `experiments/kernel_demo.py`, `tests/unit/__init__.py`, `tests/unit/kernel_demo/__init__.py`, `tests/unit/kernel_demo/test_derive.py`
 
-**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `semantic(obj)` (decorator), `_SEMANTIC_SURFACE`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
+**Interfaces (Produces):** `derive`, `make_generator`, `rng_scope`, `Config`, `FROZEN_FIELDS`, `frozen_block_hash`, `semantic(obj)` (decorator), `_SEMANTIC_SURFACE`, `semantic_const(name, value)`, `_SEMANTIC_CONSTANTS`, `config_hash`, `SCHEMA_VERSION = 1`, `enable_class1` (stub until Task 7), `main` (subcommands stubbed; **first statement `enable_class1()`**).
 
-`derive` is decorated `@semantic` at its definition, which is why `_SEMANTIC_SURFACE`/`semantic` are defined above it. The qualname sort makes the hash independent of registration order, and the surface is extended **only** by decoration at module definition time — Tasks 4, 5, 7 and 14 decorate their classes/functions; nothing ever appends from inside a factory or a gate run. (Rev 3 registered at call time, which made `config_hash()` call-order- and call-count-dependent: a worker mid-episode and a fresh parent disagreed, and the Task 15/17 refusal gates could spuriously fire or pass.)
+`derive` is decorated `@semantic` at its definition, which is why `_SEMANTIC_SURFACE`/`semantic` are defined above it. Sorting the collected source strings makes the hash independent of registration order (and avoids any attribute access on `Callable`), and the surface is extended **only** by decoration at module definition time — Tasks 4, 5, 7 and 14 decorate their classes/functions; nothing ever appends from inside a factory or a gate run. (Rev 3 registered at call time, which made `config_hash()` call-order- and call-count-dependent: a worker mid-episode and a fresh parent disagreed, and the Task 15/17 refusal gates could spuriously fire or pass.)
 
 - [ ] **Step 1: pyproject edits** as above; verify `uv run python -c "import torchvision; print(torchvision.__version__)"`. STOP and report if unresolvable.
 - [ ] **Step 2: Failing tests**
@@ -158,6 +158,17 @@ def test_config_hash_matches_fresh_subprocess():
         env={**os.environ, "PYTHONPATH": "src:."},
     )
     assert out.stdout.strip() == k.config_hash()
+
+
+def test_config_hash_covers_semantic_constants():
+    import experiments.kernel_demo as k
+
+    before = k.config_hash()
+    k._SEMANTIC_CONSTANTS["__probe__"] = 1
+    try:
+        assert k.config_hash() != before
+    finally:
+        del k._SEMANTIC_CONSTANTS["__probe__"]
 ```
 
 - [ ] **Step 3: Run** `uv run pytest tests/unit/kernel_demo/test_derive.py -v` — FAIL (ImportError).
@@ -180,23 +191,35 @@ import argparse
 import contextlib
 import hashlib
 import inspect
-import types
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import torch
 
 SCHEMA_VERSION = 1
 
-_SEMANTIC_SURFACE: list[type | types.FunctionType] = []
+_SEMANTIC_SURFACE: list[Callable[..., object]] = []
 
 
-def semantic[T: type | types.FunctionType](obj: T) -> T:
+def semantic[T: Callable[..., object]](obj: T) -> T:
     # Import-time registration, exactly once per process. NEVER call from a
     # factory: call-time registration made config_hash depend on call order
     # (rev 3 defect — a worker mid-episode and a fresh parent disagreed).
     _SEMANTIC_SURFACE.append(obj)
     return obj
+
+
+_SEMANTIC_CONSTANTS: dict[str, object] = {}
+
+
+def semantic_const[T](name: str, value: T) -> T:
+    # Behavior-changing module constants that are neither Config fields nor
+    # source-hashable classes/functions. Registered at definition, import
+    # time — same discipline as @semantic, same reason. Register only plain
+    # Python values (tuples/dicts/ints/strs) — never tensors or other objects
+    # whose repr truncates or reads global state.
+    _SEMANTIC_CONSTANTS[name] = value
+    return value
 
 
 @semantic
@@ -300,8 +323,10 @@ def frozen_block_hash(cfg: Config) -> str:
 
 def config_hash() -> str:
     h = hashlib.sha256()
-    for obj in sorted(_SEMANTIC_SURFACE, key=lambda o: o.__qualname__):
-        h.update(inspect.getsource(obj).encode())
+    for src in sorted(inspect.getsource(obj) for obj in _SEMANTIC_SURFACE):
+        h.update(src.encode())
+    for name in sorted(_SEMANTIC_CONSTANTS):
+        h.update(f"{name}={_SEMANTIC_CONSTANTS[name]!r}".encode())
     return h.hexdigest()
 
 
@@ -342,7 +367,7 @@ if __name__ == "__main__":
 
 **Interfaces:**
 - Consumes: `derive`, `make_generator`, `Config`.
-- Produces: `CIFAR_MEAN`, `CIFAR_STD`; `split_indices(run_seed) -> (train_idx 45k, val_idx 5k)` (pure, download-free); `data_split_id(cfg) -> str` — sha256 over the length-prefixed concatenated bytes of the train/val/test index arrays from `split_indices(cfg.run_seed)` (content-derived: any change to the split function or seed moves it; this is the value `frozen.json` records); `DataBundle` (six tensor fields, one per line); `load_data(cfg, device, subset=None)` (CIFAR10 → `runs/data`; official 10k test untouched; named `to_device` helper, no lambda); `CommonFuture` (`order` int64 **[E, S*B]** flat indices, `crops` uint8 [E,S,B,2] 0–8, `flips` bool [E,S,B], `epochs`, `hash`; `draw(seed, n_train, epochs, cfg)` — one generator); `augment(x_u8, crops, flips)` (float32 normalize → reflect-pad-4 → per-sample crop by advanced indexing → per-sample flip; pure, RNG-free).
+- Produces: `CIFAR_MEAN`, `CIFAR_STD` (`CIFAR_MEAN_RGB`/`CIFAR_STD_RGB` — the defining float tuples — are registered via `semantic_const` at definition; the tensors are derived values and deliberately NOT registered: tensor `repr` truncates at print precision and depends on `torch.set_printoptions` global state, so it is neither tamper-evident nor process-stable); `split_indices(run_seed) -> (train_idx 45k, val_idx 5k)` (pure, download-free); `data_split_id(cfg) -> str` — sha256 over the length-prefixed concatenated bytes of the train/val index arrays from `split_indices(cfg.run_seed)` (content-derived: any change to the split function or seed moves it; this is the value `frozen.json` records) (the test partition is the official 10k, untouched — it has no index array to hash); `DataBundle` (six tensor fields, one per line); `load_data(cfg, device, subset=None)` (CIFAR10 → `runs/data`; official 10k test untouched; named `to_device` helper, no lambda); `CommonFuture` (`order` int64 **[E, S*B]** flat indices, `crops` uint8 [E,S,B,2] 0–8, `flips` bool [E,S,B], `epochs`, `hash`; `draw(seed, n_train, epochs, cfg)` — one generator); `augment(x_u8, crops, flips)` (float32 normalize → reflect-pad-4 → per-sample crop by advanced indexing → per-sample flip; pure, RNG-free).
 
 - [ ] **Step 1: Failing tests**
 
@@ -406,8 +431,10 @@ def test_data_split_id_content_derived():
 
 ```python
 # section 2 — DATA
-CIFAR_MEAN = torch.tensor([0.4914, 0.4822, 0.4465]).view(1, 3, 1, 1)
-CIFAR_STD = torch.tensor([0.2470, 0.2435, 0.2616]).view(1, 3, 1, 1)
+CIFAR_MEAN_RGB = semantic_const("CIFAR_MEAN_RGB", (0.4914, 0.4822, 0.4465))
+CIFAR_STD_RGB = semantic_const("CIFAR_STD_RGB", (0.2470, 0.2435, 0.2616))
+CIFAR_MEAN = torch.tensor(CIFAR_MEAN_RGB).view(1, 3, 1, 1)
+CIFAR_STD = torch.tensor(CIFAR_STD_RGB).view(1, 3, 1, 1)
 
 
 @dataclass
@@ -500,7 +527,7 @@ def augment(x_u8: torch.Tensor, crops: torch.Tensor, flips: torch.Tensor) -> tor
 **Interfaces (Produces):**
 - `class TelemetryDivergence(RuntimeError)`.
 - `@dataclass(frozen=True) TelemetryRecord` — exactly: `epoch: int`, `train_loss: float`, `val_loss: float`, `val_acc: float`, `train_loss_delta: float`, `val_loss_delta: float`, `grad_norm_mean: tuple[float, float, float]`, `grad_norm_var: tuple[float, float, float]`, `act_saturation: tuple[float, float, float]`, `weight_norm: tuple[float, float, float]`, `per_class_val_acc_std: float`, `confusion_entropy: float` (D3). `__post_init__` asserts every value finite else `TelemetryDivergence`. No other field, ever (blindness rule: every field a deterministic function of host state + logical epoch; no wall-clock/device/worker/pathology).
-- `TELEMETRY_DIM = 20`; `EPOCH_FEATURE_IDX = 0`; `record_to_vector(r) -> Tensor[20]` (field order, epoch first; tuples flattened in stage order).
+- `TELEMETRY_DIM = 20`; `EPOCH_FEATURE_IDX = 0` (both registered via `semantic_const` at definition); `record_to_vector(r) -> Tensor[20]` (field order, epoch first; tuples flattened in stage order).
 - `confusion_stats(logits, labels, n_classes=10) -> tuple[float, float]` — per-class accuracy std; entropy of the pooled off-diagonal confusion distribution.
 - `class Normalizer` — per-feature median/IQR (IQR floored 1e-8): `fit(vectors)`, `apply(v)`, `to_json()`, `from_json(s)`, `Normalizer.identity()` classmethod (no-op, for tests).
 - `build_record(...)` — the one construction site: takes epoch, losses/accs, per-stage grad-norm accumulations, saturation means (from `host.stage_stats`), weight norms, confusion stats; returns `TelemetryRecord`. Called only by the episode loop (Task 8).
@@ -583,8 +610,8 @@ def test_confusion_stats_separate_uniform_from_structured():
 **Files:** modify section 4; create `tests/unit/kernel_demo/test_host.py`.
 
 **Interfaces (Produces):**
-- `PATHOLOGIES = ("under_normalized", "channel_starved", "no_spatial_mix", "mild")`; `DESIGNED_WINNER = {"under_normalized": "norm", "channel_starved": "conv_heavy", "no_spatial_mix": "attn", "mild": "conv_light"}`.
-- `class Host(nn.Module)` — 3 stages (Conv-BN-ReLU ×2 + `MaxPool2d(2)`), `nn.AdaptiveAvgPool2d(1)` GAP (the documented deterministic-backward case), `Linear(→10)`. **Healthy widths 24/64/80 ≈ 162k params** (D7). **Slot after stage2's pool → slot input `[B, 64, 8, 8]` for every pathology.** Pathologies change internal capacity only: `under_normalized` = same widths, BN→Identity, init gain ×2; `channel_starved` = stage2 internally 24→24 then 24→64; `no_spatial_mix` = stage2 all-1×1 (24→64); `mild` = stages 1/3 reduced to 20/72 (≈142k). `host.feat_channels == 64` constant; `host.forward_to_slot(x)` (stops at slot site — how `germinate` obtains τ-init features); `host.forward(x, slot: "Slot | None")` (PEP 563 forward reference; Task 6 defines `Slot`; only `slot is None`/`slot(h)` used at runtime); `host.attach_stat_hooks()` → `host.stage_stats["saturation"]` (per-stage zero-fraction of the last ReLU, overwritten per forward; the episode loop averages per epoch); `host.stage_modules()`.
+- `PATHOLOGIES = ("under_normalized", "channel_starved", "no_spatial_mix", "mild")`; `DESIGNED_WINNER = {"under_normalized": "norm", "channel_starved": "conv_heavy", "no_spatial_mix": "attn", "mild": "conv_light"}` (both registered via `semantic_const` at definition).
+- `class Host(nn.Module)` — 3 stages (Conv-BN-ReLU ×2 + `MaxPool2d(2)`), `nn.AdaptiveAvgPool2d(1)` GAP (the documented deterministic-backward case), `Linear(→10)`. **Healthy widths 24/64/80 ≈ 162k params** (D7). **Slot after stage2's pool → slot input `[B, 64, 8, 8]` for every pathology.** Pathologies change internal capacity only: `under_normalized` = same widths, BN→Identity, init gain ×2; `channel_starved` = stage2 internally 24→24 then 24→64; `no_spatial_mix` = stage2 all-1×1 (24→64); `mild` = stages 1/3 reduced to 20/72 (≈142k). `host.feat_channels == 64` constant; `host.forward_to_slot(x)` (stops at slot site — how `germinate` obtains τ-init features); `host.forward(x, slot: "Slot | None")` (PEP 563 forward reference; Task 6 defines `Slot`; only `slot is None`/`slot(h)` used at runtime); `host.attach_stat_hooks()` → `host.stage_stats["saturation"]` (per-stage zero-fraction of the last ReLU, overwritten per forward; the episode loop averages per epoch); `host.stage_modules()`. All pathology wiring lives inside `Host.__init__(pathology)` — `Host` is the decorated object, so pathology edits move `config_hash`; `build_host` contains construction plumbing only.
 - `build_host(pathology, init_seed) -> Host` — inside `rng_scope(make_generator(init_seed))` (`Host` is decorated `@semantic` — import-time registration; `build_host` never touches `_SEMANTIC_SURFACE`).
 - `host_init_hash(host) -> str` — **standalone here** (sorted state_dict bytes, sha256); Task 7 rebinds it to the zero-normalized `state_hash`.
 
@@ -642,10 +669,10 @@ def test_construction_does_not_touch_global_rng():
 **Files:** modify section 5; create `tests/unit/kernel_demo/test_seeds.py`.
 
 **Interfaces (Produces):**
-- `SEED_NAMES = ("norm", "attn", "conv_light", "conv_heavy")`.
+- `SEED_NAMES = ("norm", "attn", "conv_light", "conv_heavy")` (registered via `semantic_const` at definition).
 - `class SeedDelta(nn.Module)` — `self.gain = nn.Parameter(torch.zeros(()))`; `forward(h) = self.gain * self.f(h)`; abstract `f`. Subclasses at C=64 (reviewer-computed): `NormSeed` `f = GroupNorm(8, 64)(h) − h` (129p); `AttnSeed` LN → explicit single-head qkv/out `Linear(64,16)`×3 + `Linear(16,64)`, no SDPA (~4.2k); `ConvLightSeed` depthwise 3×3 + pointwise **mid=64** + BN + ReLU + pointwise (8,897 — mid=16/32 would fail the budget floor at 2,657/4,737); `ConvHeavySeed` 3×3-BN-ReLU-3×3-BN, **bottleneck Cb=52** (60,137; valid band [31,77]). Internals standard-init; final BN γ=1; only the gain carries τ.
 - `build_seed(name, channels, init_seed) -> SeedDelta` — inside `rng_scope` (each seed class and `SeedDelta` are decorated `@semantic`; `build_seed` never touches `_SEMANTIC_SURFACE`).
-- `tau_init(seed, host_feats, cfg) -> float` — caller supplies `host_feats` from `host.forward_to_slot` under `host.eval()`/`no_grad` (host BN protection, spec); the measurement runs the seed **in `train()` mode under `no_grad`** (D11 — the mode of the first TRAINING step; seed BN buffers mutated by the fixed measurement batch are deterministic birth state); `g = cfg.tau * rms(host_feats) / max(rms(f0), cfg.tau_eps)`; sets and returns `g`.
+- `tau_init(seed, host_feats, cfg) -> float` — decorated `@semantic` (D11's train-mode calibration is semantic surface); caller supplies `host_feats` from `host.forward_to_slot` under `host.eval()`/`no_grad` (host BN protection, spec); the measurement runs the seed **in `train()` mode under `no_grad`** (D11 — the mode of the first TRAINING step; seed BN buffers mutated by the fixed measurement batch are deterministic birth state); `g = cfg.tau * rms(host_feats) / max(rms(f0), cfg.tau_eps)`; sets and returns `g`.
 - `split_decay_groups(module) -> (decay: list[tuple[str, Tensor]], no_decay: list[tuple[str, Tensor]])` — **rule: `param.ndim <= 1 or name.endswith("gain") → no-decay`** (coextensive with the spec's gain/affines/biases list; robust to `nn.Sequential` integer names, where substring rules silently mis-file BN affines).
 
 - [ ] **Step 1: Failing tests**
@@ -842,7 +869,7 @@ def test_cosine_ease_endpoints():
 **Interfaces (Produces):**
 - `enable_class1()` (real body): `CUBLAS_WORKSPACE_CONFIG` — if unset, set `:4096:8`; if set to anything else, `raise RuntimeError` (a tolerated stray value is a silent Class-1 relaxation); then deterministic algorithms, cudnn flags, TF32 off ×2.
 - `state_hash(module) -> str` — sorted `state_dict()`, `.detach().cpu().contiguous()`, **`torch.where(v == 0, zeros, v)`** (D8), sha256 over key + bytes. `host_init_hash` is rebound to this (Task 4's standalone version retired).
-- `env_block(device, worker_count) -> dict` (torch/cuda/cudnn/python versions, GPU name, TF32 flags, worker_count, device_index); `REPLAY_REFUSAL_KEYS` (worker_count/device_index provenance-only — the composition of worker_count-in-key + single-worker replay was a proven deadlock).
+- `env_block(device, worker_count) -> dict` (torch/cuda/cudnn/python versions, GPU name, TF32 flags, worker_count, device_index); `REPLAY_REFUSAL_KEYS` (worker_count/device_index provenance-only — the composition of worker_count-in-key + single-worker replay was a proven deadlock) (registered via `semantic_const` at definition).
 - `FORBIDDEN_RELAXATIONS: tuple[str, ...]` — spec list + `torch.compile` (D10).
 - `Slot` (Task 6) and `state_hash` are decorated `@semantic` at their definitions — import-time registration only; nothing appends to `_SEMANTIC_SURFACE` at call time.
 
@@ -898,7 +925,7 @@ def test_env_block_keys_and_refusal_subset():
 
 ### Task 8: Episode runner — epoch loop, snapshot, germination
 
-**Files:** modify section 8; create `tests/unit/kernel_demo/conftest.py`, `tests/unit/kernel_demo/test_episode.py`.
+**Files:** modify section 8; create `tests/unit/kernel_demo/conftest.py`, `tests/unit/kernel_demo/test_episode.py`. This step also hoists Task 3's local `_rec` here as `make_telemetry_rec` and switches test_telemetry's imports (see Task 3's note).
 
 **Interfaces:**
 - Consumes (itemized): `Config`, `DataBundle`, `CommonFuture`, `augment`, `TelemetryRecord`/`TelemetryDivergence`/`build_record`/`confusion_stats`, `Host`/`build_host`, `Slot`/`Stage`, `build_seed`/`tau_init`, `build_optimizer`/`append_seed_group`, `state_hash`, `derive`/`make_generator`/`rng_scope`.
@@ -1178,7 +1205,7 @@ def test_nonfinite_arm_is_measured_not_abort(monkeypatch):
 - `class SplitViolation(RuntimeError)`.
 - `@dataclass FanRecord`: `schema_version: int`, `kind: str` ∈ {`fan`, `refan`, `policy_run`, `preflight_iter`, `extension_event`, `void_event`}, `episode_seed: int`, `seed_namespace: str` ∈ {dev, preflight, train, eval}, `split_role: str` ∈ {preflight, train, tune, eval}, `pathology_id: str`, `fan_epoch: int | None`, `refan_k: int | None`, `schedule_id: str` (= sha256 of `("uniform-no-replacement", cfg.window, cfg.fans_per_episode)` canonical string — now defined), `policy_checkpoint_id: str | None`, `iteration: int | None` (preflight_iter counter), `config_hash: str`, `frozen_block_hash: str`, `manifest_hash: str | None` (None pre-freeze), `common_future_hash: str`, `host_init_hash: str`, `env: dict`, `arms: list[dict]` (ArmResult-as-dict), `telemetry: list[dict]`, `decisions: list[dict] | None` (**policy_run payload**: per-epoch `{epoch, p, action}` + `germination_epoch`), `gate_results: dict | None` (**preflight_iter payload**), `fan_id: str`.
 - `fan_id` = sha256 over the **full identity tuple** `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)` — comparator runs and preflight iterations are distinct identities. **`Store.merge()` raises `ValueError` on duplicate `fan_id` for `kind ∈ {fan, refan}` records within one `manifest_hash` generation** (the duplication backstop) — event/policy_run/preflight kinds are exempt from the collision assert but still carry unique ids. Implementer note: `iteration` and `policy_checkpoint_id` must be derived deterministically from store state (the `preflight_iter` count already in the store; the checkpoint's content identity) — never from wall-clock or process-local counters — so a resumed run reconstructs identical `fan_id`s.
-- `make_fan_record(**fields) -> FanRecord` — the sole constructor tests and production use; derives `fan_id` from the identity tuple `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)`; every other field passed by name.
+- `make_fan_record(**fields) -> FanRecord` — the sole constructor tests and production use; derives `fan_id` from the identity tuple `(episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration)`; every other field passed by name (implemented with an explicit keyword-only signature, not `**fields: object` — strict mypy).
 - `encode_record(r) -> str` / `decode_record(line) -> FanRecord` — JSON; non-finite → `null` recursively; tuples become lists (consumers take dicts/lists); **`decode_record` raises `ValueError` unless `schema_version == SCHEMA_VERSION`**, refusing with a message naming the migration rule: **post-collection schema changes are additive-only** (decoder fills absent new fields with `None`); a non-additive bump pre-collection wipes scratch stores; a non-additive bump post-collection is an owner decision (re-collect vs. translate), never silent.
 - `class Store(root)`: `shard_path(worker_id)` → `shards/worker_{id}.jsonl`; `append(worker_id, record)` (write + flush; **`os.fsync` every `cfg.fsync_every` records and on close** — durability target: host-level failure loses ≤ fsync_every records, process crash loses none); `merge() -> list[FanRecord]` sorted by `(episode_seed, -1 if fan_epoch is None else fan_epoch, kind, -1 if refan_k is None else refan_k)` — `None` coalesces to `-1` so event records (`fan_epoch=None`) sort before that episode's fans instead of raising `TypeError`; `load(split_role, kinds=("fan",))` filter.
 - `load_for_training(store) -> list[FanRecord]` — returns train+tune fans; **re-checks every record it yields** and raises `SplitViolation` on `split_role == "eval"` or `kind != "fan"` (the guard is on the yield path, not vacuously behind the filter). `_assert_trainable(records)` is the shared check, callable directly.
@@ -1204,35 +1231,28 @@ from experiments.kernel_demo import (
 )
 
 
-def _rec(
-    episode_seed=1,
-    fan_epoch=5,
-    split_role="train",
-    kind="fan",
-    policy_checkpoint_id=None,
-    iteration=None,
-    **kw,
-):
+def _rec(episode_seed=1, fan_epoch=5, split_role="train", kind="fan", **kw):
     # make_fan_record derives fan_id from the identity tuple — tests never
-    # hardcode fan_id.
-    return make_fan_record(
-        kind=kind, episode_seed=episode_seed, seed_namespace="train",
-        split_role=split_role, pathology_id="mild", fan_epoch=fan_epoch,
-        refan_k=None, schedule_id="s",
-        policy_checkpoint_id=policy_checkpoint_id,
-        iteration=iteration, config_hash="c", frozen_block_hash="f",
-        manifest_hash=None, common_future_hash="h", host_init_hash="i",
-        env={"torch": "2.13"},
-        arms=[{
+    # hardcode fan_id. Any field may be overridden via kw without collision.
+    fields = {
+        "kind": kind, "episode_seed": episode_seed, "seed_namespace": "train",
+        "split_role": split_role, "pathology_id": "mild", "fan_epoch": fan_epoch,
+        "refan_k": None, "schedule_id": "s", "policy_checkpoint_id": None,
+        "iteration": None, "config_hash": "c", "frozen_block_hash": "f",
+        "manifest_hash": None, "common_future_hash": "h", "host_init_hash": "i",
+        "env": {"torch": "2.13"},
+        "arms": [{
             "name": "noop", "status": "ok", "r_val": 0.4, "r_test": None,
             "curve_val": [0.1, float("nan")], "curve_test": None,
             "init_seed": 0, "g_at_init": None, "rms_ratio_blend_entry": None,
             "hash_after_training": None, "host_hashes": None,
             "alpha_beta_log": None,
         }],
-        telemetry=[{"epoch": 1, "grad_norm_mean": [1.0, 2.0, 3.0]}],
-        decisions=None, gate_results=None, **kw,
-    )
+        "telemetry": [{"epoch": 1, "grad_norm_mean": [1.0, 2.0, 3.0]}],
+        "decisions": None, "gate_results": None,
+    }
+    fields.update(kw)
+    return make_fan_record(**fields)
 
 
 def test_nonfinite_roundtrips_as_null_and_tuples_as_lists():
@@ -1566,6 +1586,7 @@ def test_measure_fan_density_empty_is_loud():
 - `draw_schedule(episode_seed, cfg) -> tuple[int, int]` — 2 ordered epochs, uniform without replacement, inclusive window.
 - `run_collection_episode(cfg, data, device, episode_seed, namespace, store, worker_id, read_test) -> None` — base (`BaseTrace`, snapshots at scheduled epochs), two fans (`include_nullseed = derive(episode_seed, "nullseed-subsample") % 10 == 0` — **the 1-in-10 subsample wired into the collection path, not only selftest**), records appended with `split_role` from the tune rule.
 - `run_refan(cfg, data, device, episode_seed, fan_epoch, k, store, worker_id) -> None` — future `derive(episode_seed, "refan", k)`, `k` recorded, **5 real arms incl. a fresh no-op under the new future** (the base tail is not a valid comparand; the twin is re-based), `kind="refan"`, excluded from training.
+- `@dataclass GateResult`: `ok: bool`, `reason: str | None` (human-readable failure cause, e.g. `all arms diverged`), `detail: dict`, `remedy: str` — the return type of every gate function; the freeze refusal and the printed gate table consume it.
 - Gates 1–8, thresholds from Config (never literals), unit = first fan per episode, all val units:
   1. `gate1_noop_sanity` — ≥ `cfg.gate1_min_mild_noop_wins` mild no-op wins (5-arm val-argmax); modal in no targeted pathology (D1). *Remedy: sampler.*
   2. `gate2_signal` — (a) 200-step linear probe telemetry→pathology, by-episode split (D13), > `cfg.gate2_probe_min_acc`; (b) probe telemetry→val-argmax (4-seed) vs majority-class; contingency table vs `DESIGNED_WINNER`. *Remedy: sampler.*
@@ -1647,7 +1668,7 @@ Forward: every spec section named in rev 6 maps to a task (§determinism→1/7/1
 
 - [ ] **Phase A — Certify:** full suite; `selftest --device cuda:0 --certify` (zero skips) → `certified.json`; `wardline scan . --fail-on ERROR` (exit 2 = wardline error → report per dogfooding rule); mypy/ruff; final commit; clean tree.
 - [ ] **Phase B — Preflight & freeze (user present):** dry runs (subset first); sampler tuning per remedies; gate table surfaced; `preflight --freeze` at the certified commit → `frozen.json` (incl. plan-authored constants echoed for owner sign-off).
-- [ ] **Phase C — Collect (overnight):** smoke `--limit 4` (idempotency makes the full run safe), then `collect --devices cuda:0,cuda:1 --workers 6` (VRAM-verified; gate 8's measured concurrency factor may adjust). Morning: logs, heartbeats, zero divergence reports, episode count.
+- [ ] **Phase C — Collect (overnight → next-day; 13–20 h planning case):** smoke `--limit 4` (idempotency makes the full run safe), then `collect --devices cuda:0,cuda:1 --workers 6` (VRAM-verified; gate 8's measured concurrency factor may adjust). Morning check: logs, heartbeats, zero divergence reports, episode count — at 13–20 h the run may still be in progress; incomplete shards at this point are expected, not a failure (idempotent resume covers an interrupted run).
 - [ ] **Phase D — Train:** tune curves inspected; pre-stated levers if bad.
 - [ ] **Phase E — Eval (user present, ONE SHOT):** collection-complete check → `eval` once; crash → `--resume-eval` completes without double-counting.
 - [ ] **Phase F — Report:** `report`, sidecar plots, one `replay` spot-check. Deliver the headline numbers with nulls and the falsifier.
