@@ -1938,6 +1938,276 @@ def money_chart_permutation_pvalue(
     return obs, (ge + 1) / (n + 1)
 
 
+# section 13 — SELFTEST
+def _tiny_bundle_for_selftest(device: str) -> DataBundle:
+    # Deterministic synthetic CIFAR-shaped data (hardcoded literal seed — the
+    # smoke episode must be byte-identical across selftest invocations).
+    g = torch.Generator().manual_seed(0)
+
+    def mk(n: int) -> tuple[torch.Tensor, torch.Tensor]:
+        x = torch.randint(0, 256, (n, 3, 32, 32), generator=g, dtype=torch.uint8)
+        y = torch.randint(0, 10, (n,), generator=g)
+        return x.to(device), y.to(device)
+
+    tx, ty = mk(512)
+    vx, vy = mk(128)
+    ex, ey = mk(128)
+    return DataBundle(tx, ty, vx, vy, ex, ey)
+
+
+def _section_source(number: int) -> str:
+    src = Path(__file__).read_text(encoding="utf-8")
+    marker = f"# section {number} "
+    start = src.index(marker)
+    nxt = src.find("# section ", start + len(marker))
+    return src[start:nxt] if nxt != -1 else src[start:]
+
+
+@semantic
+def run_selftest(cfg: Config, device: str, certify: bool = False, store_root: str = "runs/kernel_demo") -> dict[str, object]:
+    import tempfile
+    import time
+
+    is_cuda = torch.device(device).type == "cuda"
+    steps: dict[str, dict[str, object]] = {}
+
+    def record(name: str, fn: Callable[[], dict[str, object]], gpu_only: bool = False) -> None:
+        if gpu_only and not is_cuda:
+            steps[name] = {"status": "skipped", "reason": "GPU-only step on CPU"}
+            return
+        try:
+            detail = fn()
+            steps[name] = {"status": "pass", **detail}
+        except Exception as exc:  # loud in the table, not a crash of the table
+            steps[name] = {"status": "fail", "error": f"{type(exc).__name__}: {exc}"}
+
+    # 1. Forbidden relaxations — printed, recorded.
+    print("FORBIDDEN_RELAXATIONS:")
+    for item in FORBIDDEN_RELAXATIONS:
+        print(f"  - {item}")
+    steps["forbidden_relaxations"] = {"status": "pass", "items": list(FORBIDDEN_RELAXATIONS)}
+
+    # 2. Per-seed determinism probe (GPU): forward+backward under the flags; a
+    # missing-deterministic-kernel RuntimeError is a hard failure (grouped
+    # conv/GroupNorm coverage verified on this build, not assumed).
+    def determinism_probe() -> dict[str, object]:
+        enable_class1()
+        for name in SEED_NAMES:
+            seed = build_seed(name, 64, 1).to(device)
+            h = torch.randn(4, 64, 8, 8, generator=make_generator(derive(cfg.run_seed, "probe", name))).to(device)
+            seed.gain.data.fill_(1.0)
+            out = seed(h)
+            out.sum().backward()
+        return {"seeds": list(SEED_NAMES)}
+
+    record("determinism_probe", determinism_probe, gpu_only=True)
+
+    # 3. Smoke episode: base -> fan -> twin holds; null-seed arm reproduces
+    # base hashes (run_fan hard-stops on mismatch).
+    def smoke_episode() -> dict[str, object]:
+        tiny = dataclasses.replace(cfg, horizon=6, stage_k=1, stage_m=1, stage_f=1, batch_size=64, window=(1, 3))
+        bundle = _tiny_bundle_for_selftest(device)
+        ctx = make_episode(tiny, bundle, device, derive(cfg.run_seed, "selftest-smoke"))
+        trace = run_base(ctx, tiny, fan_epochs=(2,))
+        if trace.status != "ok":
+            raise RuntimeError(f"smoke base diverged at {trace.diverged_at}")
+        arms, meta = run_fan(
+            tiny, bundle, device, ctx.episode_seed, ctx.pathology, ctx.future, trace.snapshots[2], trace, False, include_nullseed=True
+        )
+        if not meta.get("twin_ok") or not meta.get("nullseed_ok"):
+            raise RuntimeError(f"smoke fan integrity: {meta}")
+        return {"arms": [a.name for a in arms], "twin_ok": True, "nullseed_ok": True}
+
+    record("smoke_episode", smoke_episode)
+
+    # 4. Tau-init RMS check: all four seeds against a real host batch.
+    def tau_init_rms() -> dict[str, object]:
+        host = build_host("mild", derive(cfg.run_seed, "selftest-tau-host")).to(device)
+        x = _tiny_bundle_for_selftest(device).val_x[: cfg.batch_size]
+        host.eval()
+        with torch.no_grad():
+            feats = host.forward_to_slot(normalize_u8(x))
+        ratios: dict[str, float] = {}
+        for name in SEED_NAMES:
+            seed = build_seed(name, 64, derive(cfg.run_seed, "selftest-tau", name)).to(device)
+            tau_init(seed, feats, cfg)
+            seed.train()
+            with torch.no_grad():
+                ratio = float(seed(feats).pow(2).mean().sqrt() / feats.pow(2).mean().sqrt())
+            ratios[name] = ratio
+            if abs(ratio - cfg.tau) / cfg.tau > 0.05:
+                raise RuntimeError(f"tau-init RMS off target for {name}: {ratio:.5f} vs {cfg.tau}")
+        return {"ratios": ratios}
+
+    record("tau_init_rms", tau_init_rms)
+
+    # 5. Slot-site signed-zero scan.
+    def signed_zero_scan() -> dict[str, object]:
+        host = build_host("mild", derive(cfg.run_seed, "selftest-zero-host")).to(device)
+        x = _tiny_bundle_for_selftest(device).val_x
+        host.eval()
+        with torch.no_grad():
+            out = host.forward_to_slot(normalize_u8(x))
+        neg_zero = int((torch.signbit(out) & (out == 0)).sum())
+        if neg_zero:
+            raise RuntimeError(f"{neg_zero} exact -0.0 values at the slot site")
+        return {"checked": int(out.numel())}
+
+    record("signed_zero_scan", signed_zero_scan)
+
+    # 6. Blindness check (TelemetryRecord field names) + nn.init. grep of
+    # sections 4/5/11 (those calls take no generator= and bypass rng_scope).
+    def blindness_and_init_grep() -> dict[str, object]:
+        names = {f.name for f in dataclasses.fields(TelemetryRecord)}
+        for forbidden in ("pathology", "wall", "device", "worker", "time"):
+            if any(forbidden in n for n in names):
+                raise RuntimeError(f"blindness violation: {forbidden!r} in TelemetryRecord fields")
+        needle = "nn." + "init."  # split so this section's own source never matches
+        for sec in (4, 5, 11):
+            if needle in _section_source(sec):
+                raise RuntimeError(f"nn.init. call in section {sec}")
+        return {"fields": sorted(names)}
+
+    record("blindness_and_init_grep", blindness_and_init_grep)
+
+    # 7. Store checks: round-trip incl. non-finite; split wall; duplicate
+    # identity; schema_version refusal.
+    def store_checks() -> dict[str, object]:
+        def rec(episode_seed: int, split_role: str = "train", kind: str = "fan") -> FanRecord:
+            return make_fan_record(
+                kind=kind,
+                episode_seed=episode_seed,
+                seed_namespace="dev",
+                split_role=split_role,
+                pathology_id="mild",
+                fan_epoch=5,
+                refan_k=None,
+                schedule_id="selftest",
+                policy_checkpoint_id=None,
+                iteration=None,
+                config_hash="selftest",
+                frozen_block_hash="selftest",
+                manifest_hash=None,
+                common_future_hash="selftest",
+                host_init_hash="selftest",
+                env={},
+                arms=[{"name": "noop", "status": "ok", "r_val": 0.4, "curve_val": [0.1, float("nan")]}],
+                telemetry=[],
+                decisions=None,
+                gate_results=None,
+            )
+
+        line = encode_record(rec(1))
+        decoded = decode_record(line)
+        curve = decoded.arms[0]["curve_val"]
+        if not (isinstance(curve, list) and curve[1] is None):
+            raise RuntimeError("non-finite did not round-trip as null")
+        try:
+            decode_record(line.replace(f'"schema_version": {SCHEMA_VERSION}', '"schema_version": 999'))
+            raise RuntimeError("schema_version refusal did not fire")
+        except ValueError:
+            pass
+        try:
+            _assert_trainable([rec(2, split_role="eval")])
+            raise RuntimeError("split wall did not fire")
+        except SplitViolation:
+            pass
+        with tempfile.TemporaryDirectory() as tmp:
+            s = Store(tmp)
+            s.append(0, rec(3))
+            s.append(1, rec(3))
+            try:
+                s.merge()
+                raise RuntimeError("duplicate-identity assert did not fire")
+            except ValueError:
+                pass
+            s.close()
+        return {}
+
+    record("store_checks", store_checks)
+
+    # 8. Partition check: 45k/5k/10k, disjoint.
+    def partition_check() -> dict[str, object]:
+        train_idx, val_idx = split_indices(cfg.run_seed)
+        if train_idx.numel() != 45_000 or val_idx.numel() != 5_000:
+            raise RuntimeError(f"bad split sizes: {train_idx.numel()}/{val_idx.numel()}")
+        if bool(torch.isin(train_idx, val_idx).any()):
+            raise RuntimeError("train/val overlap")
+        return {"train": 45_000, "val": 5_000, "test": 10_000}
+
+    record("partition_check", partition_check)
+
+    # 9. rng_scope global-stream isolation.
+    def rng_scope_isolation() -> dict[str, object]:
+        before = torch.get_rng_state()
+        with rng_scope(make_generator(123)):
+            torch.randn(64)
+        if not torch.equal(before, torch.get_rng_state()):
+            raise RuntimeError("rng_scope leaked into the global stream")
+        return {}
+
+    record("rng_scope_isolation", rng_scope_isolation)
+
+    # 10. Deterministic-mode cost: timed epoch, flags on vs off; the flags-off
+    # leg runs in a THROWAWAY subprocess (fresh interpreter, nothing written
+    # to any store) — a scoped measurement exception to FORBIDDEN_RELAXATIONS,
+    # never a relaxation of the live process.
+    det_mode_cost: dict[str, float] | None = None
+
+    def det_cost() -> dict[str, object]:
+        nonlocal det_mode_cost
+        import subprocess
+        import sys
+
+        tiny = dataclasses.replace(cfg, horizon=1, batch_size=64)
+        bundle = _tiny_bundle_for_selftest(device)
+        enable_class1()
+        ctx = make_episode(tiny, bundle, device, derive(cfg.run_seed, "selftest-cost"))
+        t0 = time.perf_counter()
+        train_one_epoch(ctx, 0)
+        if is_cuda:
+            torch.cuda.synchronize(torch.device(device))
+        on_s = time.perf_counter() - t0
+        script = (
+            "import time, dataclasses, torch\n"
+            "import experiments.kernel_demo as k\n"
+            f"tiny = dataclasses.replace(k.Config(), horizon=1, batch_size=64)\n"
+            f"bundle = k._tiny_bundle_for_selftest({device!r})\n"
+            f"ctx = k.make_episode(tiny, bundle, {device!r}, k.derive(tiny.run_seed, 'selftest-cost'))\n"
+            "t0 = time.perf_counter()\n"
+            "k.train_one_epoch(ctx, 0)\n"
+            f"torch.cuda.synchronize(torch.device({device!r}))\n"
+            "print(time.perf_counter() - t0)\n"
+        )
+        out = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
+        off_s = float(out.stdout.strip().splitlines()[-1])
+        det_mode_cost = {"flags_on_s": on_s, "flags_off_s": off_s, "slowdown": on_s / off_s if off_s > 0 else float("inf")}
+        print(f"deterministic-mode cost: on={on_s:.3f}s off={off_s:.3f}s slowdown={det_mode_cost['slowdown']:.2f}x")
+        return dict(det_mode_cost)
+
+    record("det_mode_cost", det_cost, gpu_only=True)
+
+    failed = [n for n, s in steps.items() if s["status"] == "fail"]
+    skipped = [n for n, s in steps.items() if s["status"] == "skipped"]
+    ok = not failed
+    result: dict[str, object] = {"ok": ok, "steps": steps, "failed": failed, "skipped": skipped}
+    if certify:
+        # Phase A requires zero skipped: GPU, all steps run, all passed.
+        if not is_cuda or failed or skipped:
+            raise RuntimeError(f"--certify refused: cuda={is_cuda}, failed={failed}, skipped={skipped}")
+        import subprocess
+
+        git_rev = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        root = Path(store_root)
+        root.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps({"git_rev": git_rev, "results": steps, "det_mode_cost": det_mode_cost}, indent=2)
+        tmp_path = root / "certified.json.tmp"
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, root / "certified.json")  # the artifact preflight --freeze checks HEAD against
+        result["certified"] = str(root / "certified.json")
+    return result
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
@@ -1947,9 +2217,17 @@ def main(argv: list[str] | None = None) -> None:
         p.add_argument("--store", default="runs/kernel_demo")
         p.add_argument("--device", default="cuda:0")
         p.add_argument("--subset", type=int, default=None)  # dev-speed flag
+        if m == "selftest":
+            p.add_argument("--certify", action="store_true")
         if m == "replay":
             p.add_argument("fan_id")
     args = ap.parse_args(argv)
+    cfg = Config()
+    if args.mode == "selftest":
+        result = run_selftest(cfg, args.device, certify=args.certify, store_root=args.store)
+        for name, step in cast(dict[str, dict[str, object]], result["steps"]).items():
+            print(f"{name:28s} {step['status']}")
+        raise SystemExit(0 if result["ok"] else 1)
     raise SystemExit(f"not implemented: {args.mode}")
 
 
