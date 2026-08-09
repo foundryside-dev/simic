@@ -104,7 +104,13 @@ where:
 - \(P_c\) is parameter and memory cost;
 - \(R_c\) is **expected** policy risk — tail risk is expressible only
   through the stage-2 veto, never as a utility charge (ADR-0004);
-- \(U_c\) is uncertainty.
+- \(U_c\) is **evidence** uncertainty — incompleteness for the assurance
+  class, horizon extrapolation, and data-role shift in what was measured.
+  Execution and surrogate noise is priced exactly once, in the decision
+  bound's \(\kappa\sigma_{\mathrm{exec}}\)
+  (`../07-counterfactual-engine.md#1441-execution-uncertainty-and-adjudication-margins`),
+  never here: the two coefficients cover disjoint, pre-registered sources
+  (simic-01f9ee1160).
 
 The no-op candidate has policy utility exactly zero.
 
