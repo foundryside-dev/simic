@@ -1127,7 +1127,6 @@ def test_end_state_r():
 import dataclasses
 
 import pytest
-import torch
 
 import experiments.kernel_demo as kd
 from experiments.kernel_demo import (
@@ -1269,8 +1268,6 @@ def test_nonfinite_arm_is_measured_not_abort(monkeypatch):
 
 ```python
 # tests/unit/kernel_demo/test_store.py
-import dataclasses
-
 import pytest
 
 from experiments.kernel_demo import (
@@ -1416,7 +1413,7 @@ def test_shapes_and_determinism():
     x = torch.randn(3, 7, TELEMETRY_DIM)
     lengths = torch.tensor([7, 5, 2])
     p1, s1 = pol(x, lengths)
-    p2, s2 = pol(x, lengths)
+    p2, _s2 = pol(x, lengths)
     assert p1.shape == (3,) and s1.shape == (3, 4)
     assert torch.equal(p1, p2)
 
@@ -1536,7 +1533,7 @@ DENSITY = {"best_minus_second": 0.05, "best_minus_noop": 0.08}
 
 def test_policy_learns_synthetic_mapping_on_true_holdout():
     recs = synthetic_fans(n=120, seed=5)
-    pol, info = train_policy(
+    pol, _info = train_policy(
         recs, Config(), Normalizer.identity(), make_generator(0),
         frozen_density=DENSITY, steps=600,
     )
