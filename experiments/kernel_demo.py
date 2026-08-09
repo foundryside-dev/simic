@@ -13,15 +13,18 @@ from __future__ import annotations
 import argparse
 import contextlib
 import copy
+import dataclasses
 import enum
 import hashlib
 import inspect
+import json
 import math
 import os
 import platform
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import cast
+from pathlib import Path
+from typing import TextIO, cast
 
 import torch
 from torch import nn
@@ -1365,6 +1368,236 @@ def run_fan(
             raise RuntimeError("null-seed host hashes mismatch base while the twin holds — value-exactness broken")
         meta["nullseed_ok"] = ns.status == "ok"
     return arms, meta
+
+
+# section 10 — RECORDS AND STORE
+class SplitViolation(RuntimeError):  # noqa: N818
+    pass
+
+
+_NON_SEMANTIC["SplitViolation"] = "exception class — no computation depends on its definition"
+
+RECORD_KINDS = ("fan", "refan", "policy_run", "preflight_iter", "extension_event", "void_event")
+SEED_NAMESPACES = ("dev", "preflight", "train", "eval")
+SPLIT_ROLES = ("preflight", "train", "tune", "eval")
+
+
+@semantic
+@dataclass
+class FanRecord:
+    schema_version: int
+    kind: str
+    episode_seed: int
+    seed_namespace: str
+    split_role: str
+    pathology_id: str
+    fan_epoch: int | None
+    refan_k: int | None
+    schedule_id: str
+    policy_checkpoint_id: str | None
+    iteration: int | None
+    config_hash: str
+    frozen_block_hash: str
+    manifest_hash: str | None  # None pre-freeze
+    common_future_hash: str
+    host_init_hash: str
+    env: dict[str, object]
+    arms: list[dict[str, object]]
+    telemetry: list[dict[str, object]]
+    decisions: list[dict[str, object]] | None  # policy_run payload
+    gate_results: dict[str, object] | None  # preflight_iter payload
+    fan_id: str
+
+
+@semantic
+def make_fan_record(
+    *,
+    kind: str,
+    episode_seed: int,
+    seed_namespace: str,
+    split_role: str,
+    pathology_id: str,
+    fan_epoch: int | None,
+    refan_k: int | None,
+    schedule_id: str,
+    policy_checkpoint_id: str | None,
+    iteration: int | None,
+    config_hash: str,
+    frozen_block_hash: str,
+    manifest_hash: str | None,
+    common_future_hash: str,
+    host_init_hash: str,
+    env: dict[str, object],
+    arms: list[dict[str, object]],
+    telemetry: list[dict[str, object]],
+    decisions: list[dict[str, object]] | None,
+    gate_results: dict[str, object] | None,
+) -> FanRecord:
+    # The sole constructor tests and production use. fan_id is derived from
+    # the FULL identity tuple — comparator runs and preflight iterations are
+    # distinct identities. iteration and policy_checkpoint_id must come from
+    # store state / content identity, never wall-clock or process-local
+    # counters, so a resumed run reconstructs identical fan_ids.
+    if kind not in RECORD_KINDS:
+        raise ValueError(f"unknown record kind: {kind}")
+    if seed_namespace not in SEED_NAMESPACES:
+        raise ValueError(f"unknown seed_namespace: {seed_namespace}")
+    if split_role not in SPLIT_ROLES:
+        raise ValueError(f"unknown split_role: {split_role}")
+    ident = json.dumps([episode_seed, fan_epoch, kind, refan_k, policy_checkpoint_id, iteration])
+    return FanRecord(
+        schema_version=SCHEMA_VERSION,
+        kind=kind,
+        episode_seed=episode_seed,
+        seed_namespace=seed_namespace,
+        split_role=split_role,
+        pathology_id=pathology_id,
+        fan_epoch=fan_epoch,
+        refan_k=refan_k,
+        schedule_id=schedule_id,
+        policy_checkpoint_id=policy_checkpoint_id,
+        iteration=iteration,
+        config_hash=config_hash,
+        frozen_block_hash=frozen_block_hash,
+        manifest_hash=manifest_hash,
+        common_future_hash=common_future_hash,
+        host_init_hash=host_init_hash,
+        env=env,
+        arms=arms,
+        telemetry=telemetry,
+        decisions=decisions,
+        gate_results=gate_results,
+        fan_id=hashlib.sha256(ident.encode()).hexdigest(),
+    )
+
+
+@semantic
+def make_schedule_id(cfg: Config) -> str:
+    s = f"uniform-no-replacement|{cfg.window!r}|{cfg.fans_per_episode}"
+    return hashlib.sha256(s.encode()).hexdigest()
+
+
+@semantic
+def train_tune_split(episode_seed: int) -> str:
+    # Decided at COLLECTION time, recorded per episode, never re-split
+    # downstream.
+    return "tune" if derive(episode_seed, "tune-split") % 5 == 0 else "train"
+
+
+@semantic
+def _sanitize_json(v: object) -> object:
+    # Non-finite -> null recursively; tuples -> lists (consumers take
+    # dicts/lists).
+    if isinstance(v, float):
+        return v if math.isfinite(v) else None
+    if isinstance(v, (list, tuple)):
+        return [_sanitize_json(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _sanitize_json(val) for k, val in v.items()}
+    return v
+
+
+@semantic
+def encode_record(r: FanRecord) -> str:
+    return json.dumps(_sanitize_json(dataclasses.asdict(r)))
+
+
+@semantic
+def decode_record(line: str) -> FanRecord:
+    data = json.loads(line)
+    if data.get("schema_version") != SCHEMA_VERSION:
+        raise ValueError(
+            f"schema_version {data.get('schema_version')!r} != {SCHEMA_VERSION}: refusing to decode. "
+            "Post-collection schema changes are ADDITIVE-ONLY (the decoder fills absent new fields with "
+            "None); a non-additive bump pre-collection wipes scratch stores; a non-additive bump "
+            "post-collection is an owner decision (re-collect vs. translate), never silent."
+        )
+    kwargs = {f.name: data.get(f.name) for f in dataclasses.fields(FanRecord)}
+    return FanRecord(**kwargs)
+
+
+@semantic
+class Store:
+    def __init__(self, root: str | os.PathLike[str], fsync_every: int = 20) -> None:
+        self.root = Path(root)
+        (self.root / "shards").mkdir(parents=True, exist_ok=True)
+        self.fsync_every = fsync_every
+        self._handles: dict[int, TextIO] = {}
+        self._counts: dict[int, int] = {}
+
+    def shard_path(self, worker_id: int) -> Path:
+        return self.root / "shards" / f"worker_{worker_id}.jsonl"
+
+    def append(self, worker_id: int, record: FanRecord) -> None:
+        # Durability target: host-level failure loses <= fsync_every records,
+        # process crash loses none (flush on every append).
+        fh = self._handles.get(worker_id)
+        if fh is None:
+            fh = open(self.shard_path(worker_id), "a", encoding="utf-8")  # noqa: SIM115 — long-lived shard handle, closed in close()
+            self._handles[worker_id] = fh
+            self._counts[worker_id] = 0
+        fh.write(encode_record(record) + "\n")
+        fh.flush()
+        self._counts[worker_id] += 1
+        if self._counts[worker_id] % self.fsync_every == 0:
+            os.fsync(fh.fileno())
+
+    def close(self) -> None:
+        for fh in self._handles.values():
+            fh.flush()
+            os.fsync(fh.fileno())
+            fh.close()
+        self._handles.clear()
+        self._counts.clear()
+
+    def merge(self) -> list[FanRecord]:
+        records: list[FanRecord] = []
+        for p in sorted((self.root / "shards").glob("worker_*.jsonl")):
+            with open(p, encoding="utf-8") as fh:
+                for line in fh:
+                    if line.strip():
+                        records.append(decode_record(line))
+        # Duplication backstop: fan/refan identities must be unique within one
+        # manifest_hash generation; event/policy_run/preflight kinds are exempt
+        # from the collision assert but still carry unique ids.
+        seen: set[tuple[str | None, str]] = set()
+        for r in records:
+            if r.kind in ("fan", "refan"):
+                key = (r.manifest_hash, r.fan_id)
+                if key in seen:
+                    raise ValueError(f"duplicate fan_id {r.fan_id} (manifest {r.manifest_hash!r})")
+                seen.add(key)
+        # None coalesces to -1 so event records (fan_epoch=None) sort before
+        # that episode's fans instead of raising TypeError.
+        records.sort(
+            key=lambda r: (
+                r.episode_seed,
+                -1 if r.fan_epoch is None else r.fan_epoch,
+                r.kind,
+                -1 if r.refan_k is None else r.refan_k,
+            )
+        )
+        return records
+
+    def load(self, split_role: str, kinds: tuple[str, ...] = ("fan",)) -> list[FanRecord]:
+        return [r for r in self.merge() if r.split_role == split_role and r.kind in kinds]
+
+
+@semantic
+def _assert_trainable(records: list[FanRecord]) -> None:
+    for r in records:
+        if r.split_role == "eval":
+            raise SplitViolation(f"eval-split record {r.fan_id} on the training path")
+        if r.kind != "fan":
+            raise SplitViolation(f"kind={r.kind!r} record {r.fan_id} on the training path")
+
+
+@semantic
+def load_for_training(store: Store) -> list[FanRecord]:
+    records = [r for r in store.merge() if r.split_role in ("train", "tune") and r.kind == "fan"]
+    # The guard is on the yield path, not vacuously behind the filter.
+    _assert_trainable(records)
+    return records
 
 
 def main(argv: list[str] | None = None) -> None:
