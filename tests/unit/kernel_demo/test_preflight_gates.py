@@ -285,7 +285,7 @@ def test_freeze_writes_manifest_atomically(tmp_path, monkeypatch):
     manifest = freeze_manifest(CFG, str(tmp_path), _ok_gates(), Normalizer.identity(), density, None, None, None)
     on_disk = json.loads((tmp_path / "frozen.json").read_text())
     assert on_disk["manifest_hash"] == manifest["manifest_hash"]
-    assert on_disk["spec_rev"] == "98083fd"
+    assert on_disk["spec_rev"] == "rev6.1 (98083fd + 2026-08-10 pre-data amendment: episode-level money null + falsifier CI)"
     assert "plan_authored_constants" in on_disk
     assert not (tmp_path / "frozen.json.tmp").exists()
 

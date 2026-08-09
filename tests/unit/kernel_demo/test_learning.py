@@ -79,11 +79,32 @@ def test_train_policy_rejects_untrainable_records():
 def test_money_chart_permutation_four_classes():
     # Two classes at 10/10 give P(both rows match under shuffle) ~ 0.33 —
     # mathematically incapable of clearing 0.05; four classes are required.
+    # Episode unit = 2 points per episode (the real grid's cluster shape).
     paths = [c for c in "abcd" for _ in range(10)]
     picks = [w for w in "wxyz" for _ in range(10)]
+    episodes = [i // 2 for i in range(40)]  # 20 episodes, 2 grid points each
     designed = dict(zip("abcd", "wxyz", strict=True))
-    obs, p = money_chart_permutation_pvalue(paths, picks, designed, n=4000, seed=3)
+    obs, p = money_chart_permutation_pvalue(paths, picks, episodes, designed, n=4000, seed=3)
     assert obs == 4 and p < 0.05
+
+
+def test_money_chart_permutation_is_episode_clustered():
+    # Spec rev 6.1: labels shuffle across EPISODES, points move together.
+    # An episode carrying two pathology labels means clustering broke
+    # upstream — loud, never a silently mixed null.
+    with pytest.raises(ValueError, match="two pathology labels"):
+        money_chart_permutation_pvalue(["a", "b"], ["w", "w"], [7, 7], {"a": "w", "b": "x"}, n=10, seed=0)
+    # Cluster-preserving null: 2 episodes, 2 points each, picks perfectly
+    # aligned. The episode-level null has exactly two label assignments —
+    # identity (matched 2) and swap (matched 0) — so p ~= 0.5. A POINT-level
+    # shuffle could split an episode's points across classes, and with the
+    # lexicographic tie-break its null lands near 1/6: the band pins the
+    # episode-level scheme.
+    paths = ["a", "a", "b", "b"]
+    picks = ["w", "w", "x", "x"]
+    obs, p = money_chart_permutation_pvalue(paths, picks, [0, 0, 1, 1], {"a": "w", "b": "x"}, n=2000, seed=1)
+    assert obs == 2
+    assert 0.4 < p < 0.6
 
 
 def test_sign_flip_pvalue_calibration():

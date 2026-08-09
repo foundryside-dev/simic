@@ -1988,11 +1988,15 @@ def sign_flip_pvalue(lifts: torch.Tensor, n: int, seed: int) -> float:
 
 @semantic
 def money_chart_permutation_pvalue(
-    pathologies: list[str], picks: list[str], designed: dict[str, str], n: int, seed: int
+    pathologies: list[str], picks: list[str], episodes: list[int], designed: dict[str, str], n: int, seed: int
 ) -> tuple[int, float]:
     # Classes-matched count: modal pick per pathology class vs designed
-    # winner, deterministic LEXICOGRAPHIC tie-break; permutation p shuffles
-    # the pathology labels.
+    # winner, deterministic LEXICOGRAPHIC tie-break. Permutation unit is the
+    # EPISODE (spec rev 6.1, pre-data amendment): pathology is an
+    # episode-level attribute and the grid points of one episode carry
+    # correlated picks, so labels are shuffled across EPISODES and every
+    # point of an episode moves together — point-level shuffling would
+    # under-disperse the null (variance low by up to the cluster size).
     def matched(paths: list[str]) -> int:
         count = 0
         for cls in sorted(designed):
@@ -2009,12 +2013,21 @@ def money_chart_permutation_pvalue(
         return count
 
     obs = matched(pathologies)
+    ep_order: list[int] = []
+    ep_path: dict[int, str] = {}
+    for e, pa in zip(episodes, pathologies, strict=True):
+        if e not in ep_path:
+            ep_order.append(e)
+            ep_path[e] = pa
+        elif ep_path[e] != pa:
+            raise ValueError(f"episode {e} carries two pathology labels — clustering broken")
     g = make_generator(seed)
     ge = 0
-    m = len(pathologies)
+    m = len(ep_order)
     for _ in range(n):
         perm = torch.randperm(m, generator=g)
-        if matched([pathologies[int(i)] for i in perm]) >= obs:
+        remap = {ep_order[j]: ep_path[ep_order[int(perm[j])]] for j in range(m)}
+        if matched([remap[e] for e in episodes]) >= obs:
             ge += 1
     return obs, (ge + 1) / (n + 1)
 
@@ -2861,7 +2874,7 @@ def freeze_manifest(
         "config_hash": config_hash(),
         "git_rev": head,
         "certified_rev": certified["git_rev"],
-        "spec_rev": "98083fd",
+        "spec_rev": "rev6.1 (98083fd + 2026-08-10 pre-data amendment: episode-level money null + falsifier CI)",
         "normalizer": json.loads(normalizer.to_json()),
         "fan_density": fan_density,
         "beta_which": cfg.beta_which_frac * fan_density["best_minus_second"],
@@ -3640,12 +3653,14 @@ def run_eval(
     sched_hits = 0
     picks: list[str] = []
     paths: list[str] = []
+    ep_ids: list[int] = []
     per_point: list[dict[str, float]] = []
     argmaxes: list[str] = []
     for g in grid:
         am = _test_argmax(g)
         argmaxes.append(am)
         paths.append(g.pathology_id)
+        ep_ids.append(g.episode_seed)
         p_g, pi_g = _query_dicts(trained_pol, normalizer, g.telemetry, False)
         pick = _pi_argmax(pi_g)
         picks.append(pick)
@@ -3675,7 +3690,12 @@ def run_eval(
         deranged_hits += _pi_argmax(pi_d) == _test_argmax(g)
         deranged_n += 1
     deranged_agreement = deranged_hits / deranged_n if deranged_n else 0.0
-    null_ci = wilson_interval(round(majority_null * n_grid), n_grid, cfg.alpha_level) if n_grid else (0.0, 1.0)
+    # Falsifier null CI at the EPISODE count, not the grid-point count (spec
+    # rev 6.1): the 2-per-episode clustering means n_grid points carry only
+    # n_episodes' worth of independent information — a point-count CI is too
+    # tight and the falsifier gate would be miscalibrated-strict.
+    n_units = len({r.episode_seed for r in grid})
+    null_ci = wilson_interval(round(majority_null * n_units), n_units, cfg.alpha_level) if n_units else (0.0, 1.0)
     # ceiling: refan-vs-fan argmax stability, Sum p^2 estimator (labeled lower bound)
     matches = 0
     pairs = 0
@@ -3693,7 +3713,7 @@ def run_eval(
     trained_p = sign_flip_pvalue(trained_lifts, cfg.permutation_resamples, derive(cfg.run_seed, "signflip-trained"))
     paired_p = sign_flip_pvalue(trained_lifts - sched_lifts, cfg.permutation_resamples, derive(cfg.run_seed, "signflip-paired"))
     obs_matched, money_p = money_chart_permutation_pvalue(
-        paths, picks, dict(DESIGNED_WINNER), cfg.permutation_resamples, derive(cfg.run_seed, "money")
+        paths, picks, ep_ids, dict(DESIGNED_WINNER), cfg.permutation_resamples, derive(cfg.run_seed, "money")
     )
     # Diverged-excluded companion (spec: report) — the money chart recomputed
     # on grid fans where all four seed arms finished, showing whether the
@@ -3703,6 +3723,7 @@ def run_eval(
         nd_matched, nd_p = money_chart_permutation_pvalue(
             [paths[i] for i in keep],
             [picks[i] for i in keep],
+            [ep_ids[i] for i in keep],
             dict(DESIGNED_WINNER),
             cfg.permutation_resamples,
             derive(cfg.run_seed, "money-nodiv"),
@@ -3790,7 +3811,9 @@ def run_eval(
             # refan floor is E|R - R'| for iid draws, so sd(R) = floor*sqrt(pi)/2.
             # A LOWER anchor — it carries future-resampling noise only.
             "mde_lift_at_n_eval": z_power * (sigma_r_floor * math.sqrt(math.pi) / 2.0) / (cfg.n_eval**0.5),
-            "mde_agreement_at_grid": z_power * 0.5 / ((cfg.n_eval * 2) ** 0.5),
+            # Episode count, not grid-point count (spec rev 6.1): the grid's
+            # 2-per-episode clustering caps its independent information.
+            "mde_agreement_at_grid": z_power * 0.5 / (cfg.n_eval**0.5),
             "density_source": "gate 3 refan noise floor (sd from E|R-R'|; lower anchor, future-resampling only)",
         },
     }

@@ -1,6 +1,6 @@
 # Kernel Demo — "Simic in 20 minutes"
 
-**Date:** 2026-08-09 · **Status:** rev 6 — **LOCKED** (owner-approved; panel round 3 verified; external-review patches folded). Design: APPROVE. Implementation: GO.
+**Date:** 2026-08-09 · **Status:** rev 6.1 — **LOCKED** (rev 6 owner-approved; panel round 3 verified; external-review patches folded. Rev 6.1, 2026-08-10, owner-approved **pre-data amendment** — no store exists, so the change is statistically free: the money-chart permutation null and the falsifier CI are computed at the **episode** level, not the grid-point level; see the pre-registered numbers section). Design: APPROVE. Implementation: GO.
 **Target:** `experiments/kernel_demo.py` (single file, plus optional plotting sidecar)
 **Panel:** five SME reviews, two rounds, under `docs/superpowers/reviews/2026-08-09-kernel-demo-*`.
 Round-2 verdicts: morpho 19/20 closed · lifecycle 7/9 + 1 reopened · reward 10/13 ·
@@ -513,15 +513,27 @@ Frozen battery, fixed before any eval run:
   for ≥3 of 4 pathologies, judged against a **permutation null** (rev 6,
   external review: the exact 13/256 = 5.08% figure assumes a uniform 25%
   per row and dies the moment the policy's seed marginal skews — instead,
-  pathology labels are shuffled across eval fans, row winners recomputed,
-  and the ≥3-of-4 statistic compared to that empirical null, which
-  preserves whatever marginal Aurelia actually has; the uniform figure is
-  kept only as a footnote); falsifier collapses the diagonal to within
-  the null's CI.
+  pathology labels are shuffled, row winners recomputed, and the ≥3-of-4
+  statistic compared to that empirical null, which preserves whatever
+  marginal Aurelia actually has; the uniform figure is kept only as a
+  footnote). **Rev 6.1 (pre-data amendment, 2026-08-10):** the shuffle
+  unit is the **episode**, not the grid fan — pathology is an
+  episode-level attribute and the two grid fans of one episode carry
+  correlated picks, so labels move across episodes with both fans
+  travelling together; the rev-6 point-level wording built a null with up
+  to 2× too little variance (money p biased low, and the gate could pass
+  on miscalibration). Falsifier collapses the diagonal to within the
+  null's CI; **rev 6.1:** that Wilson CI is computed at the episode count
+  (N_eval), not the grid-point count (2·N_eval), for the same clustering
+  reason — the point-count CI was too tight and the falsifier could
+  honestly fail on miscalibration alone.
 - **Power note, written at freeze (rev 6, external review):** using gate
   3's measured fan density, record the minimum detectable effect for the
   lift test at N_eval=100 (≈25% of episodes mild, near-zero lift by
-  design) and for the agreement gate at 200 grid points. A miss then
+  design) and for the agreement gate at the episode count (rev 6.1: the
+  200 grid points cluster 2-per-episode, so N_eval=100 bounds the
+  independent information; the SD anchor is gate 3's paired refan noise
+  floor, a gate-3 measurement). A miss then
   reads "underpowered below X" or "the approach failed" — not an
   uninterpretable p=0.08. One paragraph, effect-size input free from
   gate 3.
