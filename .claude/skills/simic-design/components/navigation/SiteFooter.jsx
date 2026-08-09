@@ -5,7 +5,7 @@ export function SiteFooter() {
         <p style={{margin:0}}>Simic — a research project by tachyon-beep. Licensed Apache-2.0.</p>
         <ul style={{display:"flex",flexWrap:"wrap",gap:"0.5rem 1.5rem",margin:0,padding:0,listStyle:"none"}}>
           <li style={{margin:0}}><a href="https://github.com/foundryside-dev/simic">github.com/foundryside-dev/simic</a></li>
-          <li style={{margin:0}}>HLD v4.1 {"\u00B7"} Namespec 1.0 — locked</li>
+          <li style={{margin:0}}>HLD v4.1 {"\u00B7"} Namespec 2.0 — locked</li>
         </ul>
       </div>
     </footer>

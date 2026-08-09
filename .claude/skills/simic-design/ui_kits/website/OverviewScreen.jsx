@@ -10,7 +10,7 @@ function OverviewScreen({ onNav }) {
           <PageHead title="Simic" tagline="Counterfactual Generative Morphogenesis"
             lede={<>New neural structure is <strong>generated from the live state of a host network</strong> — not selected from a fixed menu of human-authored blueprints — then causally screened against doing nothing. Measured counterfactuals instead of a reward function.</>} />
           <Note label="Project status" status>
-            <p style={{margin:0}}><strong>Pre-implementation bootstrap.</strong> The design is complete and locked — HLD v4.1, Namespec 1.0 — and a Python scaffold exists, but there is <strong>no functional code yet</strong>. First engineering work is Phase A: Namespec, Leyline contracts, and dependency boundaries. Nothing on this site describes a running system or a measured result.</p>
+            <p style={{margin:0}}><strong>Pre-implementation bootstrap.</strong> The design is complete and locked — HLD v4.1, Namespec 2.0 — and a Python scaffold exists, but there is <strong>no functional code yet</strong>. First engineering work is Phase A: Namespec, Leyline contracts, and dependency boundaries. Nothing on this site describes a running system or a measured result.</p>
           </Note>
           <div style={{maxWidth:"var(--measure)"}}>
             <h2>The idea</h2>
@@ -34,7 +34,7 @@ function OverviewScreen({ onNav }) {
             <h2>Fourteen domains, one sentence</h2>
             <p>Authority is split across fourteen bounded domains with deliberately vivid codenames. The names are not decoration: they act as an architecture linter.</p>
             <CanonQuote cite={<>The canonical sentence — <code>docs/design/02-constitution.md</code> §5.3</>}>
-              <p style={{margin:0}}>Nissa observes and reports. Tamiyo plans. Narset commissions and acts. Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the compiled result in Tolaria. Augustin judges the resulting evidence under Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no longer earns continued tenancy. Sarpadia retains every precedent. Oona reveals the account.</p>
+              <p style={{margin:0}}>Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes, Momir designs, Elesh conforms, Urabrask compiles, Jin-Gitaxias tests in Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo reveals; every precedent is kept in Urborg.</p>
             </CanonQuote>
             <h2>Where the design lives</h2>
             <p>The canonical authority is the HLD chapter set in the repository, not this site.</p>

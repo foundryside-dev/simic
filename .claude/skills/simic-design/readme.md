@@ -51,12 +51,12 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 
 **Dark mode**: not an afterthought — every token is a `light-dark()` pair; diagrams ship as light/dark pairs selected by `<picture>`; print falls back to light.
 
-<!-- CORRECTION (2026-08-09, static-site review M6). The paragraphs above are
-     hand-corrected and now DIVERGE from the upstream SPA export, whose
-     descriptors still assert a three-state toggle on the marketing site. That
-     export is currently unrecoverable (the 33 component/token/ui_kit files
-     were never committed — see the Index warning), so the divergence cannot be
-     resolved by re-syncing today. When the project IS re-exported, re-apply:
+<!-- CORRECTION (2026-08-09, static-site review M6; resolved same day at
+     re-export). The paragraphs above are hand-corrected. The upstream SPA
+     export's descriptors asserted a three-state toggle on the marketing site. That
+     export was re-pulled on 2026-08-09 (see the Index note below) and the
+     pulled descriptors were checked against this correction — no three-state
+     claim survives on disk. The two facts to preserve if anything regresses:
        1. marketing site is TWO-state (system preference only, zero JS);
           `[data-theme]` is an unreached hook. Only the wiki is three-state.
        2. diagrams select via <picture> + `media="screen and
@@ -78,49 +78,47 @@ Do not introduce icon sets, emoji, or drawn illustrations. When an icon urge str
 
 ## Index
 
-> **⚠ INCOMPLETE EXPORT — read before using this skill.** Only the eight
-> metadata files were committed (`6e74997`). The 33 files listed below under
-> `tokens/`, `components/`, `guidelines/` and `ui_kits/` are **absent from this
-> directory** and are not gitignored — they were never committed. `styles.css`
-> was therefore four dangling `@import`s loading nothing; it has since been
-> flattened locally (see its provenance header).
+> **EXPORT RECOVERED — 2026-08-09.** The upstream Claude Design project
+> (`SimicDesignSystem_5a908e`) reappeared in the owner's writable project
+> list and all 57 missing source files were pulled verbatim via `DesignSync`
+> (PDR-0019's re-export fork; tracker simic-42e575b93c). All 12 bundle
+> `sourceHashes` verify (sha256 prefix) against the pulled component
+> sources — these are the originals, not a reconstruction. `styles.css` is
+> restored to its original four-`@import` form; the token layer now lives in
+> `tokens/*.css` as upstream intended. `site/style.css` remains the token
+> ground truth: any future divergence resolves toward the site.
 >
-> Until the export is completed, **treat `site/style.css` in the repo as the
-> token source of truth** (it always was — see the note above). Do not
-> hand-author replacements for the files below: they exist in the upstream
-> Claude Design project `SimicDesignSystem_5a908e` and re-exporting or pulling
-> them (`DesignSync`) is the fix. Do not edit this Index to match the disk
-> either — the gap is the record of what is missing.
+> The recorded corrections were **re-applied on top of the pull** in the same
+> sync (the verbatim pull and the correction pass are separate commits, so
+> the diff between them is the divergence record):
 >
-> **⚠ THE GENERATED FILES ARE NOW STALE — a re-sync will REGRESS the site.**
-> `_ds_manifest.json` and `_adherence.oxlintrc.json` are generated output and
-> were deliberately **not** hand-edited, so they still describe the palette as
-> it stood on 2026-08-08, before the static-site review (M2, m6). Three
-> divergences, all verified 2026-08-09:
->
-> | Token | `site/style.css` (correct) | generated files (stale) |
+> | Token | corrected value (matches `site/style.css`) | as pulled (stale) |
 > |---|---|---|
 > | `--color-bg-note` dark | hue **175** | hue **195** |
 > | `--color-bg-note-status` dark | hue **85** | hue **75** |
-> | `--color-accent-quiet` | **deleted** (unused; 4.22:1 on `--color-bg`, fails AA) | still declared, and allowlisted at `_adherence.oxlintrc.json:124,192` |
+> | `--color-accent-quiet` | **deleted** (unused; 4.22:1 on `--color-bg`, fails AA) | declared, and allowlisted at `_adherence.oxlintrc.json:124,192` |
 >
-> Nothing shipped is wrong — the consumed stylesheets (`site/style.css` and the
-> flattened `styles.css`) both carry the corrected values. The hazard is
-> directional: **a `DesignSync` re-sync overwrites these files from upstream and
-> would silently reintroduce all three.** Whoever completes the export must
-> re-apply the two hue corrections and re-delete `--color-accent-quiet`
-> (including both `_adherence.oxlintrc.json` entries) as part of that sync, then
-> diff the manifest's tokens against `site/style.css` before considering it
-> done. This is a recorded deferral, not an oversight.
+> `_ds_manifest.json` and `_adherence.oxlintrc.json` carry the same three
+> corrections; the manifest's 43 tokens were diffed against `site/style.css`
+> (clean — the only differences are `calc()` notation inside three `clamp()`
+> values, functionally identical). Namespec 2.0 (ADR-0008) renames were
+> applied to pulled specimen copy (canonical sentence, newsroom rule, wiki
+> nav, footer version stamps).
+>
+> **The upstream project is now BEHIND this directory**: it still carries the
+> three stale token values, Namespec 1.0 names, and pre-rename diagram SVGs.
+> Pushing the corrected tree back upstream (`/design-sync`) is owner-gated
+> and has not been done. Until then, do not re-pull over this directory
+> without re-applying everything in this note.
 
-- `styles.css` — global entry (imports everything below) — **present but inert**
-- `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css` — **missing**
-- `assets/` — `mark.svg`, `diagrams/` (6 Mermaid SVGs, light/dark pairs) — **missing** (both live in the repo: `site/assets/mark.svg`, `site/assets/diagrams/`)
-- `guidelines/` — foundation specimen cards (14 files) — **missing**
-- `components/{content,data,navigation}/` — Masthead, SiteFooter, PageHead, Note, CanonQuote, Spine, CardGrid, DataTable, Split, Diagram (the full inventory `site/style.css` defines — nothing invented) — **missing**
-- `ui_kits/website/` — recreation of the overview page — **missing**
-- `ui_kits/wiki/` — recreation of a design-docs wiki page (MkDocs Material) — **missing**
-- `_ds_manifest.json` — component/token index; the only complete record of the palette in this directory
+- `styles.css` — global entry (imports everything below)
+- `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css`
+- `assets/` — `mark.svg`, `diagrams/` (6 Mermaid SVGs, light/dark pairs) — sourced from the repo (`site/assets/mark.svg`, `site/assets/diagrams/`), which stays the canonical copy
+- `guidelines/` — foundation specimen cards (14 files)
+- `components/{content,data,navigation}/` — Masthead, SiteFooter, PageHead, Note, CanonQuote, Spine, CardGrid, DataTable, Split, Diagram (the full inventory `site/style.css` defines — nothing invented)
+- `ui_kits/website/` — recreation of the overview page (2 screens, click-through)
+- `ui_kits/wiki/` — recreation of a design-docs wiki page (MkDocs Material)
+- `_ds_manifest.json` — component/token index (43 tokens, corrected)
 - `SKILL.md` — agent skill entry point
 
 **Intentional additions**: none. The component list is exactly the class inventory of `site/style.css`. The wiki surface is stock MkDocs Material (teal/teal, `font: false`) — recreated as a UI kit screen, not as components.
