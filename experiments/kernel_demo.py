@@ -1716,6 +1716,228 @@ def query_teacher_forced(
     return p, {name: float(pi[i]) for i, name in enumerate(SEED_NAMES)}
 
 
+# section 12 — LEARNING
+@semantic
+def _as_float(v: object) -> float:
+    # Loud on None (a serialized non-finite) and on anything non-numeric —
+    # never a silent default.
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"expected a number, got {v!r}")
+    return float(v)
+
+
+@semantic
+def _telemetry_vector_from_dict(d: dict[str, object]) -> torch.Tensor:
+    # Decoded-dict twin of record_to_vector — the field order MUST mirror it.
+    def f(key: str) -> float:
+        return _as_float(d[key])
+
+    def f3(key: str) -> list[float]:
+        v = d[key]
+        if not isinstance(v, (list, tuple)) or len(v) != 3:
+            raise ValueError(f"expected a 3-vector for {key}, got {v!r}")
+        return [_as_float(x) for x in v]
+
+    values = [
+        f("epoch"),
+        f("train_loss"),
+        f("val_loss"),
+        f("val_acc"),
+        f("train_loss_delta"),
+        f("val_loss_delta"),
+        *f3("grad_norm_mean"),
+        *f3("grad_norm_var"),
+        *f3("act_saturation"),
+        *f3("weight_norm"),
+        f("per_class_val_acc_std"),
+        f("confusion_entropy"),
+    ]
+    return torch.tensor(values, dtype=torch.float32)
+
+
+@semantic
+def fan_to_example(rec: FanRecord, normalizer: Normalizer) -> dict[str, object]:
+    # Consumes decoded dicts/lists. r is in VAL units, SEED_NAMES order;
+    # diverged arms already carry cfg.diverged_r (0.10) from run_arm.
+    vecs = [normalizer.apply(_telemetry_vector_from_dict(d)) for d in rec.telemetry]
+    tokens = torch.stack(vecs)
+    by_name = {str(a["name"]): a for a in rec.arms}
+    r = torch.tensor([_as_float(by_name[n]["r_val"]) for n in SEED_NAMES], dtype=torch.float32)
+    return {
+        "tokens": tokens,
+        "length": tokens.shape[0],
+        "r": r,
+        "r_noop": _as_float(by_name["noop"]["r_val"]),
+    }
+
+
+@semantic
+def measure_fan_density(records: list[FanRecord], unit: str = "val") -> dict[str, float]:
+    if not records:
+        raise ValueError("no fan records")
+    key = {"val": "r_val", "test": "r_test"}[unit]
+    best_minus_second: list[float] = []
+    best_minus_noop: list[float] = []
+    for rec in records:
+        by_name = {str(a["name"]): a for a in rec.arms}
+        rs = sorted((_as_float(by_name[n][key]) for n in SEED_NAMES), reverse=True)
+        best_minus_second.append(rs[0] - rs[1])
+        best_minus_noop.append(rs[0] - _as_float(by_name["noop"][key]))
+    return {
+        "best_minus_second": sum(best_minus_second) / len(best_minus_second),
+        "best_minus_noop": sum(best_minus_noop) / len(best_minus_noop),
+    }
+
+
+@semantic
+def warmup_schedule(step: int, total_steps: int, warmup_frac: float) -> bool:
+    # False during warm-up (J_now disabled). Pure.
+    return step >= round(total_steps * warmup_frac)
+
+
+@semantic
+def policy_loss(
+    policy: Policy,
+    batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    cfg: Config,
+    *,
+    beta_which: float,
+    beta_now: float,
+    enable_now: bool,
+    mask_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> torch.Tensor:
+    # Takes BOTH temperatures explicitly — a single scalar cannot honor the
+    # two-key mapping (beta_which from best_minus_second, beta_now from
+    # best_minus_noop).
+    tokens, lengths, r, r_noop = batch  # [B,T,20], [B], [B,4], [B]
+    if mask_fn is not None:
+        tokens = mask_fn(tokens)  # masks apply POST-normalization
+    p_logit, seed_logits = cast(tuple[torch.Tensor, torch.Tensor], policy(tokens, lengths))
+    pi = seed_logits.softmax(-1)
+    j_which = (pi * r).sum(-1)
+    ent_pi = -(pi * pi.clamp_min(1e-8).log()).sum(-1)
+    loss = -(j_which + beta_which * ent_pi)
+    if enable_now:
+        p = torch.sigmoid(p_logit)
+        adv_mix = (pi.detach() * r).sum(-1)  # sg[pi] — spec §Learning
+        j_now = p * adv_mix + (1 - p) * r_noop
+        ent_p = -(p * p.clamp_min(1e-8).log() + (1 - p) * (1 - p).clamp_min(1e-8).log())
+        loss = loss - (j_now + beta_now * ent_p)
+    return loss.mean()
+
+
+@semantic
+def _collate_examples(examples: list[dict[str, object]]) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    t_max = 0
+    for e in examples:
+        t_max = max(t_max, int(cast(int, e["length"])))
+    tokens = torch.zeros(len(examples), t_max, TELEMETRY_DIM)
+    lengths = torch.zeros(len(examples), dtype=torch.int64)
+    for j, e in enumerate(examples):
+        et = e["tokens"]
+        assert isinstance(et, torch.Tensor)
+        tokens[j, : et.shape[0]] = et
+        lengths[j] = et.shape[0]
+    r = torch.stack([cast(torch.Tensor, e["r"]) for e in examples])
+    r_noop = torch.tensor([_as_float(e["r_noop"]) for e in examples])
+    return tokens, lengths, r, r_noop
+
+
+@semantic
+def train_policy(
+    records: list[FanRecord],
+    cfg: Config,
+    normalizer: Normalizer,
+    gen: torch.Generator,
+    *,
+    frozen_density: dict[str, float],
+    steps: int | None = None,
+    mask_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
+) -> tuple[Policy, dict[str, object]]:
+    _assert_trainable(records)
+    # Temperature mapping (pre-registered, recorded in the FreezeManifest);
+    # betas come from frozen_density, NEVER recomputed from `records`.
+    beta_which = cfg.beta_which_frac * frozen_density["best_minus_second"]
+    beta_now = frozen_density["best_minus_noop"] / cfg.beta_now_div
+    total_steps = cfg.policy_steps if steps is None else steps
+    # Records arrive pre-split into train/tune roles; never re-split.
+    train_ex = [fan_to_example(r, normalizer) for r in records if r.split_role == "train"]
+    tune_ex = [fan_to_example(r, normalizer) for r in records if r.split_role == "tune"]
+    if not train_ex:
+        raise ValueError("no train-role records")
+    policy = Policy(cfg, gen)
+    opt = torch.optim.Adam(policy.parameters(), lr=cfg.policy_lr)
+    eval_every = max(1, total_steps // 10)
+    curve: list[float] = []
+    best_score = float("inf")
+    best_state: dict[str, torch.Tensor] | None = None
+    tune_batch = _collate_examples(tune_ex) if tune_ex else None
+    for step in range(total_steps):
+        idxs = torch.randint(len(train_ex), (cfg.policy_batch_size,), generator=gen)
+        batch = _collate_examples([train_ex[int(i)] for i in idxs])
+        enable_now = warmup_schedule(step, total_steps, cfg.warmup_frac)
+        loss = policy_loss(policy, batch, cfg, beta_which=beta_which, beta_now=beta_now, enable_now=enable_now, mask_fn=mask_fn)
+        opt.zero_grad(set_to_none=True)
+        loss.backward()  # type: ignore[no-untyped-call]
+        opt.step()
+        if tune_batch is not None and ((step + 1) % eval_every == 0 or step == total_steps - 1):
+            with torch.no_grad():
+                score = float(
+                    policy_loss(policy, tune_batch, cfg, beta_which=beta_which, beta_now=beta_now, enable_now=True, mask_fn=mask_fn)
+                )
+            curve.append(score)
+            if score < best_score:  # tune-scored checkpointing
+                best_score = score
+                best_state = {k: v.detach().clone() for k, v in policy.state_dict().items()}
+    if best_state is not None:
+        policy.load_state_dict(best_state)
+    return policy, {"curve": curve, "beta_which": beta_which, "beta_now": beta_now}
+
+
+@semantic
+def sign_flip_pvalue(lifts: torch.Tensor, n: int, seed: int) -> float:
+    # One-sided; (count+1)/(n+1).
+    g = make_generator(seed)
+    obs = float(lifts.mean())
+    signs = torch.randint(0, 2, (n, lifts.numel()), generator=g, dtype=torch.float32) * 2 - 1
+    means = (signs * lifts.reshape(1, -1)).mean(-1)
+    count = int((means >= obs).sum())
+    return (count + 1) / (n + 1)
+
+
+@semantic
+def money_chart_permutation_pvalue(
+    pathologies: list[str], picks: list[str], designed: dict[str, str], n: int, seed: int
+) -> tuple[int, float]:
+    # Classes-matched count: modal pick per pathology class vs designed
+    # winner, deterministic LEXICOGRAPHIC tie-break; permutation p shuffles
+    # the pathology labels.
+    def matched(paths: list[str]) -> int:
+        count = 0
+        for cls in sorted(designed):
+            cls_picks = [pk for pa, pk in zip(paths, picks, strict=True) if pa == cls]
+            if not cls_picks:
+                continue
+            tally: dict[str, int] = {}
+            for pk in cls_picks:
+                tally[pk] = tally.get(pk, 0) + 1
+            top = max(tally.values())
+            modal = min(pk for pk, c in tally.items() if c == top)
+            if modal == designed[cls]:
+                count += 1
+        return count
+
+    obs = matched(pathologies)
+    g = make_generator(seed)
+    ge = 0
+    m = len(pathologies)
+    for _ in range(n):
+        perm = torch.randperm(m, generator=g)
+        if matched([pathologies[int(i)] for i in perm]) >= obs:
+            ge += 1
+    return obs, (ge + 1) / (n + 1)
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
