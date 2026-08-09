@@ -25,7 +25,7 @@
 - Region contracts describe attachment legality and tensor shape, not a suggested phenotype.
 - It will not raise influence without a valid Isperia admission warrant.
 - The embodied canonical semantic hash matches Isperia’s selected hash and Jin-Gitaxias’s tested hash.
-- Removal uses gradual blend-out except for declared emergency containment.
+- Removal uses gradual blend-out except for declared emergency containment (Tolaria detects and contains; Isperia adjudicates the containment back to the admitting warrant — INV-28, ADR-0010).
 - Occupant-specific economy state resets on slot recycling.
 
 #### Smell
