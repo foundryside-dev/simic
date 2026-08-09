@@ -53,10 +53,14 @@ over-provisioning.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-08-08
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-08-09
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
-(~/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08.
+(~/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
+re-confirmed 2026-08-09 (session 11), ratifying the two mechanical
+citation renames in the repo-discipline line below (Namespec 2.0 —
+PDR-0020; evidence-routing rule INV-07/INV-09 — ADR-0009). Scope
+unchanged.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
@@ -85,6 +89,7 @@ Escalate BEFORE acting — the agent MUST get owner sign-off for:
   git without permission.
   Repo discipline (restates HLD §30; owner-confirmed 2026-08-08): HLD
   constitutional constraints (Namespec 2.0, the §18 invariants, the
-  authority boundaries, the newsroom rule, the no-op requirement, scaffold
-  withdrawal) change only through an ADR naming the displaced invariant.
+  authority boundaries, the evidence-routing rule (INV-07/INV-09), the no-op
+  requirement, scaffold withdrawal) change only through an ADR naming the
+  displaced invariant.
   (Taxonomy + rationale: product-ownership-operating-model.md.)

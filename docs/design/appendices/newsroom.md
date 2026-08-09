@@ -2,15 +2,15 @@
 [← HLD index](../00-INDEX.md)
 
 <!-- hld: source: v4.1 monolith lines 4476–4615 -->
-## Appendix E — The Newsroom Principle
+## Appendix E — The Newsroom Rendering
 
-### E.1 Purpose of the analogy
+### E.1 Why this appendix exists
 
-The newsroom model is useful because this architecture is fundamentally concerned with **epistemic separation**: who may observe, who may commission work, who may author a solution, who may verify it, who may judge it, who may integrate it, and who may later correct or withdraw it.
+The design speaks one language. The Namespec 2.0 codename grammar — the canonical sentence, the invariants, the sentence lint of `../02-constitution.md` — is the operating frame for every authority question, and nothing in this appendix competes with it. What this appendix offers is the same authority model told a second way, for readers to whom the codenames do not speak: not everyone wants to learn a mythology before they can ask who is allowed to see what.
 
-A single controller that observes the host, diagnoses the deficit, selects a topology, generates parameters, evaluates itself, approves deployment and decides retention is equivalent to a newsroom in which one person assigns the story, rewrites the notes, authors the conclusion, fact-checks it, publishes it and destroys the corrections file. It may be fast, but neither evidence nor failure attribution remains trustworthy.
+The retelling works because the architecture is fundamentally concerned with **epistemic separation** — who may observe, who may commission work, who may author a solution, who may verify it, who may judge it, who may integrate it, and who may later correct or withdraw it — and institutions that live or die by the integrity of their evidence converged on the same separations long ago. A newsroom is the one most readers already know. A single controller that observes the host, diagnoses the deficit, selects a topology, generates parameters, evaluates itself, approves deployment and decides retention is a newsroom in which one person assigns the story, rewrites the notes, authors the conclusion, fact-checks it, publishes it and destroys the corrections file. It may be fast, but neither evidence nor failure attribution survives it.
 
-The newsroom analogy therefore explains why the architecture contains more roles than a minimal implementation apparently requires. It is not bureaucracy for its own sake; it is a defence against authority collapse.
+Read this appendix when the role count looks like bureaucracy: the roles are a defence against authority collapse, and the newsroom shows why without asking you to learn a single new name. Nothing here is normative, and everything here is maintained in lockstep with the constitution (ADR-0009) — if this rendering and an invariant ever disagree, the invariant wins and this appendix has a defect.
 
 ### E.2 Role mapping
 
@@ -72,7 +72,7 @@ free-form message to the designer
 
 Aurelia may see Nissa's evidence because it must decide whether to commission work. It must not become the channel through which Momir sees that evidence. The assignments desk is allowed to say “investigate Region A under this scope.” It is not allowed to say “write a story proving rank collapse and conclude that attention is the answer.”
 
-### E.4 The source-routing rule
+### E.4 The source-routing rule (INV-07, INV-09)
 
 ```text
 Nissa observes host state S

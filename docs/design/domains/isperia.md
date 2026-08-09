@@ -1,7 +1,7 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
 [← HLD index](../00-INDEX.md)
 
-<!-- hld: source: v4.1 monolith lines 2210–2291 · amended by ADR-0004 (lexicographic admission), ADR-0005 (retention hysteresis) -->
+<!-- hld: source: v4.1 monolith lines 2210–2291 · amended by ADR-0004 (lexicographic admission), ADR-0005 (retention hysteresis), ADR-0010 (containment accountability) -->
 ### 13.11 Isperia — Independent Judge
 
 #### Responsibilities
@@ -18,6 +18,7 @@
 - adjudicate continued tenancy of committed structures;
 - issue maintenance warrants;
 - calibrate thresholds on validation trajectories only;
+- own containment accountability: adjudicate every emergency containment back to the warrant and policy version that admitted the growth (ADR-0010);
 - and emit explicit decision reasons and policy versions.
 
 #### Lexicographic admission order (ADR-0004)
@@ -112,6 +113,14 @@ Admission and retention thresholds form a Schmitt trigger: admission requires th
 
 The hysteresis band \(\Delta\) is an explicit, versioned Isperia policy parameter, carried by `adjudication_policy_version`, and its width is measured against observed execution noise \(\sigma_{\mathrm{exec}}\) — sized so noise-driven estimate movement cannot cross both thresholds — never picked by feel. Cooldowns are a frequency limiter for pathological cases, not the stability mechanism: they are a time-domain patch and do not remove a threshold-domain instability.
 
+#### Containment accountability (ADR-0010)
+
+A rollback is evidence that a warrant was issued wrongly, and warrants are Isperia's sole output — nothing else in the system could have prevented the admission. Tolaria owns detection and the rollback itself: waiting for adjudication while the host produces NaNs would be absurd. Tolaria acts, then reports. Detect-and-contain is mechanical; accountability is judicial.
+
+Every containment event therefore routes back to the decision, not just to the log. `AdmissionDecision` already carries `evidence_digest`, `selected_semantic_hash`, `adjudication_policy_version` and the per-candidate eligibility and veto results, so the containment record names the warrant that authorised the growth, the policy version in force, and the specific checks that passed and should not have. That is a defect report against a policy, actionable in a way "candidate X was bad" is not.
+
+Blame attaches to the policy version, never to Isperia-the-component. With the initial rule-driven adjudicator this is literally true: a rollback means the declared thresholds were wrong, and the fix is an ADR and a version bump. Retrospective re-adjudication then asks directly: *under the revised policy, would this warrant have issued?* — a regression test for judgement. Containment catastrophes carry their own failure code (`CONTAINMENT_CATASTROPHE`, `urborg.md`); they are never booked as integration shock, because one is a cost and the other is a veto failure.
+
 #### Invariants
 
 - Isperia does not execute tests, alter data, call kernels or rerun a branch.
@@ -122,9 +131,12 @@ The hysteresis band \(\Delta\) is an explicit, versioned Isperia policy paramete
 - Every veto, and every thin-margin pass, is recorded per candidate in `tail_veto_results` (INV-31).
 - Decision thresholds are frozen before confirmatory runs.
 - Every warrant is bound to a specific evidence digest, semantic hash, envelope and policy version.
+- Every containment event is adjudicated back to its admitting warrant and `adjudication_policy_version`; the containment defect attaches to the policy version (INV-28).
 
 #### Smell
 
 > If Isperia asks for a more favourable minibatch after seeing the evidence, the judge has tampered with the case.
 
 > If a candidate's measured benefit is cited as a reason to soften the veto, the judge has repriced catastrophe.
+
+> If a containment is filed as integration shock, a veto failure has been repriced as a cost.

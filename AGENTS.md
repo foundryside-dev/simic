@@ -60,8 +60,10 @@ in Tolaria's matched common-future branches and certifies evidence → Isperia
 adjudicates provider-blind against no-op and issues warrants → Wrenn
 germinates/blends/commits under an admission warrant → Emrakul later
 sedates/decays/lyses under maintenance warrants → Urborg records everything →
-Tamiyo reveals it. The newsroom rule (`appendices/newsroom.md`): **Nissa sends
-the photograph; Aurelia sends only the assignment brief.**
+Tamiyo reveals it. The evidence-routing rule (INV-07/INV-09): **Nissa sends
+the evidence directly; Aurelia sends only the assignment brief**
+(`appendices/newsroom.md` retells the authority model as a newsroom — an
+alternative lens, ADR-0009).
 
 ## Non-negotiable invariants (`02-constitution.md` has all 45; these are the spine)
 

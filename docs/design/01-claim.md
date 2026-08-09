@@ -78,11 +78,11 @@ The locked narrative grammar is:
 
 The deliberately goofy names are not decorative aliases. They encode which parts of the system are allowed to exercise agency, which parts must remain neutral infrastructure, and which sentences should sound architecturally wrong. The naming layer therefore acts as a lightweight responsibility and dependency lint.
 
-The architecture also resembles a newsroom for a non-coincidental reason: both systems must keep source observation, commissioning, authorship, standards review, production, fact-checking, publication judgement, integration, correction, archival memory, and presentation distinct. The central newsroom rule is load-bearing here:
+At the centre of the authority model sits one load-bearing routing rule:
 
-> **Nissa sends the photograph directly. Aurelia sends only the assignment brief. Momir must never receive reality through Aurelia's caption.**
+> **Nissa publishes the evidence directly to Aurelia and Momir (INV-07). Aurelia sends only the assignment brief (INV-09). Momir must never receive reality through Aurelia's caption.**
 
-The newsroom analogy is documented as an explanatory aid in §5.5 and Appendix E. The actual enforcement remains contractual: direct evidence publication, a narrow `GrowthIntent`, deterministic request resolution, immutable provenance, and tests that reject diagnostic or structural hints in Aurelia's channel.
+The enforcement is contractual: direct evidence publication, a narrow `GrowthIntent`, deterministic request resolution, immutable provenance, and tests that reject diagnostic or structural hints in Aurelia's channel. (Readers who want the authority model without the codenames will find it retold as a newsroom in Appendix E.)
 
 A uniform **Scaffold Withdrawal Pattern** governs how the architecture learns under initially noisy, variable, or sparse conditions. Tolaria first establishes causal ground truth under an Academy profile with bitwise-exact replay, Aurelia first learns on repeated host trajectories, and Momir first learns near a viable Urborg reference population. Each scaffold then passes through controlled relaxation and an independent withdrawal gate. Withdrawal removes the scaffold as an ordinary production dependency while retaining it as a reference, calibration, regression, or escalation capability. Exact replay is therefore Tolaria's metrology laboratory—not a requirement that every future field execution remain bitwise identical.
 

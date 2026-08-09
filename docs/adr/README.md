@@ -5,7 +5,7 @@ Design-doc tiering (PDR-0002, `docs/product/decisions/0002-design-doc-tiering.md
 - **Tier 0 — Constitution.** The HLD chapters under `docs/design/` (entry:
   `00-INDEX.md`; the locked core is `02-constitution.md`). Constitutional
   constraints — Namespec 2.0, the INV-01..45 invariants, authority boundaries,
-  the newsroom rule, the no-op requirement, scaffold withdrawal — change only
+  the evidence-routing rule (INV-07/INV-09), the no-op requirement, scaffold withdrawal — change only
   through an ADR that **names the displaced invariant**
   (`../design/ops/repo-structure.md#30-repository-handoff-and-custody` / repo
   discipline in the authority grant).

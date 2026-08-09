@@ -51,6 +51,6 @@ programme/risks-and-open-decisions.md   # §26–§27 risks, open decisions
 
 appendices/good-bad-sentences.md        # App C good/bad sentences
 appendices/glossary.md                  # App D plain-English glossary
-appendices/newsroom.md                  # App E newsroom principle
+appendices/newsroom.md                  # App E newsroom rendering (ADR-0009)
 appendices/scaffold-pattern.md          # App F scaffold withdrawal pattern
 appendices/caveman-mode.md              # App G caveman mode (non-normative, post-monolith)

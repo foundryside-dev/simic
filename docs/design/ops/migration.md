@@ -70,7 +70,7 @@ The change is constitutional:
 - Urborg records whether ancestry was supplied, withdrawn, or used only as a blinded control.
 - Existing telemetry backends remain **Nissa**, with direct publication to Momir added as a locked route.
 - Existing operator surfaces migrate under **Tamiyo**.
-- Tamiyo gains a newsroom projection showing source observation, assignment, draft, standards, production, QA, judgement, placement, correction and archive.
+- Tamiyo gains a newsroom projection (the Appendix E rendering) showing source observation, assignment, draft, standards, production, QA, judgement, placement, correction and archive.
 - Event schemas remain in Leyline and training remains independent of Tamiyo availability.
 
 ### 23.8 Namespec migration

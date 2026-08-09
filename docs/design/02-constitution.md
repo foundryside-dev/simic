@@ -125,34 +125,13 @@ Leyline imported Aurelia to decide a default action.
 
 The sentence test is not a proof, but it is an intentionally cheap architecture lint.
 
-### 5.5 The newsroom principle
+### 5.5 The evidence-routing rule
 
-> **Sidebar — Why the architecture resembles a newsroom**
->
-> The similarity is structural rather than decorative. A newsroom separates source observation, assignment, authorship, standards review, production, fact-checking, publication judgement, placement, correction, archive, and presentation because allowing one desk to control the complete chain corrupts both evidence and accountability.
->
-> In this architecture:
->
-> - Nissa is the reporting, photography, and data desk: it publishes what was observed.
-> - Ugin is the editor-in-chief or managing editor: it allocates desks, time, and strategic resources.
-> - Aurelia is the assignments editor: it decides whether there is a story, which beat owns it, what scope and deadline apply, and what resources may be spent.
-> - Momir is the writer or investigative journalist: it determines the substantive answer from the evidence and commission.
-> - Elesh is the copy and standards desk: it enforces structural, typed, and house-form conformity without deciding whether the story is valuable.
-> - Urabrask is production, layout, and manufacturing: the factory that prints the edition without changing meaning.
-> - Jin-Gitaxias is fact-checking and QA: cold, empirical, perfectionist; it establishes what the finished artefact actually does.
-> - Isperia is the publishing editor: it decides whether the evidence justifies running, returning, deferring, or spiking the story.
-> - Wrenn is the live-edition integrator: the symbiote who hosts the accepted story in the running edition.
-> - Emrakul handles correction, withdrawal, and retirement after publication.
-> - Urborg is the morgue and archive, including corrections, failed investigations, and abandoned drafts.
-> - Tamiyo is presentation: front page, broadcast desk, dashboards, and public account.
-> - Leyline is the stylebook, editorial constitution, and record format.
-> - Tolaria is the newsroom production environment, CMS, presses, and test editions.
->
-> The load-bearing rule is: **Aurelia does not send the photograph. Nissa sends the photograph directly to Momir. Aurelia sends only the assignment brief. Momir must never receive reality through Aurelia's caption.**
->
-> The code-review question is therefore: **does this field belong in an assignment brief, or does it impose an editorial angle?** Scope, region, resource class, deadline, maturity mode, and assurance class are assignment fields. A deficit diagnosis, topology preference, ancestor choice, expected mechanism, or proposed solution is an editorial angle and is prohibited from Aurelia's channel.
->
-> Appendix E develops the analogy, its smell tests, and its limits. The metaphor is never the enforcement mechanism; Leyline contracts and authority tests are.
+The naming grammar carries one routing rule important enough to state here in full. Nissa publishes one canonical observation identity independently to Aurelia and Momir (INV-07). Aurelia commissions work from that evidence but is never the channel through which Momir receives it: a `GrowthIntent` carries scope and operational constraints only — insertion region, resource class, urgency, tactical deadline, maturity mode, assurance class — and a deficit diagnosis, topology preference, ancestor choice, or mechanism hint is schema-invalid (INV-09). **Nissa sends the evidence. Aurelia sends only the assignment brief. Momir must never receive reality through Aurelia's caption.**
+
+The code-review question is therefore: **does this field specify the assignment, or does it smuggle a conclusion?** Scope fields commission work; conclusion fields do the designer's job for it, and are prohibited from Aurelia's channel.
+
+For readers who prefer an institution to a mythology, Appendix E (`appendices/newsroom.md`) retells the entire authority model as a newsroom — the same separations in civilian dress, kept in lockstep with this constitution (ADR-0009). The rendering is explanatory only; Leyline contracts, blinding by construction, and the authority tests are the enforcement mechanism.
 
 ### 5.6 Dependency consequence
 
@@ -208,7 +187,7 @@ Changing a codename or moving an authority between names requires an architectur
 
 ---
 
-<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged) -->
+<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended) -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
 The following are blocking invariants.
@@ -240,7 +219,7 @@ The following are blocking invariants.
 25. **Reversible influence:** every non-merged growth can be brought to zero influence without an uncontrolled discontinuity.
 26. **Isperia admission warrant:** Wrenn cannot raise a newborn growth above zero influence without a valid warrant.
 27. **Isperia maintenance warrant:** ordinary post-commit decay or lysis requires a valid maintenance decision.
-28. **Containment distinction:** emergency safety reduction is recorded as containment, not disguised as economic judgement.
+28. **Containment accountability:** emergency safety reduction is recorded as containment, never disguised as economic judgement; Tolaria detects and contains mechanically, and every containment is adjudicated by Isperia back to the admitting warrant and the `adjudication_policy_version` in force — a rollback is a defect report against that policy version. (ADR-0010)
 29. **Authority enforcement:** Aurelia cannot manage post-commit structure; Emrakul cannot manage unborn structure; Ugin cannot issue local transitions.
 30. **Grace-period protection:** contribution-based removal cannot fire before declared blend and holding windows complete.
 31. **Complete negative retention:** structural rejects, compilation failures, QA failures, adjudication rejects, no-op decisions and abstentions are stored.
