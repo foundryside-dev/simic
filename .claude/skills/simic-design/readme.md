@@ -105,11 +105,13 @@ Do not introduce icon sets, emoji, or drawn illustrations. When an icon urge str
 > applied to pulled specimen copy (canonical sentence, newsroom rule, wiki
 > nav, footer version stamps).
 >
-> **The upstream project is now BEHIND this directory**: it still carries the
-> three stale token values, Namespec 1.0 names, and pre-rename diagram SVGs.
-> Pushing the corrected tree back upstream (`/design-sync`) is owner-gated
-> and has not been done. Until then, do not re-pull over this directory
-> without re-applying everything in this note.
+> **Upstream re-synced 2026-08-09 (owner-directed):** the corrected 20-file
+> delta (tokens, manifest, adherence, bundle, renamed specimen copy, this
+> readme, and the current Namespec 2.0 diagram renders) was pushed back to
+> the claude.ai project via DesignSync, and the round trip was verified
+> (upstream `tokens/colors.css` carries hue 175/85 and no accent-quiet).
+> Local and upstream agree as of that date. If either side changes, this
+> directory and `site/style.css` remain the ground truth to sync FROM.
 
 - `styles.css` — global entry (imports everything below)
 - `tokens/` — `colors.css`, `typography.css`, `spacing.css`, `base.css`
