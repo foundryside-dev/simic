@@ -139,6 +139,8 @@ The formalism's similarity to admission must not be read as parity of evidence. 
 
 The system has three tiers of evidentiary strength, in strictly decreasing order: **admission** (matched common-future branches — the full counterfactual), **tenancy** (re-adaptation at horizon \(H\) — replaceability, not intrinsic value), and **allocation** (Ugin's aggregate outcomes — no per-decision counterfactual at all). Each authority's decision machinery claims no more than its tier can support.
 
+During bootstrap the tenancy tier is anchored: on the declared anchor host set, every admission's no-op branch runs for the full tenure (the anchor corpus, ADR-0011), and the re-adaptation instrument — including the choice of \(H\) — is calibrated against that ground truth at seed-level counting (INV-32). After the scaffold withdraws, the weaker standard is measured, not assumed.
+
 #### Retention hysteresis (ADR-0005)
 
 Admission and retention thresholds form a Schmitt trigger: admission requires the conservative margin over no-op to exceed \(\theta_{\mathrm{admit}}\); continued tenancy requires only \(u_{\mathrm{retain}} \ge \theta_{\mathrm{retain}}\), with \(\theta_{\mathrm{retain}} = \theta_{\mathrm{admit}} - \Delta\) and \(\Delta > 0\) strictly (INV-33). A resident growth that drifts modestly below the admission bar is not thereby lysed.

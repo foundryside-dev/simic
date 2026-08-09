@@ -32,7 +32,7 @@
 | **Permanent scaffold dependence** | Production generation fails without stock reference seeds | Explicit null ancestry, withdrawal schedule, held-out scaffold-free evaluation |
 | **Permanent bitwise burden** | Exactness requirements prevent realistic kernels, scale or hardware evolution | Treat Academy exactness as a retained metrology profile; calibrate Field execution rather than requiring universal bitwise identity |
 | **Premature execution withdrawal** | Field noise changes rankings or no-op decisions before it is understood | Decision-aware Field gate, uncertainty margins and Academy escalation |
-| **Lockstep scaffold withdrawal** | One subsystem loses support because another subsystem is ready | Independent three-axis `ScaffoldState` and separate gate ownership |
+| **Lockstep scaffold withdrawal** | One subsystem loses support because another subsystem is ready | Independent four-axis `ScaffoldState` and separate gate ownership |
 | **Multi-scaffold confounding** | A failure after simultaneous withdrawal cannot be attributed | One-axis confirmatory transitions and declared interaction experiments |
 | **Hidden scaffold correlation** | Fixed seeds, exact execution and stock ancestry make one another look stronger than they are | Selected scaffold interaction matrix and final fully withdrawn corner |
 | **Wrenn legacy blueprint creep** | Host physiology quietly regains a preferred design catalogue | Reference population lives in Urborg/controls; Wrenn imports no blueprint library |

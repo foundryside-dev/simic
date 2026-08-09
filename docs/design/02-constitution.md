@@ -187,7 +187,7 @@ Changing a codename or moving an authority between names requires an architectur
 
 ---
 
-<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended) -->
+<!-- hld: source: v4.1 monolith lines 3094–3142 · amended by ADR-0004 (INV-45 added), ADR-0005 (INV-33 amended), ADR-0008 (Namespec 2.0 renames; content unchanged), ADR-0010 (INV-28 amended), ADR-0011 (INV-39 amended) -->
 ## 18. Safety, Correctness and Constitutional Invariants
 
 The following are blocking invariants.
@@ -230,7 +230,7 @@ The following are blocking invariants.
 36. **Urborg append-only history:** corrections create new records rather than rewriting causal history.
 37. **Blinding by construction:** source fields are absent from QA and adjudication views rather than merely ignored.
 38. **Failure visibility:** invariant breaches fail loudly and are visible through Tamiyo; no silent fallback fabricates valid-looking state.
-39. **Declared scaffold state:** every curriculum, QA and confirmatory run records its execution, host-distribution and design-prior regimes.
+39. **Declared scaffold state:** every curriculum, QA and confirmatory run records its execution, host-distribution, design-prior and counterfactual-anchor regimes. (ADR-0011)
 40. **Independent withdrawal gates:** one scaffold cannot advance because a different scaffold passed its gate.
 41. **One-axis confirmatory transition:** withdrawing multiple scaffolds at once requires a declared interaction experiment and completed single-axis controls.
 42. **Retained reference capability:** withdrawal removes a production dependency, not the Academy replay harness, acquisition fixtures or blinded reference controls.

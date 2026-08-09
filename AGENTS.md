@@ -92,7 +92,7 @@ alternative lens, ADR-0009).
 - **Tamiyo isolation:** disconnecting observability cannot change training.
 - **Leyline dependency direction:** contracts import nothing from subsystems.
 - **Grouped statistics:** branches of one base trajectory never cross splits.
-- **Scaffold discipline:** every run declares its three-axis `ScaffoldState`;
+- **Scaffold discipline:** every run declares its four-axis `ScaffoldState`;
   withdrawal gates are independent; confirmatory transitions move one axis at
   a time.
 

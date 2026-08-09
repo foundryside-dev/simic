@@ -45,6 +45,8 @@ Recommended training sequence:
 
 Aurelia's objective must not pay it for outcomes caused solely by Ugin granting a larger budget. It is evaluated on action quality inside the envelope it received.
 
+The bootstrap source of Aurelia's counterfactual labels is the anchor corpus (ADR-0011): scheduled or random decision points on the declared seed set, forked per action class and run to end-of-run, generated before any policy exists so the labels carry no on-policy sampling bias. Aurelia consumes only the marginalised slice — best-over-action-set versus no-op, class-blind — because a topology preference is a signal it cannot legally express (INV-09); the per-action detail routes to telemetry-sufficiency validation, the Urborg/Momir bootstrap corpus, and Ugin class statistics.
+
 The `GrowthIntent` action channel is deliberately coarse and canonical. Aurelia is never rewarded for selecting a topology family, ancestor, diagnosis, rank, width or operator. Joint training with Momir must include anti-collusion tests so the pair cannot encode structural hints in nominally irrelevant continuous values, field ordering, candidate count or aliases. Early training should hold Momir fixed or use a known-good provider so Aurelia learns commissioning rather than co-design.
 
 ### 17.3 Ugin

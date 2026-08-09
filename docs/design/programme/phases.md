@@ -12,7 +12,7 @@ The first coherent implementation contains:
 - one universal residual growth envelope;
 - Tolaria ordinary host training through one deterministic step engine;
 - exact Tolaria snapshot, restore, branch and common-future replay under one Academy reference profile;
-- one explicit three-axis `ScaffoldState` and scaffold manifest registry;
+- one explicit four-axis `ScaffoldState` and scaffold manifest registry;
 - a calibrated-stochastic harness capable of measuring Field-to-Academy disagreement, even if full Field operation remains disabled;
 - one fixed Ugin strategic envelope;
 - one heuristic Aurelia tactical controller;

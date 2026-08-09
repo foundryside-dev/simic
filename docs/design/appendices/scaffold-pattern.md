@@ -16,13 +16,14 @@ The response is not to pretend the unrestricted problem is easy. It is to establ
 
 This is a uniform theory of generalisation rather than three unrelated training tricks.
 
-### F.2 The three primary scaffolds
+### F.2 The four primary scaffolds
 
 | Scaffold | Protects against | Acquisition regime | Relaxation | Withdrawal gate | Retained role |
 |---|---|---|---|---|---|
 | Tolaria Academy exactness | Attribution error | Bitwise-exact paired worlds | Repeated stochastic worlds and surrogate calibration | Ranking, decision, uncertainty and tail criteria | Causal oracle, CI, regression and disputed-case retest |
 | Repeated host trajectories | Host variance | Fixed acquisition seeds and identical trajectories | Held-out in-family initialisations and one-axis variation | Stable tactical timing and lifecycle outcomes | Policy-language and regression fixtures |
 | Urborg reference ancestry | Generator collapse | Reconstruction, imitation and bounded mutation | Ancestry dropout and partial de novo design | Structural validity and positive coverage with null ancestry | Blinded controls and historical precedent |
+| Anchor corpus (ADR-0011) | Unvalidated tenancy evidence and unlabelled commissioning decisions | Per-decision, per-action full-trajectory counterfactual fan-out on a declared seed set, decision points scheduled or random (policy-independent) | Admission-anchored only, then sampled subsets | Production instruments decision-calibrated against anchored ground truth, counted at seed level (INV-32) | Audit hosts, disputed-tenancy escalation, periodic anchor refresh |
 
 ### F.3 Tolaria's training wheels
 
@@ -60,6 +61,7 @@ The primary gate owners are:
 - **Isperia** authorises use of that evidence for a declared assurance class and applies uncertainty margins;
 - **Aurelia curriculum evaluation** certifies host-distribution generalisation;
 - **Momir curriculum evaluation** certifies null-ancestry design competence;
+- **Jin-Gitaxias** certifies anchor-corpus calibration evidence, and **Isperia** authorises unanchored maintenance evidence for a declared assurance class (ADR-0011);
 - **Leyline** validates that the run's declared `ScaffoldState` matches the actual configuration.
 
 No owner may certify another dimension merely because its own dimension is ready.
@@ -82,9 +84,9 @@ The order may change, but only one scaffold changes per confirmatory transition.
 
 A multi-axis transition without those controls is not necessarily unsafe, but it is scientifically uninterpretable and cannot support an attribution claim.
 
-### F.6 Adding a fourth scaffold
+### F.6 Adding a new scaffold
 
-Any future proposal for restricted grammar profiles, fixed blend schedules, synthetic tasks, single-slot hosts, known-rank repairs or other training wheels must answer:
+Any future proposal for restricted grammar profiles, fixed blend schedules, synthetic tasks, single-slot hosts, known-rank repairs or other training wheels must answer (the anchor corpus filed its answers in ADR-0011):
 
 ```text
 What failure mode does this scaffold protect against?

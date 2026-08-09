@@ -571,6 +571,8 @@ ScaffoldState
         REPEATED_ACQUISITION | HELD_OUT_IN_FAMILY | OPEN_DISTRIBUTION
     design_prior_regime
         REFERENCE_ANCESTRY | ANCESTRY_DROPOUT | NULL_ANCESTRY
+    counterfactual_anchor_regime
+        FULL_DECISION_FANOUT | ADMISSION_ANCHORED | UNANCHORED
     active_scaffold_ids[]
     passed_gate_evidence_ids[]
     retained_reference_capabilities[]
@@ -579,4 +581,4 @@ ScaffoldState
     provenance
 ```
 
-The three regime fields are independent axes, not aliases for one global curriculum stage. A transition that changes more than one axis must carry an explicit interaction experiment identifier and cite the completed single-axis controls. The run fails closed when its declared scaffold state cannot be reconciled with the active Tolaria profile, host split, or Momir ancestry context.
+The four regime fields are independent axes, not aliases for one global curriculum stage (fourth axis: ADR-0011). A transition that changes more than one axis must carry an explicit interaction experiment identifier and cite the completed single-axis controls. The run fails closed when its declared scaffold state cannot be reconciled with the active Tolaria profile, host split, or Momir ancestry context.
