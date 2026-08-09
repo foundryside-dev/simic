@@ -95,6 +95,22 @@ def test_merge_rejects_duplicate_fan_identity(tmp_path):
         s.merge()
 
 
+def test_merge_skips_torn_final_line_but_raises_on_interior(tmp_path):
+    s = Store(tmp_path)
+    s.append(0, _rec(episode_seed=2, fan_epoch=5))
+    s.append(0, _rec(episode_seed=3, fan_epoch=5))
+    s.close()
+    p = tmp_path / "shards" / "worker_0.jsonl"
+    content = p.read_text()
+    p.write_text(content + '{"torn": ')  # host crash mid-append: record never durable
+    merged = Store(tmp_path).merge()
+    assert len(merged) == 2  # torn tail skipped (loudly), prior records intact
+    lines = content.splitlines()
+    p.write_text(lines[0][: len(lines[0]) // 2] + "\n" + lines[1] + "\n")  # torn INTERIOR line = corruption
+    with pytest.raises(ValueError):
+        Store(tmp_path).merge()
+
+
 def test_comparator_policy_runs_do_not_collide(tmp_path):
     s = Store(tmp_path)
     a = _rec(kind="policy_run", split_role="eval", policy_checkpoint_id="trained")
