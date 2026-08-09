@@ -2,35 +2,35 @@
 %% Source: docs/design/01-claim.md §1 (the shared execution reality).
 %% Rendered by build.sh; do not hand-edit the generated SVGs.
 flowchart TD
-    DATA["Task and data stream"] --> TOL["Tolaria<br/>trains the Kasmina host"]
+    DATA["Task and data stream"] --> TOL["Tolaria<br/>trains the Wrenn host"]
     TOL --> NIS["Nissa publishes the<br/>canonical TelemetryEnvelope"]
 
-    NIS -->|"same envelope, published directly"| NAR["Narset<br/>whether and where<br/>to commission growth"]
+    NIS -->|"same envelope, published directly"| AUR["Aurelia<br/>whether and where<br/>to commission growth"]
     NIS -->|"same envelope, published directly"| MOM["Momir<br/>designs candidate growth"]
 
-    TAM["Tamiyo<br/>authorises strategic resources"] --> NAR
-    NAR -->|"GrowthIntent<br/>the assignment brief"| RES["Leyline and Kasmina resolve<br/>the legal GrowthRequest"]
+    UGN["Ugin<br/>authorises strategic resources"] --> AUR
+    AUR -->|"GrowthIntent<br/>the assignment brief"| RES["Leyline and Wrenn resolve<br/>the legal GrowthRequest"]
     RES --> MOM
-    SARB["Sarpadia<br/>optional bootstrap ancestry"] -.-> MOM
+    URGB["Urborg<br/>optional bootstrap ancestry"] -.-> MOM
 
     MOM --> ELE["Elesh conforms"]
-    ELE --> TEZ["Tezzeret compiles"]
-    TEZ --> URA["Urabrask specifies QA<br/>Tolaria executes the tests"]
-    URA --> CERT["Urabrask certifies<br/>the evidence"]
-    CERT --> AUG{"Augustin judges<br/>candidate versus no-op"}
+    ELE --> URA["Urabrask compiles"]
+    URA --> JIN["Jin-Gitaxias specifies QA<br/>Tolaria executes the tests"]
+    JIN --> CERT["Jin-Gitaxias certifies<br/>the evidence"]
+    CERT --> ISP{"Isperia judges<br/>candidate versus no-op"}
 
-    AUG -->|"admit"| KAS["Kasmina embodies<br/>the admitted growth"]
-    AUG -->|"no-op wins"| NOOP["No intervention<br/>policy utility exactly zero"]
+    ISP -->|"admit"| WRE["Wrenn embodies<br/>the admitted growth"]
+    ISP -->|"no-op wins"| NOOP["No intervention<br/>policy utility exactly zero"]
 
-    %% INV-27: Emrakul acts only on an Augustin maintenance warrant. Do not
+    %% INV-27: Emrakul acts only on an Isperia maintenance warrant. Do not
     %% shorten this label to "Emrakul removes ..." — that draws Emrakul
     %% retiring committed structure on its own authority, which it cannot.
-    KAS --> EMR["Emrakul removes what Augustin<br/>judges no longer earns its place"]
-    AUG -.->|"maintenance warrant"| EMR
+    WRE --> EMR["Emrakul removes what Isperia<br/>judges no longer earns its place"]
+    ISP -.->|"maintenance warrant"| EMR
 
-    KAS --> SAR["Sarpadia retains every<br/>success, failure, abstention"]
-    NOOP --> SAR
-    EMR --> SAR
-    SAR --> OON["Oona reveals<br/>the complete account"]
+    WRE --> URG["Urborg retains every<br/>success, failure, abstention"]
+    NOOP --> URG
+    EMR --> URG
+    URG --> TAM["Tamiyo reveals<br/>the complete account"]
 
     class NOOP accent

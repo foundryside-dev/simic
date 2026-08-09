@@ -3,6 +3,10 @@
 Date: 2026-08-08 · Status: accepted
 Deciders: john (approach A selected from three in-session) · Tracker: simic-357c92664c
 
+> **Namespec note (ADR-0008):** this record predates Namespec 2.0 and uses
+> Namespec 1.0 names; read it through the concordance in
+> [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
+
 ## Context
 
 Esper and esper-lite had two systemic failures. Reward shaping is recorded

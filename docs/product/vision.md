@@ -84,7 +84,7 @@ Escalate BEFORE acting — the agent MUST get owner sign-off for:
   without explicit say-so); **never push without an explicit ask**; no destructive
   git without permission.
   Repo discipline (restates HLD §30; owner-confirmed 2026-08-08): HLD
-  constitutional constraints (Namespec 1.0, the §18 invariants, the
+  constitutional constraints (Namespec 2.0, the §18 invariants, the
   authority boundaries, the newsroom rule, the no-op requirement, scaffold
   withdrawal) change only through an ADR naming the displaced invariant.
   (Taxonomy + rationale: product-ownership-operating-model.md.)

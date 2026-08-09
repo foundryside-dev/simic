@@ -4,26 +4,26 @@
 <!-- hld: source: v4.1 monolith lines 3143–3245 -->
 ## 19. Observability and Auditability
 
-Oona exposes the system at three levels.
+Tamiyo exposes the system at three levels.
 
 ### 19.1 Live operational view
 
 - current Tolaria training run, device, precision and execution regime;
 - current three-axis `ScaffoldState` and gate evidence;
 - host loss, optimiser progress and data cursor;
-- current Tamiyo strategic envelope;
+- current Ugin strategic envelope;
 - current Nissa observation identity and publication recipients;
-- current Narset GrowthIntent and resolved GrowthRequest;
+- current Aurelia GrowthIntent and resolved GrowthRequest;
 - bootstrap ancestry status: supplied, withdrawn or control-only;
-- Narset’s last action and legal action mask;
+- Aurelia’s last action and legal action mask;
 - Nissa health summaries;
 - active requests and candidate pools;
 - Elesh rejection counts and reasons;
-- Tezzeret compilation state and spend;
-- Urabrask test-plan progress and QA status;
+- Urabrask compilation state and spend;
+- Jin-Gitaxias test-plan progress and QA status;
 - Tolaria branch progress and determinism state;
-- Augustin no-op margins, verdicts and policy versions;
-- Kasmina lifecycle and alpha;
+- Isperia no-op margins, verdicts and policy versions;
+- Wrenn lifecycle and alpha;
 - Emrakul maintenance state;
 - and current global resource use.
 
@@ -36,14 +36,14 @@ Oona exposes the system at three levels.
 - compilation manifests;
 - QA tests, defects, warnings and evidence completeness;
 - measured versus surrogate-predicted trajectories;
-- Augustin eligibility and utility decomposition;
+- Isperia eligibility and utility decomposition;
 - lineage and retrieval paths;
 - lifecycle transitions;
 - and divergence-localisation traces.
 
 ### 19.3 Audit bundle
 
-For any intervention, Oona can export:
+For any intervention, Tamiyo can export:
 
 ```text
 TrainingRunSpec and Tolaria execution manifest
@@ -55,23 +55,23 @@ ProposalBatchRequest
 BootstrapAncestryContext or explicit null
 Raw candidate pool
 Elesh reports
-Tezzeret manifests
+Urabrask manifests
 Snapshot and determinism manifest
-Urabrask TestPlan
+Jin-Gitaxias TestPlan
 Tolaria BranchResults
-Urabrask QualityReport
-Augustin AdmissionDecision
-Kasmina lifecycle events
-Urabrask maintenance QualityReports
-Augustin MaintenanceDecisions
+Jin-Gitaxias QualityReport
+Isperia AdmissionDecision
+Wrenn lifecycle events
+Jin-Gitaxias maintenance QualityReports
+Isperia MaintenanceDecisions
 Emrakul maintenance events
-Sarpadia record references
+Urborg record references
 ```
 
 The bundle is sufficient to reconstruct:
 
 - which observation was published;
-- why Narset commissioned work;
+- why Aurelia commissioned work;
 - how the legal request was resolved;
 - whether ancestry was supplied or withdrawn;
 - what alternatives existed;
@@ -84,7 +84,7 @@ The bundle is sufficient to reconstruct:
 
 ### 19.4 Naming-smell view
 
-Oona should surface architecture-smell events such as:
+Tamiyo should surface architecture-smell events such as:
 
 ```text
 FORBIDDEN_IMPORT_DETECTED

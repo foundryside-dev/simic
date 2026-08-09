@@ -8,7 +8,7 @@ Subsystem boundaries are enforced with typed, immutable or append-only records. 
 
 ### 9.1 `StrategicEnvelope`
 
-Issued by Tamiyo and consumed by Narset, the request resolver, Augustin, Kasmina and Emrakul.
+Issued by Ugin and consumed by Aurelia, the request resolver, Isperia, Wrenn and Emrakul.
 
 ```text
 StrategicEnvelope
@@ -39,11 +39,11 @@ StrategicEnvelope
     schema_version
 ```
 
-The envelope grants permission and constrains judgement. It does not instruct Narset to act or Augustin which candidate to select.
+The envelope grants permission and constrains judgement. It does not instruct Aurelia to act or Isperia which candidate to select.
 
 ### 9.2 `TelemetryEnvelope`
 
-Produced once by Nissa for a particular observation and published independently to Tamiyo, Narset, Momir, Sarpadia and Oona according to access policy.
+Produced once by Nissa for a particular observation and published independently to Ugin, Aurelia, Momir, Urborg and Tamiyo according to access policy.
 
 ```text
 TelemetryEnvelope
@@ -70,13 +70,13 @@ TelemetryEnvelope
 
 Any change in meaning, width, basis, normalisation or provenance creates a new schema version. Nissa may normalise and align measurements, but the record contains no `should_grow`, deficit diagnosis, topology suggestion, ancestor choice, or recommended mechanism.
 
-The same `observation_id` must be referenced by Narset's intent, Momir's conditioning input, and the Tolaria snapshot later used for counterfactual evaluation. A mismatch fails closed.
+The same `observation_id` must be referenced by Aurelia's intent, Momir's conditioning input, and the Tolaria snapshot later used for counterfactual evaluation. A mismatch fails closed.
 
 `observation_id` and `telemetry_id` are distinct on purpose: `observation_id` names the canonical observation identity that binds downstream records (INV-08); `telemetry_id` names this envelope record instance for storage and audit. Independent publications and permitted per-consumer projections of one observation share `observation_id` but carry distinct `telemetry_id`s.
 
 ### 9.3 `GrowthIntent`
 
-Authored by Narset under an active `StrategicEnvelope`. This is the **assignment brief**, not the design brief.
+Authored by Aurelia under an active `StrategicEnvelope`. This is the **assignment brief**, not the design brief.
 
 ```text
 GrowthIntent
@@ -110,11 +110,11 @@ expected_internal_structure
 free_form_designer_message
 ```
 
-Narset does not copy, summarise, annotate or forward telemetry inside the intent.
+Aurelia does not copy, summarise, annotate or forward telemetry inside the intent.
 
 ### 9.4 `GrowthRequest`
 
-Resolved deterministically under Leyline from the `GrowthIntent`, active `StrategicEnvelope`, Kasmina `RegionContract`, and compatible `GrammarProfile`. Narset does not author the resolved fields.
+Resolved deterministically under Leyline from the `GrowthIntent`, active `StrategicEnvelope`, Wrenn `RegionContract`, and compatible `GrammarProfile`. Aurelia does not author the resolved fields.
 
 ```text
 GrowthRequest
@@ -165,7 +165,7 @@ Candidate count is not a design hint. Momir's candidate-generation function shou
 
 ### 9.6 `BootstrapAncestryContext`
 
-An optional, temporary curriculum record assembled from Sarpadia by the curriculum harness. Narset never selects or transmits it.
+An optional, temporary curriculum record assembled from Urborg by the curriculum harness. Aurelia never selects or transmits it.
 
 ```text
 BootstrapAncestryContext
@@ -238,7 +238,7 @@ The canonical semantic hash identifies developmental meaning independently of co
 
 ### 9.9 `ExecutableGrowthArtifact`
 
-Produced by Tezzeret.
+Produced by Urabrask.
 
 ```text
 ExecutableGrowthArtifact
@@ -257,7 +257,7 @@ ExecutableGrowthArtifact
     reproducibility_manifest
 ```
 
-The artefact is not trusted merely because compilation succeeded. Urabrask must dynamically verify it against the canonical specification.
+The artefact is not trusted merely because compilation succeeded. Jin-Gitaxias must dynamically verify it against the canonical specification.
 
 ### 9.10 `TrainingRunSpec`
 
@@ -300,8 +300,8 @@ Snapshot
     growth_slot_states
     lifecycle_state
     economy_state
-    narset_recurrent_state
-    tamiyo_state_reference
+    aurelia_recurrent_state
+    ugin_state_reference
     telemetry_history
     random_number_states
     dataloader_cursor
@@ -318,7 +318,7 @@ A snapshot is complete only when it captures enough state to satisfy the Academy
 
 ### 9.12 `TestPlan`
 
-Produced by Urabrask and consumed by Tolaria.
+Produced by Jin-Gitaxias and consumed by Tolaria.
 
 ```text
 TestPlan
@@ -345,7 +345,7 @@ TestPlan
     qa_policy_version
 ```
 
-Urabrask controls what evidence must be collected. It does not control the adjudication utility applied later.
+Jin-Gitaxias controls what evidence must be collected. It does not control the adjudication utility applied later.
 
 ### 9.13 `BranchResult`
 
@@ -385,7 +385,7 @@ Source provenance is held outside the blinded view and reattached only after QA 
 
 ### 9.14 `QualityReport`
 
-Produced by Urabrask and consumed by Augustin, Sarpadia, Narset and Emrakul.
+Produced by Jin-Gitaxias and consumed by Isperia, Urborg, Aurelia and Emrakul.
 
 ```text
 QualityReport
@@ -424,7 +424,7 @@ A `QualityReport` establishes facts and test status. It does not contain `ADMIT`
 
 ### 9.15 `AdmissionDecision`
 
-Produced by Augustin.
+Produced by Isperia.
 
 ```text
 AdmissionDecision
@@ -447,11 +447,11 @@ AdmissionDecision
     adjudication_policy_version
 ```
 
-An admission warrant is required before Kasmina may raise a new growth above zero influence.
+An admission warrant is required before Wrenn may raise a new growth above zero influence.
 
 ### 9.16 `MaintenanceDecision`
 
-Produced by Augustin from a maintenance `QualityReport`.
+Produced by Isperia from a maintenance `QualityReport`.
 
 ```text
 MaintenanceDecision
@@ -471,12 +471,12 @@ Emrakul decides how to execute an authorised safe transition. It does not rewrit
 
 ### 9.17 `LifecycleCommand`
 
-Issued by Narset before commitment or Emrakul after commitment.
+Issued by Aurelia before commitment or Emrakul after commitment.
 
 ```text
 LifecycleCommand
     command_id
-    authority               # NARSET or EMRAKUL
+    authority               # AURELIA or EMRAKUL
     target_growth_id
     requested_transition
     admission_warrant | null
@@ -487,11 +487,11 @@ LifecycleCommand
     reason
 ```
 
-Kasmina validates the command against authority, state, warrant, budget and transition rules.
+Wrenn validates the command against authority, state, warrant, budget and transition rules.
 
 ### 9.18 `GrowthRecord`
 
-Stored by Sarpadia.
+Stored by Urborg.
 
 ```text
 GrowthRecord
@@ -524,11 +524,11 @@ GrowthRecord
     split_membership
 ```
 
-The full candidate pool is stored, including stock-reference controls, structurally rejected candidates, scaffold-free de novo pools, and pools in which Augustin selects no-op.
+The full candidate pool is stored, including stock-reference controls, structurally rejected candidates, scaffold-free de novo pools, and pools in which Isperia selects no-op.
 
 ### 9.19 `EventEnvelope`
 
-Defined by Leyline and published by every subsystem for Oona.
+Defined by Leyline and published by every subsystem for Tamiyo.
 
 ```text
 EventEnvelope
@@ -544,7 +544,7 @@ EventEnvelope
     integrity_digest
 ```
 
-Oona consumes these events but does not define their source-of-truth semantics.
+Tamiyo consumes these events but does not define their source-of-truth semantics.
 
 ### 9.20 `ScaffoldManifest` and `ScaffoldState`
 

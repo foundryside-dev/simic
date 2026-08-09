@@ -1,43 +1,40 @@
 <!-- hld: simic HLD v4.1 chapter (ADR-0001 decomposition) · index: ../00-INDEX.md -->
 [← HLD index](../00-INDEX.md)
 
-<!-- hld: source: v4.1 monolith lines 1953–1992 -->
-### 13.4 Tamiyo — Strategic Controller
+<!-- hld: source: v4.1 monolith lines 2358–2396 -->
+### 13.14 Tamiyo — Witness and Operator Surface
 
 #### Responsibilities
 
-- allocate parameter, compute, latency and churn budgets across regions;
-- set maximum concurrent growth;
-- establish global and regional cooldowns;
-- balance exploitation and exploration allowances;
-- set long-horizon priorities and risk ceilings;
-- coordinate multiple Narset-controlled regions or cells;
-- react to persistent trends rather than individual noisy steps;
-- and emit versioned `StrategicEnvelope` records.
+- consume `EventEnvelope` streams;
+- maintain append-only flight-recorder storage;
+- build materialised views and projections;
+- power operator terminal consoles and mission-control-style dashboards;
+- expose training runs, branch trees, lineages, budgets, QA and adjudication;
+- generate audit bundles;
+- alert on invariant breaches;
+- and support replay navigation.
 
-#### Inputs
+#### Internal separation
 
-- coarse Nissa summaries;
-- Sarpadia history and regional performance;
-- current host capacity and committed growth;
-- aggregate Augustin and Emrakul outcomes;
-- strategic task objectives;
-- and global resource availability.
+Tamiyo may contain distinct internal packages for:
 
-#### Outputs
+- event transport adapters;
+- durable flight-recorder storage;
+- projection builders;
+- TUI adapters;
+- dashboard adapters;
+- and report generation.
 
-- `StrategicEnvelope`;
-- allocation updates;
-- embargoes or emergency restrictions;
-- and strategic-review requests.
+Leyline owns event schemas. Producers own the truth of their events. Tamiyo owns presentation and projection.
 
 #### Invariants
 
-- Tamiyo operates on a slower cadence than Narset.
-- It cannot name a candidate, graph node, kernel or blend tick.
-- It cannot directly mutate alpha or issue a local lifecycle transition.
-- All local resource use is traceable to an active envelope.
+- Training behaviour is unchanged when Tamiyo is disconnected.
+- Operator commands, if later introduced, pass through explicit APIs owned by the relevant authority.
+- Missing UI data fails visibly rather than silently fabricating a default.
+- Tamiyo cannot mutate Tolaria, Wrenn, Aurelia, Ugin or Isperia state through a presentation backchannel.
 
 #### Smell
 
-> If Tamiyo chooses the next candidate or alpha increment, strategy has collapsed into micromanagement.
+> If changing a dashboard changes the training trace, the witness has become a participant.

@@ -23,55 +23,55 @@ The target is not bitwise validation on every future production configuration. T
 
 ### 23.2 Controller rename and split
 
-- The existing local/tactical policy responsibility moves to **Narset**.
-- **Tamiyo** becomes the strategic controller over regions, budgets, capacity and long horizons.
-- Transitional code may use an explicit name such as `LegacyTamiyoController`, but the final API does not use `Tamiyo` for the local controller.
-- Any prior allocator implementation migrates to Tamiyo’s target `StrategicEnvelope` interface.
+- The existing local/tactical policy responsibility moves to **Aurelia**.
+- **Ugin** becomes the strategic controller over regions, budgets, capacity and long horizons.
+- Transitional code may use an explicit name such as `LegacyTamiyoController` (the predecessor's tactical controller carried the name Tamiyo under Namespec 1.0), but the final API does not use `Tamiyo` for the local controller — under Namespec 2.0 that name belongs to the witness.
+- Any prior allocator implementation migrates to Ugin’s target `StrategicEnvelope` interface.
 
 ### 23.3 Observation, commissioning and candidate design
 
-- Nissa becomes the canonical source of Momir's diagnostic input and publishes the same observation identity directly to Narset and Momir.
-- Narset emits `GrowthIntent`, not a complete design-bearing `GrowthRequest`.
-- Leyline and Kasmina deterministically resolve tensor, grammar and budget constraints.
-- Fixed blueprint selection is removed from Narset's production action space.
+- Nissa becomes the canonical source of Momir's diagnostic input and publishes the same observation identity directly to Aurelia and Momir.
+- Aurelia emits `GrowthIntent`, not a complete design-bearing `GrowthRequest`.
+- Leyline and Wrenn deterministically resolve tensor, grammar and budget constraints.
+- Fixed blueprint selection is removed from Aurelia's production action space.
 - **Momir** becomes the generated candidate designer.
-- Legacy Norm, Attention, Convolution and related seeds migrate from Kasmina's internal blueprint library into a versioned Sarpadian reference population and research-control package.
+- Legacy Norm, Attention, Convolution and related seeds migrate from the legacy embodiment layer's internal blueprint library (Kasmina's, in the predecessor's naming) into a versioned Urborg reference population and research-control package.
 - Those reference seeds serve as temporary Momir ancestry and permanent experimental controls, not the production ontology.
 - Compatibility aliases are permitted only during migration and must not reintroduce topology fields into `GrowthIntent`.
 
 ### 23.4 Structural and compilation pipeline
 
 - **Elesh** is inserted after design and before compilation.
-- **Tezzeret** becomes the explicit compiler.
+- **Urabrask** becomes the explicit compiler.
 - Candidate identity is split into raw design, canonical semantic identity and executable artefact identity.
 
 ### 23.5 QA and adjudication split
 
 Any existing combined screening/economy component is decomposed:
 
-- **Urabrask** owns test planning, runtime checks, branch measurement, regression, uncertainty and `QualityReport`.
-- **Augustin** owns hard eligibility, no-op anchoring, policy utility, admission, continued tenancy and warrants.
+- **Jin-Gitaxias** owns test planning, runtime checks, branch measurement, regression, uncertainty and `QualityReport`.
+- **Isperia** owns hard eligibility, no-op anchoring, policy utility, admission, continued tenancy and warrants.
 
-This split is mandatory. Renaming the old judge to Urabrask while leaving admission logic inside it does not satisfy the target design.
+This split is mandatory. Renaming the old judge to Jin-Gitaxias while leaving admission logic inside it does not satisfy the target design.
 
-### 23.6 Kasmina and lifecycle
+### 23.6 Wrenn and lifecycle
 
-Kasmina retains host topology, reversible slots, gradient isolation, maturation, blending, commitment, decay mechanics and state serialization.
+Wrenn retains host topology, reversible slots, gradient isolation, maturation, blending, commitment, decay mechanics and state serialization.
 
 The change is constitutional:
 
-- influence-increasing transitions require Augustin warrants;
+- influence-increasing transitions require Isperia warrants;
 - post-commit ordinary removal requires maintenance warrants;
-- Narset and Emrakul have disjoint authority windows.
+- Aurelia and Emrakul have disjoint authority windows.
 
 ### 23.7 Memory and observability
 
-- The static seed catalogue becomes a versioned **Sarpadian reference population** plus an episodic lineage-aware archive.
-- Sarpadia records whether ancestry was supplied, withdrawn, or used only as a blinded control.
+- The static seed catalogue becomes a versioned **Urborg reference population** plus an episodic lineage-aware archive.
+- Urborg records whether ancestry was supplied, withdrawn, or used only as a blinded control.
 - Existing telemetry backends remain **Nissa**, with direct publication to Momir added as a locked route.
-- Existing operator surfaces migrate under **Oona**.
-- Oona gains a newsroom projection showing source observation, assignment, draft, standards, production, QA, judgement, placement, correction and archive.
-- Event schemas remain in Leyline and training remains independent of Oona availability.
+- Existing operator surfaces migrate under **Tamiyo**.
+- Tamiyo gains a newsroom projection showing source observation, assignment, draft, standards, production, QA, judgement, placement, correction and archive.
+- Event schemas remain in Leyline and training remains independent of Tamiyo availability.
 
 ### 23.8 Namespec migration
 
@@ -79,7 +79,7 @@ Package moves and telemetry names are versioned. Compatibility aliases are time-
 
 The migration should include:
 
-- an ADR locking Namespec 1.0;
+- an ADR locking the namespec (Namespec 2.0 — ADR-0008);
 - package-owner READMEs;
 - import-linter rules;
 - telemetry producer-name migration;

@@ -16,19 +16,19 @@ The newsroom analogy therefore explains why the architecture contains more roles
 
 | System role | Newsroom analogue | Legitimate question |
 |---|---|---|
-| Tamiyo | Editor-in-chief / managing editor | Which desks, beats and investigations receive resources? |
-| Narset | Assignments editor | Is there a story here, which region owns it, by when, and under what scope and budget? |
+| Ugin | Editor-in-chief / managing editor | Which desks, beats and investigations receive resources? |
+| Aurelia | Assignments editor | Is there a story here, which region owns it, by when, and under what scope and budget? |
 | Nissa | Reporting, photography and data desk | What was actually observed? |
 | Momir | Writer / investigative journalist | What coherent candidate follows from the evidence and assignment? |
 | Elesh | Copy, standards and house-form desk | Is the submission structurally legitimate, coherent and conformant? |
-| Tezzeret | Production, layout and publishing pipeline | Can canonical copy become an executable edition without changing meaning? |
+| Urabrask | Production, layout and manufacturing desk — the factory that prints the edition | Can canonical copy become an executable edition without changing meaning? |
 | Tolaria | Newsroom production environment, CMS and test presses | Where are ordinary and experimental editions produced and replayed? |
-| Urabrask | Fact-checking and QA | Are the claims and executable behaviour supported by evidence? |
-| Augustin | Publishing editor | Does this run, get returned, deferred, retested, rejected, or spiked? |
-| Kasmina | Live-edition integrator | How is accepted material placed into the running edition safely? |
+| Jin-Gitaxias | Fact-checking and QA — cold, empirical, perfectionist | Are the claims and executable behaviour supported by evidence? |
+| Isperia | Publishing editor | Does this run, get returned, deferred, retested, rejected, or spiked? |
+| Wrenn | Live-edition integrator — the symbiote who hosts the story | How is accepted material placed into the running edition safely? |
 | Emrakul | Corrections, withdrawal and retirement | What published material should be sedated, corrected, deprecated or removed? |
-| Sarpadia | Morgue and archive | What did we report, try, reject, retract and learn? |
-| Oona | Front page, broadcast desk and presentation | What does the operator or reader see? |
+| Urborg | Morgue and archive | What did we report, try, reject, retract and learn? |
+| Tamiyo | Front page, broadcast desk and presentation | What does the operator or reader see? |
 | Leyline | Stylebook and editorial constitution | What language, records and procedures govern the newsroom? |
 
 ### E.3 Assignment brief versus editorial angle
@@ -70,30 +70,30 @@ attention-like / convolution-like / norm-like recommendation
 free-form message to the designer
 ```
 
-Narset may see Nissa's evidence because it must decide whether to commission work. It must not become the channel through which Momir sees that evidence. The assignments desk is allowed to say “investigate Region A under this scope.” It is not allowed to say “write a story proving rank collapse and conclude that attention is the answer.”
+Aurelia may see Nissa's evidence because it must decide whether to commission work. It must not become the channel through which Momir sees that evidence. The assignments desk is allowed to say “investigate Region A under this scope.” It is not allowed to say “write a story proving rank collapse and conclude that attention is the answer.”
 
 ### E.4 The source-routing rule
 
 ```text
 Nissa observes host state S
-    ├──→ TelemetryEnvelope O ──→ Narset
+    ├──→ TelemetryEnvelope O ──→ Aurelia
     └──→ TelemetryEnvelope O ──→ Momir
 
-Narset emits GrowthIntent I
+Aurelia emits GrowthIntent I
 Leyline resolves GrowthRequest Q
-Sarpadia optionally emits ancestry A
+Urborg optionally emits ancestry A
 
 Momir designs from O + Q + optional A
 ```
 
 The following are constitutional failures:
 
-- Narset forwards a rewritten observation to Momir;
+- Aurelia forwards a rewritten observation to Momir;
 - Nissa emits a recommended solution;
-- Momir reads Narset hidden state;
+- Momir reads Aurelia hidden state;
 - the request resolver infers a diagnosis;
-- an ancestor is selected by Narset rather than the curriculum or retrieval policy;
-- or the observation referenced by Momir differs from the one that triggered Narset's commission.
+- an ancestor is selected by Aurelia rather than the curriculum or retrieval policy;
+- or the observation referenced by Momir differs from the one that triggered Aurelia's commission.
 
 ### E.5 The right to spike the story
 
@@ -101,32 +101,32 @@ A commissioned story does not have to run. Likewise, a `GrowthIntent` does not i
 
 The chain contains multiple legitimate stopping points:
 
-- Narset may choose `WAIT` and issue no assignment.
+- Aurelia may choose `WAIT` and issue no assignment.
 - Momir may produce no structurally viable proposal.
 - Elesh may reject malformed designs.
-- Tezzeret may fail to compile faithfully.
-- Urabrask may find runtime defects or inadequate evidence.
-- Augustin may select no-op, reject, defer or require retest.
-- Narset may abort stale growth before integration.
+- Urabrask may fail to compile faithfully.
+- Jin-Gitaxias may find runtime defects or inadequate evidence.
+- Isperia may select no-op, reject, defer or require retest.
+- Aurelia may abort stale growth before integration.
 - Emrakul may later withdraw committed growth under a maintenance warrant.
 
 This is the editorial equivalent of spiking a story, returning copy, publishing a correction, or withdrawing an obsolete article. The architecture is intentionally not a content mill that must publish something every time an assignment is raised.
 
 ### E.6 Archive discipline
 
-A credible newsroom archive contains accepted stories, abandoned drafts, corrections, retractions, failed investigations and source notes. Sarpadia must likewise retain:
+A credible newsroom archive contains accepted stories, abandoned drafts, corrections, retractions, failed investigations and source notes. Urborg must likewise retain:
 
 - stock reference seeds and their outcomes;
 - Momir children and parents;
 - structural rejects;
 - compilation failures;
 - QA defects;
-- Augustin rejections and no-op decisions;
+- Isperia rejections and no-op decisions;
 - stale integrations;
 - maintenance withdrawals;
 - and scaffold-withdrawal status.
 
-A winners-only Sarpadia is not institutional memory. It is mythology.
+A winners-only Urborg is not institutional memory. It is mythology.
 
 ### E.7 Where the analogy stops
 
@@ -135,7 +135,7 @@ The newsroom model is not a literal organisational chart and should not determin
 - Nissa may be automated and highly mathematical; it is not a human reporter.
 - Elesh's structural proofs are stronger than ordinary copy editing.
 - Tolaria is both the ordinary training substrate and the counterfactual production environment.
-- Augustin's utility policy is formal and versioned, not editorial taste.
-- Kasmina and Emrakul operate on a neural host, not a publication.
+- Isperia's utility policy is formal and versioned, not editorial taste.
+- Wrenn and Emrakul operate on a neural host, not a publication.
 
 The analogy is used to explain and lint authority boundaries. Leyline schemas, dependency rules, tests, blinding and deterministic provenance remain the source of architectural truth.

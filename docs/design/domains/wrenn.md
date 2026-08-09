@@ -2,7 +2,7 @@
 [← HLD index](../00-INDEX.md)
 
 <!-- hld: source: v4.1 monolith lines 2292–2321 -->
-### 13.12 Kasmina — Host and Growth Physiology
+### 13.12 Wrenn — Host and Growth Physiology
 
 #### Responsibilities
 
@@ -20,14 +20,14 @@
 
 #### Invariants
 
-- Kasmina does not decide whether a growth is good.
-- Kasmina owns no preferred stock blueprint or reference-seed catalogue.
+- Wrenn does not decide whether a growth is good.
+- Wrenn owns no preferred stock blueprint or reference-seed catalogue.
 - Region contracts describe attachment legality and tensor shape, not a suggested phenotype.
-- It will not raise influence without a valid Augustin admission warrant.
-- The embodied canonical semantic hash matches Augustin’s selected hash and Urabrask’s tested hash.
+- It will not raise influence without a valid Isperia admission warrant.
+- The embodied canonical semantic hash matches Isperia’s selected hash and Jin-Gitaxias’s tested hash.
 - Removal uses gradual blend-out except for declared emergency containment.
 - Occupant-specific economy state resets on slot recycling.
 
 #### Smell
 
-> If Kasmina ranks candidates, calculates admission utility, or regains an internal Norm/Attention/Conv catalogue, physiology has acquired opinions and design authority.
+> If Wrenn ranks candidates, calculates admission utility, or regains an internal Norm/Attention/Conv catalogue, physiology has acquired opinions and design authority.

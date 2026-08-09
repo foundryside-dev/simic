@@ -47,17 +47,17 @@ breaks. The old tribe is proof.
 - **The Proving Grounds (Tolaria).** Where we test rocks and train the Big
   Brain. The Grounds have no opinions. They run the hunt exactly the same
   way every time you ask for the same hunt.
-- **The Memory Wall (Sarpadia).** We draw every good rock, every bad rock,
+- **The Memory Wall (Urborg).** We draw every good rock, every bad rock,
   and every dead ape here. We never forget. We never erase. We learn from
   dead rocks just as much as living ones.
 
 ### The tribe
 
-**The Chief (Tamiyo).** DO: decide how much food and time the tribe has;
+**The Chief (Ugin).** DO: decide how much food and time the tribe has;
 pick which parts of the Big Brain get attention. DO NOT: tell anyone what
 kind of rock to make.
 
-**The Caller (Narset).** DO: point at a hole in the Big Brain and say "we
+**The Caller (Aurelia).** DO: point at a hole in the Big Brain and say "we
 need a rock here, right now!" DO NOT: tell the Maker what shape the rock
 should be. Do not pre-write the answer.
 
@@ -76,21 +76,21 @@ its own work.
 Rules; make the edges legal. DO NOT: care whether the rock is useful.
 Only whether it is legal.
 
-**The Sharpener (Tezzeret).** DO: bind the rock to a stick so it is ready
+**The Sharpener (Urabrask).** DO: bind the rock to a stick so it is ready
 for the Proving Grounds. DO NOT: change the shape the Maker and Smoother
 agreed on. Same rock, better handle.
 
-**The Hitter (Urabrask).** DO: smash the new rock in the Proving Grounds
+**The Hitter (Jin-Gitaxias).** DO: smash the new rock in the Proving Grounds
 and record exactly what happens. DO NOT: say whether the rock is good
 enough to keep. The Hitter reports; the Hitter never rules.
 
-**The Elder (Augustin).** DO: look at the smashed rock, compare it to the
+**The Elder (Isperia).** DO: look at the smashed rock, compare it to the
 do-nothing timeline, and say YES or NO. DO NOT: swing a club. Judges do
 not gather their own evidence. And before comparing anything, the Elder
 first asks the tail question: *could this rock destroy the Big Brain?* No
 rock buys its way past that question, however hard it hits.
 
-**The Healer (Kasmina).** DO: if the Elder said YES, carefully weave the
+**The Healer (Wrenn).** DO: if the Elder said YES, carefully weave the
 new rock into the Big Brain — slowly, so the Brain does not go crazy. DO
 NOT: pick which rock is good. The Healer weaves only what the Elder
 approved, and never without the Elder's mark.
@@ -100,7 +100,7 @@ that an old rock no longer earns its place, put it to sleep and rip it out
 safely so the Brain can grow elsewhere. DO NOT: make new rocks, judge
 newborn rocks, or reap without the Elder's ruling.
 
-**The Painter (Oona).** DO: watch the entire hunt and paint every single
+**The Painter (Tamiyo).** DO: watch the entire hunt and paint every single
 thing on the wall, so outsiders can see our story. DO NOT: touch the Big
 Brain. If the Painter goes to sleep, the tribe must keep hunting exactly
 the same way.

@@ -9,6 +9,16 @@ checkpoint-only); ~1.7 closures per working day needed to make the date.
 Public face live, hardened and now deploy-gated: https://simic.foundryside.dev
 with the wiki at /design/ (PDR-0018, PR #2 merged 6df7e7a).
 
+**Namespec 2.0 landed post-checkpoint, same day (ADR-0008, PDR-0020,
+branch namespec-2.0):** eight domains renamed (Sarpadia→Urborg, Tamiyo→Ugin,
+Narset→Aurelia, Tezzeret→Urabrask, Urabrask→Jin-Gitaxias, Augustin→Isperia,
+Kasmina→Wrenn, Oona→Tamiyo), full cascade through the constitution, every
+design chapter, appendices, root docs, model.dsl + diagrams (re-rendered),
+site, wiki (strict build green) and the open tracker titles; mechanics and
+all 45 invariants unchanged. Pre-2.0 records read through the ADR-0008
+concordance — beware the two reused names (Urabrask, Tamiyo). Publishing
+the renamed site/wiki needs the owner-gated merge + push of namespec-2.0.
+
 ## In flight
 - Nothing claimed. Six wave:1 items remain; simic-d6ea02f9a9 (containment
   owner) stays the natural next. Critical path: simic-0bf2c40dec →

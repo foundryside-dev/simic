@@ -20,5 +20,5 @@
 | Metric | Floor / ceiling | Current | Read on |
 |--------|-----------------|---------|---------|
 | Academy exact-replay gate: identical snapshot + identical future data ⇒ bitwise-identical traces (HLD §18, invariant 5) | Floor: 100% pass, from Phase D onward | N/A — pre-code | 2026-08-08 |
-| History completeness: candidate pools, failures, rejections, no-op wins and abstentions retained in Sarpadia (never winners-only) | Floor: 100% of cases | N/A — pre-code | 2026-08-08 |
+| History completeness: candidate pools, failures, rejections, no-op wins and abstentions retained in Urborg (never winners-only) | Floor: 100% of cases | N/A — pre-code | 2026-08-08 |
 | Harmful-intervention rate under admitted growth (HLD §28.6) | Ceiling: the tail-risk veto's declared operating point per assurance class — shape fixed by ADR-0004 (INV-45: veto precedes utility, non-tradeable, priced against snapshot distance); numbers land with the Phase-A adjudication-policy LLD | N/A — pre-code | 2026-08-08 (session 6: shape bound) |

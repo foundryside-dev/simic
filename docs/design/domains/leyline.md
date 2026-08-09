@@ -11,7 +11,7 @@
 - define canonical ordering and enum stability;
 - define `GrowthIntent`, `GrowthRequest`, `RegionContract` and `GrammarProfile` vocabularies;
 - provide the pure deterministic request resolver;
-- validate that resolved requests remain inside Tamiyo's envelope and Kasmina's region contract;
+- validate that resolved requests remain inside Ugin's envelope and Wrenn's region contract;
 - define lifecycle state and transition vocabulary;
 - define budget, spend and cost units;
 - define determinism, numerical tolerance and evidence-completeness contracts;
@@ -43,4 +43,4 @@ Leyline must not:
 
 #### Smell
 
-> If Leyline imports Narset, Augustin, Momir or Kasmina—or if its resolver starts diagnosing the case—the constitution has started governing individual cases.
+> If Leyline imports Aurelia, Isperia, Momir or Wrenn—or if its resolver starts diagnosing the case—the constitution has started governing individual cases.

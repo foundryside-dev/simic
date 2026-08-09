@@ -12,15 +12,15 @@
 - perform neutral normalisation, alignment, validity masking and stable feature construction;
 - bind every observation to the exact host state and Tolaria snapshot;
 - attach provenance and normalisation manifests;
-- publish the same canonical observation independently to Narset and Momir;
-- provide only permitted coarse summaries to Tamiyo;
+- publish the same canonical observation independently to Aurelia and Momir;
+- provide only permitted coarse summaries to Ugin;
 - and emit stable, versioned `TelemetryEnvelope` records.
 
 #### Invariants
 
 - Nissa observations do not mutate host gradients or training state.
 - Germination context is measured without the contribution being diagnosed or replaced.
-- Narset and Momir receive the same `observation_id`, not separately interpreted records.
+- Aurelia and Momir receive the same `observation_id`, not separately interpreted records.
 - Every derived signal includes provenance and normalisation semantics.
 - Task-specific information is included only when the experiment permits it.
 - Nissa does not infer an editorial conclusion for either consumer.

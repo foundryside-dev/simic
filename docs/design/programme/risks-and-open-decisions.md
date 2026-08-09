@@ -10,12 +10,12 @@
 | **Mainline–branch divergence** | Counterfactual results do not describe live training | One step engine; parity tests; explicit approximation error |
 | **Momir mode collapse** | Best-of-\(K\) candidates are functionally identical | Explicit latent, winner-take-all objective, functional diversity metrics |
 | **Elesh overreach** | Structural gate pre-judges utility and biases the pool | Deny reward/future-utility inputs; rule-driven hard checks |
-| **Tezzeret semantic drift** | Compiled artefact differs from canonical design | Canonical hash, manifests and Urabrask runtime conformance |
-| **Urabrask judicial creep** | QA begins issuing admission recommendations or tokens | `QualityReport` schema excludes verdicts; forbidden imports; tests |
-| **Augustin evidentiary creep** | Judge alters tests or gathers favourable evidence | Augustin consumes immutable reports only; no Tolaria dependency |
+| **Urabrask semantic drift** | Compiled artefact differs from canonical design | Canonical hash, manifests and Jin-Gitaxias runtime conformance |
+| **Jin-Gitaxias judicial creep** | QA begins issuing admission recommendations or tokens | `QualityReport` schema excludes verdicts; forbidden imports; tests |
+| **Isperia evidentiary creep** | Judge alters tests or gathers favourable evidence | Isperia consumes immutable reports only; no Tolaria dependency |
 | **QA overfitting** | Test plans are tuned to known candidate families | Pre-versioned plans, source blindness, sealed regression fixtures |
 | **Adjudication overfitting** | Thresholds are tuned after seeing confirmatory results | Validation-only calibration and frozen policy versions |
-| **Provider leakage** | Candidate origin influences tests or judgement | Blinded Sarpadia views and source-absence tests |
+| **Provider leakage** | Candidate origin influences tests or judgement | Blinded Urborg views and source-absence tests |
 | **Telemetry underspecification** | Different deficits appear identical | Orientation-bearing gradients, temporal context and information ablations |
 | **Moving target** | Candidate becomes stale before integration | Latency budgets, staleness curves and re-qualification |
 | **Counterfactual nondeterminism** | Branch differences reflect runtime noise | Academy-exact causal reference, divergence localisation, measured Field uncertainty and escalation |
@@ -23,11 +23,11 @@
 | **Survivorship bias** | System cannot learn refusal or failure modes | Retain structural rejects, QA failures, no-op and long-term regressors |
 | **Host co-adaptation** | Same-host ablation exaggerates value | Separate no-op and re-adaptation branches |
 | **Install–lyse oscillation** | Boundary growths churn as execution noise moves the estimate | Threshold hysteresis (INV-33, ADR-0005): admit strictly above retain by a versioned band sized against measured σ_exec; churn metrics; cooldowns as frequency limiter only; pre-registration |
-| **Tamiyo micromanagement** | Strategic controller becomes local policy | Slow cadence, aggregate inputs and interface prohibition |
-| **Narset budget escape** | Tactical controller creates ungoverned capacity | Envelope validation in Leyline, Augustin and Kasmina |
-| **Narset co-design / editorial angle** | Tactical policy encodes diagnosis, topology or ancestry into the assignment | Narrow `GrowthIntent`; schema-forbidden fields; direct Nissa-to-Momir route |
-| **Telemetry mediation** | Momir sees Narset's interpretation rather than the host observation | One canonical Nissa publication with shared observation identity |
-| **Covert request channel** | Narset and Momir encode designs through continuous budgets, aliases or candidate count | Coarse enums, deterministic canonical resolution, invariance and anti-collusion tests |
+| **Ugin micromanagement** | Strategic controller becomes local policy | Slow cadence, aggregate inputs and interface prohibition |
+| **Aurelia budget escape** | Tactical controller creates ungoverned capacity | Envelope validation in Leyline, Isperia and Wrenn |
+| **Aurelia co-design / editorial angle** | Tactical policy encodes diagnosis, topology or ancestry into the assignment | Narrow `GrowthIntent`; schema-forbidden fields; direct Nissa-to-Momir route |
+| **Telemetry mediation** | Momir sees Aurelia's interpretation rather than the host observation | One canonical Nissa publication with shared observation identity |
+| **Covert request channel** | Aurelia and Momir encode designs through continuous budgets, aliases or candidate count | Coarse enums, deterministic canonical resolution, invariance and anti-collusion tests |
 | **Bootstrap ceiling** | Momir becomes a blueprint selector or mutation table | Parent-relative and reference-frontier objectives; ancestry dropout; de novo gate |
 | **Permanent scaffold dependence** | Production generation fails without stock reference seeds | Explicit null ancestry, withdrawal schedule, held-out scaffold-free evaluation |
 | **Permanent bitwise burden** | Exactness requirements prevent realistic kernels, scale or hardware evolution | Treat Academy exactness as a retained metrology profile; calibrate Field execution rather than requiring universal bitwise identity |
@@ -35,32 +35,33 @@
 | **Lockstep scaffold withdrawal** | One subsystem loses support because another subsystem is ready | Independent three-axis `ScaffoldState` and separate gate ownership |
 | **Multi-scaffold confounding** | A failure after simultaneous withdrawal cannot be attributed | One-axis confirmatory transitions and declared interaction experiments |
 | **Hidden scaffold correlation** | Fixed seeds, exact execution and stock ancestry make one another look stronger than they are | Selected scaffold interaction matrix and final fully withdrawn corner |
-| **Kasmina legacy blueprint creep** | Host physiology quietly regains a preferred design catalogue | Reference population lives in Sarpadia/controls; Kasmina imports no blueprint library |
-| **Sarpadia leakage** | Related branches cross train/test boundaries | Group split by base host trajectory |
-| **Oona control coupling** | UI or logging changes training behaviour | Read-only events and isolation tests |
+| **Wrenn legacy blueprint creep** | Host physiology quietly regains a preferred design catalogue | Reference population lives in Urborg/controls; Wrenn imports no blueprint library |
+| **Urborg leakage** | Related branches cross train/test boundaries | Group split by base host trajectory |
+| **Tamiyo control coupling** | UI or logging changes training behaviour | Read-only events and isolation tests |
 | **Codename opacity** | New contributors cannot find responsibilities | Plain-English README header, glossary, typed record names and diagrams |
 | **Namespec drift** | One codename accumulates multiple meanings | ADR, package ownership manifest and compatibility sunset dates |
 | **Toy-task non-separability** | Methods appear equal because the space is too small | Sweep width and grammar complexity before broad conclusions |
 | **Graph grammar explosion** | Design and verification become intractable | Staged grammar levels and explicit ceilings |
-| **Asynchronous compilation staleness** | Candidate is obsolete before Tezzeret finishes | Compilation budget, caching and re-qualification |
+| **Asynchronous compilation staleness** | Candidate is obsolete before Urabrask finishes | Compilation budget, caching and re-qualification |
 
 ---
 
 ## 27. Open Design Decisions
 
-The subsystem names and their principal authorities are **not** open decisions. Namespec 1.0 is locked. The following implementation choices remain open.
+The subsystem names and their principal authorities are **not** open decisions. Namespec 2.0 is locked (ADR-0008). The following implementation choices remain open.
 
 ### 27.1 Project-level name — decided
 
 **Decided 2026-08-08 (ADR-0003, PDR-0006): the name is locked as Simic** —
 repository, package (`src/simic/`), and presumptive publication name. The
 predecessors (ESPER, ESPER LITE) present as lineage history behind a clean
-seam. This decision never affected the subsystem names, which are locked
-with Namespec 1.0 and reaffirmed unamended in ADR-0003.
+seam. This decision never affected the subsystem names, which were locked
+as Namespec 1.0 at the time (reaffirmed in ADR-0003) and are now locked as
+Namespec 2.0 (ADR-0008).
 
 ### 27.2 Default maturation mode
 
-Should the ecological default be one-shot generation, isolated nursery training, or a mixed Narset policy after both modes are characterised?
+Should the ecological default be one-shot generation, isolated nursery training, or a mixed Aurelia policy after both modes are characterised?
 
 ### 27.3 Winning-branch deployment
 
@@ -76,7 +77,7 @@ What is the smallest safe grammar materially more expressive than a residual mic
 
 What horizon captures trajectory value before branch-divergence noise overwhelms the intervention signal? What evidence-completeness threshold should force retest?
 
-### 27.6 Urabrask–Augustin contract
+### 27.6 Jin-Gitaxias–Isperia contract
 
 Which measurements are raw, which are certified derived facts, and which hard QA statuses make a candidate ineligible by policy? The separation is locked; the exact report surface is not.
 
@@ -86,19 +87,19 @@ Does commitment retain a named removable growth indefinitely, or may a later aut
 
 ### 27.8 Retrieval similarity
 
-Should Sarpadia retrieve by telemetry distance, learned state embeddings, gradient alignment, functional effect, task context, lineage history or a calibrated mixture?
+Should Urborg retrieve by telemetry distance, learned state embeddings, gradient alignment, functional effect, task context, lineage history or a calibrated mixture?
 
-### 27.9 Augustin–Emrakul maintenance boundary
+### 27.9 Isperia–Emrakul maintenance boundary
 
-Should Augustin issue only a tenancy verdict, or also a bounded class of permitted maintenance actions? The preferred direction is verdict plus constraints, with Emrakul selecting the safe physical schedule.
+Should Isperia issue only a tenancy verdict, or also a bounded class of permitted maintenance actions? The preferred direction is verdict plus constraints, with Emrakul selecting the safe physical schedule.
 
-### 27.10 Oona transport boundary
+### 27.10 Tamiyo transport boundary
 
-Should Oona own the event bus implementation or only durable projections and operator adapters? In either case, Leyline owns schemas and training remains independent of Oona availability.
+Should Tamiyo own the event bus implementation or only durable projections and operator adapters? In either case, Leyline owns schemas and training remains independent of Tamiyo availability.
 
 ### 27.11 Request-channel granularity
 
-Fix the smallest set of coarse `GrowthIntent` classes that gives Narset useful tactical authority without creating a high-bandwidth covert design channel to Momir.
+Fix the smallest set of coarse `GrowthIntent` classes that gives Aurelia useful tactical authority without creating a high-bandwidth covert design channel to Momir.
 
 ### 27.12 Bootstrap reference population
 
@@ -106,7 +107,7 @@ Fix the initial reference families, canonical graph forms, mutation radii, ances
 
 ### 27.13 Tolaria integration boundary
 
-Should Tolaria call a generic Kasmina host protocol, or should a thin integration adapter live outside both domains? The result must preserve infrastructure neutrality and one execution path.
+Should Tolaria call a generic Wrenn host protocol, or should a thin integration adapter live outside both domains? The result must preserve infrastructure neutrality and one execution path.
 
 ### 27.14 Tolaria Field-withdrawal gate
 

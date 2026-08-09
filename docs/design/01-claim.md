@@ -23,68 +23,68 @@ The system is divided into fourteen bounded domains:
 
 - **Leyline** defines the contracts, schemas, grammar profiles, policy records, compatibility rules, and ordering invariants through which every other subsystem communicates.
 - **Tolaria** is the deterministic training and execution substrate in which the host, ordinary training runs, QA trials, flash clones, replays, and counterfactual worlds execute.
-- **Sarpadia** is the persistent historical substrate in which candidate lineages, reference ancestry, counterfactual outcomes, failures, abstentions, and retrieval indices are retained.
-- **Tamiyo** is the strategic controller. It allocates long-horizon developmental resources, permissions, risk, and capacity across regions.
-- **Narset** is the tactical controller. It decides whether and where to commission local growth, and manages the pre-commit lifecycle inside Tamiyo's active strategic envelope.
-- **Nissa** observes the host and publishes one canonical, typed diagnostic record directly to every authorised consumer, including Narset and Momir, without embedding policy or editorial interpretation.
+- **Urborg** is the persistent historical substrate in which candidate lineages, reference ancestry, counterfactual outcomes, failures, abstentions, and retrieval indices are retained.
+- **Ugin** is the strategic controller. It allocates long-horizon developmental resources, permissions, risk, and capacity across regions.
+- **Aurelia** is the tactical controller. It decides whether and where to commission local growth, and manages the pre-commit lifecycle inside Ugin's active strategic envelope.
+- **Nissa** observes the host and publishes one canonical, typed diagnostic record directly to every authorised consumer, including Aurelia and Momir, without embedding policy or editorial interpretation.
 - **Momir** designs raw candidate growth graphs, parameters, mutations, and recombinations from Nissa's diagnostic context and a separately resolved assignment contract.
 - **Elesh** verifies and canonicalises those designs into structurally legal, shape-safe, gradient-safe, semantically stable specifications.
-- **Tezzeret** compiles canonical specifications into efficient executable artefacts without changing their meaning.
-- **Urabrask** performs quality assurance. It designs test plans, requests execution in Tolaria, detects defects, measures behaviour, and produces certified evidence.
-- **Augustin** is the judge. It applies admission and continued-tenancy policy to Urabrask's evidence, compares every candidate against no intervention, and issues decisions or warrants.
-- **Kasmina** embodies admitted growth inside the host through reversible slots, isolated maturation, alpha blending, and lifecycle mechanics.
-- **Emrakul** safely sedates, decays, consolidates, or lyses committed structure after Augustin has judged that continued tenancy is no longer justified.
-- **Oona** reveals the system's account through event projections, flight recording, operator interfaces, audit bundles, and alerts.
+- **Urabrask** compiles canonical specifications into efficient executable artefacts without changing their meaning.
+- **Jin-Gitaxias** performs quality assurance. It designs test plans, requests execution in Tolaria, detects defects, measures behaviour, and produces certified evidence.
+- **Isperia** is the judge. It applies admission and continued-tenancy policy to Jin-Gitaxias's evidence, compares every candidate against no intervention, and issues decisions or warrants.
+- **Wrenn** embodies admitted growth inside the host through reversible slots, isolated maturation, alpha blending, and lifecycle mechanics.
+- **Emrakul** safely sedates, decays, consolidates, or lyses committed structure after Isperia has judged that continued tenancy is no longer justified.
+- **Tamiyo** reveals the system's account through event projections, flight recording, operator interfaces, audit bundles, and alerts.
 
 The ordinary host-training loop and the growth loop share one execution reality:
 
 ```text
 Task and data configuration
         ↓
-Tolaria trains the Kasmina host
+Tolaria trains the Wrenn host
         ↓
 Nissa publishes one canonical TelemetryEnvelope
-        ├──→ Narset decides whether and where to commission growth
+        ├──→ Aurelia decides whether and where to commission growth
         └──→ Momir receives the same uncaptioned diagnostic evidence directly
         ↓
-Tamiyo authorises strategic resources
+Ugin authorises strategic resources
         ↓
-Narset emits a narrow GrowthIntent: the assignment brief
+Aurelia emits a narrow GrowthIntent: the assignment brief
         ↓
-Leyline and Kasmina deterministically resolve the legal GrowthRequest
+Leyline and Wrenn deterministically resolve the legal GrowthRequest
         ↓
-Sarpadia may supply temporary bootstrap ancestry or ordinary precedents
+Urborg may supply temporary bootstrap ancestry or ordinary precedents
         ↓
-Momir designs → Elesh conforms → Tezzeret compiles
+Momir designs → Elesh conforms → Urabrask compiles
         ↓
-Urabrask specifies QA; Tolaria executes the tests
+Jin-Gitaxias specifies QA; Tolaria executes the tests
         ↓
-Urabrask certifies the evidence
+Jin-Gitaxias certifies the evidence
         ↓
-Augustin judges candidate versus no-op
+Isperia judges candidate versus no-op
         ↓
-Kasmina embodies an admitted growth
+Wrenn embodies an admitted growth
         ↓
-Emrakul later removes what Augustin judges no longer earns its place
+Emrakul later removes what Isperia judges no longer earns its place
         ↓
-Every success, failure, abstention, and lineage is retained in Sarpadia
+Every success, failure, abstention, and lineage is retained in Urborg
         ↓
-Oona reveals the complete account
+Tamiyo reveals the complete account
 ```
 
 The locked narrative grammar is:
 
-> **Under Leyline, Tamiyo plans, Narset commissions and acts, Nissa observes, Momir designs, Elesh conforms, Tezzeret compiles, Urabrask tests in Tolaria, Augustin judges, Kasmina embodies, Emrakul destroys, and Oona reveals; every precedent is kept in Sarpadia.**
+> **Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes, Momir designs, Elesh conforms, Urabrask compiles, Jin-Gitaxias tests in Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo reveals; every precedent is kept in Urborg.**
 
 The deliberately goofy names are not decorative aliases. They encode which parts of the system are allowed to exercise agency, which parts must remain neutral infrastructure, and which sentences should sound architecturally wrong. The naming layer therefore acts as a lightweight responsibility and dependency lint.
 
 The architecture also resembles a newsroom for a non-coincidental reason: both systems must keep source observation, commissioning, authorship, standards review, production, fact-checking, publication judgement, integration, correction, archival memory, and presentation distinct. The central newsroom rule is load-bearing here:
 
-> **Nissa sends the photograph directly. Narset sends only the assignment brief. Momir must never receive reality through Narset's caption.**
+> **Nissa sends the photograph directly. Aurelia sends only the assignment brief. Momir must never receive reality through Aurelia's caption.**
 
-The newsroom analogy is documented as an explanatory aid in §5.5 and Appendix E. The actual enforcement remains contractual: direct evidence publication, a narrow `GrowthIntent`, deterministic request resolution, immutable provenance, and tests that reject diagnostic or structural hints in Narset's channel.
+The newsroom analogy is documented as an explanatory aid in §5.5 and Appendix E. The actual enforcement remains contractual: direct evidence publication, a narrow `GrowthIntent`, deterministic request resolution, immutable provenance, and tests that reject diagnostic or structural hints in Aurelia's channel.
 
-A uniform **Scaffold Withdrawal Pattern** governs how the architecture learns under initially noisy, variable, or sparse conditions. Tolaria first establishes causal ground truth under an Academy profile with bitwise-exact replay, Narset first learns on repeated host trajectories, and Momir first learns near a viable Sarpadian reference population. Each scaffold then passes through controlled relaxation and an independent withdrawal gate. Withdrawal removes the scaffold as an ordinary production dependency while retaining it as a reference, calibration, regression, or escalation capability. Exact replay is therefore Tolaria's metrology laboratory—not a requirement that every future field execution remain bitwise identical.
+A uniform **Scaffold Withdrawal Pattern** governs how the architecture learns under initially noisy, variable, or sparse conditions. Tolaria first establishes causal ground truth under an Academy profile with bitwise-exact replay, Aurelia first learns on repeated host trajectories, and Momir first learns near a viable Urborg reference population. Each scaffold then passes through controlled relaxation and an independent withdrawal gate. Withdrawal removes the scaffold as an ordinary production dependency while retaining it as a reference, calibration, regression, or escalation capability. Exact replay is therefore Tolaria's metrology laboratory—not a requirement that every future field execution remain bitwise identical.
 
 ## 2. Problem Statement
 
@@ -215,10 +215,10 @@ is wrong. This design **replaces the reward function with measured
 counterfactuals**: paired branches from one snapshot over identical futures
 cancel ordinary-training variance, so the difference between branches *is*
 the intervention effect. That converts credit assignment into supervised
-learning — Momir becomes ranking over measured pools, Narset becomes
+learning — Momir becomes ranking over measured pools, Aurelia becomes
 per-step supervised classification against counterfactual labels, and
-Augustin becomes explicit adjudication rules. The genuinely irreducible RL
-shrinks to Tamiyo's allocation and Narset's timing. The counterfactual
+Isperia becomes explicit adjudication rules. The genuinely irreducible RL
+shrinks to Ugin's allocation and Aurelia's timing. The counterfactual
 apparatus is therefore not overhead wrapped around a policy learner; **it
 is the machine that manufactures the supervision signal RL could not
 extract**, and the programme's cost model is honestly read as the price of
@@ -280,17 +280,17 @@ The first defensible claim is narrower:
 
 The architecture is successful at the first stage when it demonstrates that:
 
-1. Tolaria trains the live Kasmina host reproducibly, passes one Academy-exact causal reference gate, and uses equivalent semantics for replay and counterfactual branches;
+1. Tolaria trains the live Wrenn host reproducibly, passes one Academy-exact causal reference gate, and uses equivalent semantics for replay and counterfactual branches;
 2. Momir candidate pools contain useful canonical growth at a materially higher rate than random search and at lower online cost than comparable iterative construction;
-3. Elesh and Tezzeret transform raw designs into executable artefacts without silent structural or semantic drift;
-4. Urabrask detects runtime defects, measures trajectories and certifies evidence with an acceptable accuracy–cost trade-off;
-5. Augustin selects useful candidates with low regret, reliable no-op behaviour, stable policy and no source bias;
+3. Elesh and Urabrask transform raw designs into executable artefacts without silent structural or semantic drift;
+4. Jin-Gitaxias detects runtime defects, measures trajectories and certifies evidence with an acceptable accuracy–cost trade-off;
+5. Isperia selects useful candidates with low regret, reliable no-op behaviour, stable policy and no source bias;
 6. generated birth plus bounded maturation improves adaptation speed without unacceptable integration shock or harmful-intervention rate;
-7. Narset learns reliable local lifecycle behaviour inside fixed strategic envelopes;
-8. Emrakul safely reclaims obsolete committed capacity in accordance with Augustin tenancy decisions;
-9. Sarpadia retrieval or lineage conditioning improves future design quality while preserving failures, blinding and split integrity;
-10. Tamiyo allocates scarce developmental resources more effectively than uniform or heuristic allocation once multiple regions exist;
-11. Oona reconstructs every case and surfaces constitutional smells without entering the control path;
+7. Aurelia learns reliable local lifecycle behaviour inside fixed strategic envelopes;
+8. Emrakul safely reclaims obsolete committed capacity in accordance with Isperia tenancy decisions;
+9. Urborg retrieval or lineage conditioning improves future design quality while preserving failures, blinding and split integrity;
+10. Ugin allocates scarce developmental resources more effectively than uniform or heuristic allocation once multiple regions exist;
+11. Tamiyo reconstructs every case and surfaces constitutional smells without entering the control path;
 12. performance transfers from repeated acquisition trajectories to held-out host seeds and controlled task variations;
 13. the namespec remains semantically stable enough that code review and incident discussion use it as a reliable responsibility shorthand;
 14. Field Tolaria achieves acceptable ranking and accept/no-op agreement against Academy with calibrated uncertainty and escalation;
@@ -304,7 +304,7 @@ A negative generative result remains scientifically useful if the architecture c
 
 ## 29. Final Design Statement
 
-> **Counterfactual Generative Morphogenesis is a hierarchical, lifecycle-driven neural adaptation architecture in which Tolaria trains the host; Nissa publishes the host's diagnostic evidence directly; Tamiyo allocates strategic developmental resources; Narset commissions and manages local work without prescribing its answer; Leyline and Kasmina resolve the legal assignment contract; Sarpadia may provide temporary ancestral precedent; Momir designs candidate growth; Elesh forces it into canonical legality; Tezzeret compiles it without changing meaning; Urabrask tests it in matched possible futures; Augustin publishes it only when the certified evidence beats doing nothing; Kasmina embodies it reversibly; Emrakul removes it when it no longer earns continued tenancy; Sarpadia preserves every accepted, rejected, failed and withdrawn lineage; and Oona reveals the complete account.**
+> **Counterfactual Generative Morphogenesis is a hierarchical, lifecycle-driven neural adaptation architecture in which Tolaria trains the host; Nissa publishes the host's diagnostic evidence directly; Ugin allocates strategic developmental resources; Aurelia commissions and manages local work without prescribing its answer; Leyline and Wrenn resolve the legal assignment contract; Urborg may provide temporary ancestral precedent; Momir designs candidate growth; Elesh forces it into canonical legality; Urabrask compiles it without changing meaning; Jin-Gitaxias tests it in matched possible futures; Isperia publishes it only when the certified evidence beats doing nothing; Wrenn embodies it reversibly; Emrakul removes it when it no longer earns continued tenancy; Urborg preserves every accepted, rejected, failed and withdrawn lineage; and Tamiyo reveals the complete account.**
 
 The governing engineering principle is:
 
@@ -312,7 +312,7 @@ The governing engineering principle is:
 
 The governing evidence principle is:
 
-> **Nissa sends the photograph. Narset sends the assignment. Momir writes the answer.**
+> **Nissa sends the photograph. Aurelia sends the assignment. Momir writes the answer.**
 
 The governing curriculum principle is:
 

@@ -2,14 +2,14 @@
 [← HLD index](../00-INDEX.md)
 
 <!-- hld: source: v4.1 monolith lines 2210–2291 · amended by ADR-0004 (lexicographic admission), ADR-0005 (retention hysteresis) -->
-### 13.11 Augustin — Independent Judge
+### 13.11 Isperia — Independent Judge
 
 #### Responsibilities
 
-- consume blinded Urabrask `QualityReport` records;
+- consume blinded Jin-Gitaxias `QualityReport` records;
 - apply hard eligibility requirements;
 - apply the tail-risk veto before any utility comparison;
-- enforce Tamiyo’s active strategic envelope;
+- enforce Ugin’s active strategic envelope;
 - calculate adjudicated utility, risk and uncertainty charges;
 - compare surviving candidates against mandatory no-op;
 - apply independent admission-audit rules;
@@ -22,14 +22,14 @@
 
 #### Lexicographic admission order (ADR-0004)
 
-Admission is a risk judgement before it is a quality judgement. Augustin
+Admission is a risk judgement before it is a quality judgement. Isperia
 adjudicates in three ordered stages, and no later stage can reopen an
 earlier one:
 
 1. **Hard eligibility.** Conformance facts from the blinded
    `QualityReport`: identity, compilation, runtime and gradient checks,
    determinism, evidence completeness for the assurance class, budget.
-2. **Tail-risk veto.** Augustin estimates, per candidate, the tail of the
+2. **Tail-risk veto.** Isperia estimates, per candidate, the tail of the
    intervention-outcome distribution — the catastrophic case, not the
    expectation — from certified evidence (integration shock, instability,
    numerical events, trajectory behaviour). A candidate whose tail estimate
@@ -46,9 +46,9 @@ risk — so it survives every stage by construction. A pool whose every
 candidate is vetoed resolves to `NO_OP` (or `DEFER`/`REQUIRE_RETEST` under
 policy), never to a least-bad survivor.
 
-This order is what justifies the Momir/Augustin split: **Momir optimises
+This order is what justifies the Momir/Isperia split: **Momir optimises
 expected value** and can afford to be wrong often, because its errors cost
-compute; **Augustin bounds worst case** and must be conservative, because
+compute; **Isperia bounds worst case** and must be conservative, because
 its errors cost the host. They optimise different functionals of the same
 distribution.
 
@@ -110,14 +110,14 @@ Installation shock is omitted because a resident growth is no longer integrating
 
 Admission and retention thresholds form a Schmitt trigger: admission requires the conservative margin over no-op to exceed \(\theta_{\mathrm{admit}}\); continued tenancy requires only \(u_{\mathrm{retain}} \ge \theta_{\mathrm{retain}}\), with \(\theta_{\mathrm{retain}} = \theta_{\mathrm{admit}} - \Delta\) and \(\Delta > 0\) strictly (INV-33). A resident growth that drifts modestly below the admission bar is not thereby lysed.
 
-The hysteresis band \(\Delta\) is an explicit, versioned Augustin policy parameter, carried by `adjudication_policy_version`, and its width is measured against observed execution noise \(\sigma_{\mathrm{exec}}\) — sized so noise-driven estimate movement cannot cross both thresholds — never picked by feel. Cooldowns are a frequency limiter for pathological cases, not the stability mechanism: they are a time-domain patch and do not remove a threshold-domain instability.
+The hysteresis band \(\Delta\) is an explicit, versioned Isperia policy parameter, carried by `adjudication_policy_version`, and its width is measured against observed execution noise \(\sigma_{\mathrm{exec}}\) — sized so noise-driven estimate movement cannot cross both thresholds — never picked by feel. Cooldowns are a frequency limiter for pathological cases, not the stability mechanism: they are a time-domain patch and do not remove a threshold-domain instability.
 
 #### Invariants
 
-- Augustin does not execute tests, alter data, call kernels or rerun a branch.
+- Isperia does not execute tests, alter data, call kernels or rerun a branch.
 - It cannot see candidate source during adjudication.
-- It can select no-op even when Tamiyo allocated budget and Narset commissioned growth.
-- Hard Urabrask defects make a candidate ineligible according to the applicable Leyline policy.
+- It can select no-op even when Ugin allocated budget and Aurelia commissioned growth.
+- Hard Jin-Gitaxias defects make a candidate ineligible according to the applicable Leyline policy.
 - The tail-risk veto is adjudicated before any utility comparison and cannot be traded against measured benefit (INV-45).
 - Every veto, and every thin-margin pass, is recorded per candidate in `tail_veto_results` (INV-31).
 - Decision thresholds are frozen before confirmatory runs.
@@ -125,6 +125,6 @@ The hysteresis band \(\Delta\) is an explicit, versioned Augustin policy paramet
 
 #### Smell
 
-> If Augustin asks for a more favourable minibatch after seeing the evidence, the judge has tampered with the case.
+> If Isperia asks for a more favourable minibatch after seeing the evidence, the judge has tampered with the case.
 
 > If a candidate's measured benefit is cited as a reason to soften the veto, the judge has repriced catastrophe.

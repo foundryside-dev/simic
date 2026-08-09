@@ -671,7 +671,7 @@ function OverviewScreen({
     style: {
       margin: 0
     }
-  }, "Nissa observes and reports. Tamiyo plans. Narset commissions and acts. Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the compiled result in Tolaria. Augustin judges the resulting evidence under Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no longer earns continued tenancy. Sarpadia retains every precedent. Oona reveals the account.")), /*#__PURE__*/React.createElement("h2", null, "Where the design lives"), /*#__PURE__*/React.createElement("p", null, "The canonical authority is the HLD chapter set in the repository, not this site.")), /*#__PURE__*/React.createElement(DataTable, {
+  }, "Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes, Momir designs, Elesh conforms, Urabrask compiles, Jin-Gitaxias tests in Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo reveals; every precedent is kept in Urborg.")), /*#__PURE__*/React.createElement("h2", null, "Where the design lives"), /*#__PURE__*/React.createElement("p", null, "The canonical authority is the HLD chapter set in the repository, not this site.")), /*#__PURE__*/React.createElement(DataTable, {
     caption: "Repository map",
     columns: ["Path", "Contents"],
     rows: [["docs/design/00-INDEX.md", "Entry point to the HLD chapter set, with reading paths"], ["docs/design/01-claim.md", "Executive summary, problem statement, goals, non-goals, the first defensible claim"], ["docs/design/02-constitution.md", "Naming constitution and the 45 blocking invariants"], ["docs/design/04-architecture.md", "System context, planes, and the control hierarchy"], ["src/simic/", "Target code layout: one package per domain (scaffold only, today)"]]

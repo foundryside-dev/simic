@@ -9,12 +9,12 @@ The subsystem specifications are grouped according to the naming constitution: i
 ---
 
 Infrastructure (prepositions): [leyline](leyline.md) · [tolaria](tolaria.md) ·
-[sarpadia](sarpadia.md) (also carries the §15 data model)
+[urborg](urborg.md) (also carries the §15 data model)
 
-Agents (verbs): [tamiyo](tamiyo.md) · [narset](narset.md) · [nissa](nissa.md) ·
-[momir](momir.md) · [elesh](elesh.md) · [tezzeret](tezzeret.md) ·
-[urabrask](urabrask.md) · [augustin](augustin.md) · [kasmina](kasmina.md) ·
-[emrakul](emrakul.md) · [oona](oona.md)
+Agents (verbs): [ugin](ugin.md) · [aurelia](aurelia.md) · [nissa](nissa.md) ·
+[momir](momir.md) · [elesh](elesh.md) · [urabrask](urabrask.md) ·
+[jin-gitaxias](jin-gitaxias.md) · [isperia](isperia.md) · [wrenn](wrenn.md) ·
+[emrakul](emrakul.md) · [tamiyo](tamiyo.md)
 
 Each chapter carries its domain's responsibilities, invariants, forbidden
 authority and smell. Contract shapes live in

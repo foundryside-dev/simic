@@ -28,7 +28,7 @@ Every Elesh transformation must be semantics-preserving under the declared numer
 - Elesh does not consume task reward or future utility.
 - It does not use candidate source as a structural decision feature.
 - Canonicalisation occurs before compilation.
-- It does not certify dynamic runtime behaviour; that belongs to Urabrask.
+- It does not certify dynamic runtime behaviour; that belongs to Jin-Gitaxias.
 
 #### Smell
 

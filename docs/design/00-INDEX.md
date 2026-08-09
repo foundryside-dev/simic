@@ -24,7 +24,7 @@ load the chapters your task names; do not load the rest.
 | `06-growth-model.md` | Growth levels, candidate identity, lifecycle FSM and transition authority |
 | `07-counterfactual-engine.md` | Branch pools, Academy/Field QA, no-op anchoring, blindness, statistical unit |
 | `domains/README.md` | The §13 grouping preamble and navigation to the fourteen domain chapters |
-| `domains/<subsystem>.md` | Per-domain specification (responsibilities, invariants, smells); `sarpadia.md` also carries the data model |
+| `domains/<subsystem>.md` | Per-domain specification (responsibilities, invariants, smells); `urborg.md` also carries the data model |
 | `programme/curriculum.md` | Static-to-counterfactual curriculum, scaffold withdrawal stages |
 | `programme/learning.md` | Learning responsibilities per subsystem |
 | `programme/evaluation.md` | Testing strategy and evaluation framework |
@@ -39,7 +39,7 @@ load the chapters your task names; do not load the rest.
 ## Reading paths
 
 - **Implementing a domain:** `02-constitution.md` + `domains/<it>.md` + `05-leyline-contracts.md` (its contracts) + `programme/learning.md` (its entry).
-- **Admission / adjudication work:** `02` + `domains/augustin.md` + `domains/urabrask.md` + `07-counterfactual-engine.md`.
+- **Admission / adjudication work:** `02` + `domains/isperia.md` + `domains/jin-gitaxias.md` + `07-counterfactual-engine.md`.
 - **Contract / schema work:** `02` + `05-leyline-contracts.md` + `04-architecture.md` (flow).
 - **Experiment / curriculum design:** `02` + `01-claim.md` + `programme/*`.
 - **New here:** `01` → `04` → `02`, then `appendices/newsroom.md` for the authority model.
@@ -50,7 +50,7 @@ In new text (issues, ADRs, LLDs, commit messages):
 
 - Invariants: **INV-nn** (numbering as listed in `02-constitution.md`, e.g. INV-05 Academy exact replay).
 - Contracts: by **name** (`GrowthIntent`), never by section number.
-- Chapters: by **path#anchor** (`domains/augustin.md#admission-utility`).
+- Chapters: by **path#anchor** (`domains/isperia.md#admission-utility`).
 - Legacy **§-numbers** (v4.1 monolith) remain resolvable via the concordance below — do not use them in new text.
 
 Rationale: v2.0→v4.1 renumbering broke every consumer that cited sections;
@@ -70,7 +70,7 @@ names and file anchors survive restructuring, numbers do not.
 | §13 preamble | `domains/README.md` |
 | §13.1–§13.14 subsystem specs | `domains/<subsystem>.md` |
 | §14 counterfactual execution, QA, adjudication | `07-counterfactual-engine.md` |
-| §15 Sarpadia data model | `domains/sarpadia.md` |
+| §15 Urborg data model | `domains/urborg.md` |
 | §16 curriculum and scaffold withdrawal | `programme/curriculum.md` |
 | §17 learning responsibilities | `programme/learning.md` |
 | §18 constitutional invariants (INV-01..45) | `02-constitution.md` |

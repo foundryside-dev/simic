@@ -7,7 +7,7 @@ in matched counterfactual branches, adjudicated against doing nothing,
 embodied reversibly under warrant, and eventually retired.
 
 > **Status: pre-implementation bootstrap.** The design is complete — the
-> HLD (v4.1, Namespec 1.0 — locked) is decomposed into standalone chapters
+> HLD (v4.1, Namespec 2.0 — locked, ADR-0008) is decomposed into standalone chapters
 > under [`docs/design/`](docs/design/00-INDEX.md) (ADR-0001) — and the
 > Python scaffold is in place, but no functional code exists yet. First
 > engineering work is Phase A (Namespec,
@@ -38,16 +38,14 @@ codenames (they act as an architecture linter — a subsystem acting contrary
 to its verb is exercising authority it must not have). Three are
 infrastructure: **Leyline** (contracts and the deterministic request
 resolver), **Tolaria** (the single training/execution substrate for mainline
-and branches), and **Sarpadia** (append-only history, ancestry, retrieval).
+and branches), and **Urborg** (append-only history, ancestry, retrieval).
 The other eleven are agents, summarised by the canonical sentence
 ([`docs/design/02-constitution.md`](docs/design/02-constitution.md)):
 
-> Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
-> Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
-> compiled result in Tolaria. Augustin judges the resulting evidence under
-> Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no
-> longer earns continued tenancy. Sarpadia retains every precedent. Oona
-> reveals the account.
+> Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes,
+> Momir designs, Elesh conforms, Urabrask compiles, Jin-Gitaxias tests in
+> Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo
+> reveals; every precedent is kept in Urborg.
 
 The architecture deliberately resembles a newsroom
 ([`docs/design/appendices/newsroom.md`](docs/design/appendices/newsroom.md)):
@@ -71,16 +69,16 @@ defines 45 blocking invariants, cited as INV-nn. The spine:
 - **Tail risk cannot be bought (INV-45):** admission is lexicographic — a
   tail-risk veto precedes utility comparison, and no measured benefit can
   offset a veto.
-- **Evidence and judgement never mix (INV-17, INV-18, INV-37):** Urabrask
-  (QA) certifies evidence but cannot issue verdicts; Augustin (judge)
+- **Evidence and judgement never mix (INV-17, INV-18, INV-37):** Jin-Gitaxias
+  (QA) certifies evidence but cannot issue verdicts; Isperia (judge)
   decides but cannot touch tests — and neither ever sees candidate
   provenance (blinding by construction).
-- **No influence without a warrant (INV-26, INV-27):** Kasmina cannot raise
+- **No influence without a warrant (INV-26, INV-27):** Wrenn cannot raise
   a growth above zero influence, and Emrakul cannot retire committed
-  structure, without a valid Augustin warrant.
-- **Complete history (INV-31, INV-36):** Sarpadia is append-only and keeps
+  structure, without a valid Isperia warrant.
+- **Complete history (INV-31, INV-36):** Urborg is append-only and keeps
   failures and abstentions — never winners-only.
-- **Observability is inert (INV-35):** disconnecting Oona cannot change
+- **Observability is inert (INV-35):** disconnecting Tamiyo cannot change
   training.
 
 ## Repository map
