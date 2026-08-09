@@ -131,6 +131,8 @@ A human-authored blueprint catalogue limits growth to structures the designer an
 
 A host that has trained with a component may become dependent on it. Removing that component from the same host measures both the component’s intrinsic value and the host’s acquired dependence. Reliable admission and retention therefore require matched no-intervention branches, not same-host ablation alone.
 
+The two cases are not symmetric. Admission evidence is branch-paired from a common snapshot over a common future — the full counterfactual. Once a growth is committed, the host that never received it no longer exists: measuring it honestly would mean running a parallel no-op branch for the entire tenure, a permanent doubling of training cost per committed growth. What tenancy evidence actually measures is **replaceability at a chosen horizon**, a different and weaker quantity — maintenance decisions therefore operate under an explicitly weaker evidentiary standard than admission decisions (`domains/isperia.md#continued-tenancy-utility`).
+
 ### 2.5 The authority problem
 
 When generation, validation, screening, deployment, and retention are implemented in one intelligent controller, the system can no longer explain why an intervention succeeded or failed. It also becomes easy for one subsystem to approve its own work, modify evaluation criteria, or hide policy inside telemetry.
