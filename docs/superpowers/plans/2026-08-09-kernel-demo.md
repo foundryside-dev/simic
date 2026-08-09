@@ -36,7 +36,7 @@
 |---|---|---|
 | D1 | Gate 1 = engineering sanity check (frozen empirical thresholds), not a binomial vs 20% | No power at ~7–8 episodes/pathology; headline statistics not spent on a sampler shakedown |
 | D2 | Pre-freeze modes never read the test partition, though spec fan-step 7 records both units | The spec's own absolute unit rule outranks fan-step 7 pre-freeze; post-freeze collection records both |
-| D3 | `TelemetryRecord` gains `per_class_val_acc_std`, `confusion_entropy` | Spec's pathology table promises a confusion signature for `no_spatial_mix`; its field list omits any. Neutral measurements. **Owner ack required** |
+| D3 | `TelemetryRecord` gains `per_class_val_acc_std`, `confusion_entropy` | Spec's pathology table promises a confusion signature for `no_spatial_mix`; its field list omits any. Neutral measurements. **Owner acked 2026-08-10** |
 | D4 | `--report` emits canonical JSON/tables; plotting is a standalone sidecar CLI | Acyclic imports |
 | D5 | `experiments/` at repo root (vs `ops/repo-structure.md`'s `src/simic/experiments/`) | Spec-pinned placement for a non-Simic standalone demo |
 | D6 | "Refuse mixed namespaces" = refuse mixed `manifest_hash` generations in any single number | Multi-namespace presence in one store is normal and required |
@@ -44,7 +44,7 @@
 | D8 | `state_hash` canonicalizes signed zero universally; every "bitwise" claim is modulo that | IEEE-754: the STE add flips `−0.0`→`+0.0`, so raw-byte bitwise is unachievable in seed arms by construction; the spec's own null-seed contingency names zero-normalized hashing — promoted to the single primitive |
 | D9 | Gate thresholds (2.0× contrast, 0.5× late-density, 0.40 dominance, ≥2 mild wins, 0.5 probe floor) are plan-chosen values | Spec names the gates but not these constants; all are frozen Config fields; owner signs off at freeze |
 | D10 | `torch.compile` added to `FORBIDDEN_RELAXATIONS` | Spec's list omits it; a compiled kernel voids deterministic-algorithm guarantees; strengthening only |
-| D11 | τ-init measures the seed in `train()` mode (host in `eval()`/no-grad per spec) | Spec pins the host mode only. BN-carrying seeds differ across modes; train-mode calibration is the mode of the first TRAINING step, making "every arm enters at τ" true where it matters. **Owner ack required** |
+| D11 | τ-init measures the seed in `train()` mode (host in `eval()`/no-grad per spec) | Spec pins the host mode only. BN-carrying seeds differ across modes; train-mode calibration is the mode of the first TRAINING step, making "every arm enters at τ" true where it matters. **Owner acked 2026-08-10** |
 | D12 | GERMINATED is zero-duration (collapses into TRAINING's first tick) | Spec lists the FSM state; nothing observes a nonzero dwell |
 | D13 | Gate-2 probe = 200-step `nn.Linear` + hand-rolled by-episode split, not sklearn | No new dependency |
 
