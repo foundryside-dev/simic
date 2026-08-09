@@ -286,11 +286,18 @@ def plot_tune_curve(store_root: str, out: Path) -> bool:
     meta = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(meta, dict):
         raise PlotDataError(f"{path}: expected an object")
+    # The single writer always emits 'curve', so absence means a foreign or
+    # truncated file. An EMPTY curve is different and legitimate: train_policy
+    # only appends when a tune batch exists, so an empty tune split yields no
+    # checkpoint evaluations and there is nothing to plot.
     if "curve" not in meta:
         raise PlotDataError(f"{path}: missing required field 'curve'")
-    points = _finite_points(meta["curve"], f"{path}:curve")
+    curve = meta["curve"]
+    if isinstance(curve, list) and not curve:
+        return False
+    points = _finite_points(curve, f"{path}:curve")
     if not points:
-        raise PlotDataError(f"{path}: 'curve' holds no finite values")
+        raise PlotDataError(f"{path}: 'curve' has entries but none are finite")
     fig, ax = plt.subplots(figsize=(5, 3))
     try:
         xs, ys = _gapped(points)

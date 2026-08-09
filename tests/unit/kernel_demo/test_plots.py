@@ -21,6 +21,7 @@ from experiments.kernel_demo_plots import (
     plot_example_arm_curves,
     plot_money_chart_trio,
     plot_rms_blend_entry,
+    plot_tune_curve,
 )
 
 
@@ -185,6 +186,51 @@ def test_plot_manifest_records_the_selected_population(tmp_path: Path) -> None:
     assert manifest["manifest_hashes_present"] == ["m0"]
     assert list(manifest["example_arm_curve_fan_ids"]) == ["mild"]
     assert "money_chart_trio.png" in manifest["written"]
+
+
+def test_split_role_selection_delegates_to_store_load(tmp_path: Path) -> None:
+    # The only branch that goes through the kernel's own Store.load accessor.
+    store = Store(str(tmp_path / "store"))
+    store.append(0, _rec(1, split_role="train", seed_namespace="train"))
+    store.append(0, _rec(2, split_role="tune", seed_namespace="train"))
+    picked = _load_fans(str(tmp_path / "store"), namespace=None, split_role="tune", include_refans=False, manifest_hash=None)
+    assert [r.split_role for r in picked] == ["tune"]
+    with pytest.raises(PlotDataError, match="no records in"):
+        _load_fans(str(tmp_path / "store"), namespace=None, split_role="eval", include_refans=False, manifest_hash=None)
+
+
+def _write_trained(store_root: Path, curve: object) -> None:
+    pol = store_root / "policies"
+    pol.mkdir(parents=True, exist_ok=True)
+    (pol / "trained.json").write_text(json.dumps({"checkpoint_id": "c", "curve": curve}), encoding="utf-8")
+
+
+def test_tune_curve_plots_when_present(tmp_path: Path) -> None:
+    _write_trained(tmp_path, [0.9, 0.7, 0.6])
+    assert plot_tune_curve(str(tmp_path), tmp_path) is True
+    assert (tmp_path / "tune_curve.png").exists()
+
+
+def test_tune_curve_skips_absent_file_and_empty_curve(tmp_path: Path) -> None:
+    # train_policy only appends a checkpoint score when a tune batch exists,
+    # so an empty tune split legitimately yields curve == []. Skip, not crash —
+    # this runs mid-Phase-D and must not abort the plot pass.
+    assert plot_tune_curve(str(tmp_path), tmp_path) is False  # no policies/ at all
+    _write_trained(tmp_path, [])
+    assert plot_tune_curve(str(tmp_path), tmp_path) is False
+    assert not (tmp_path / "tune_curve.png").exists()
+
+
+def test_tune_curve_refuses_a_malformed_curve(tmp_path: Path) -> None:
+    _write_trained(tmp_path, "0.9,0.7")
+    with pytest.raises(PlotDataError, match="expected a list"):
+        plot_tune_curve(str(tmp_path), tmp_path)
+    _write_trained(tmp_path, [None, None])
+    with pytest.raises(PlotDataError, match="none are finite"):
+        plot_tune_curve(str(tmp_path), tmp_path)
+    (tmp_path / "policies" / "trained.json").write_text(json.dumps({"checkpoint_id": "c"}), encoding="utf-8")
+    with pytest.raises(PlotDataError, match="missing required field 'curve'"):
+        plot_tune_curve(str(tmp_path), tmp_path)
 
 
 def _write_results(tmp_path: Path) -> Path:
