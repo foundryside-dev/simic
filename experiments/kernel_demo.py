@@ -310,6 +310,198 @@ def augment(x_u8: torch.Tensor, crops: torch.Tensor, flips: torch.Tensor) -> tor
     return torch.where(flips.to(dev)[:, None, None, None], out.flip(-1), out).contiguous()
 
 
+# section 3 — TELEMETRY
+class TelemetryDivergence(RuntimeError):  # noqa: N818
+    pass
+
+
+TELEMETRY_DIM = semantic_const("TELEMETRY_DIM", 20)
+EPOCH_FEATURE_IDX = semantic_const("EPOCH_FEATURE_IDX", 0)
+
+
+@semantic
+@dataclass(frozen=True)
+class TelemetryRecord:
+    epoch: int
+    train_loss: float
+    val_loss: float
+    val_acc: float
+    train_loss_delta: float
+    val_loss_delta: float
+    grad_norm_mean: tuple[float, float, float]
+    grad_norm_var: tuple[float, float, float]
+    act_saturation: tuple[float, float, float]
+    weight_norm: tuple[float, float, float]
+    per_class_val_acc_std: float
+    confusion_entropy: float
+
+    def __post_init__(self) -> None:
+        def check_finite(val: object) -> None:
+            if isinstance(val, float):
+                if not (val == val and val != float("inf") and val != float("-inf")):
+                    raise TelemetryDivergence(f"Non-finite value: {val}")
+            elif isinstance(val, tuple):
+                for item in val:
+                    if not (item == item and item != float("inf") and item != float("-inf")):
+                        raise TelemetryDivergence(f"Non-finite value in tuple: {item}")
+            elif isinstance(val, int):
+                pass
+
+        check_finite(self.train_loss)
+        check_finite(self.val_loss)
+        check_finite(self.val_acc)
+        check_finite(self.train_loss_delta)
+        check_finite(self.val_loss_delta)
+        check_finite(self.grad_norm_mean)
+        check_finite(self.grad_norm_var)
+        check_finite(self.act_saturation)
+        check_finite(self.weight_norm)
+        check_finite(self.per_class_val_acc_std)
+        check_finite(self.confusion_entropy)
+
+
+@semantic
+def record_to_vector(r: TelemetryRecord) -> torch.Tensor:
+    values = [
+        float(r.epoch),
+        r.train_loss,
+        r.val_loss,
+        r.val_acc,
+        r.train_loss_delta,
+        r.val_loss_delta,
+        r.grad_norm_mean[0],
+        r.grad_norm_mean[1],
+        r.grad_norm_mean[2],
+        r.grad_norm_var[0],
+        r.grad_norm_var[1],
+        r.grad_norm_var[2],
+        r.act_saturation[0],
+        r.act_saturation[1],
+        r.act_saturation[2],
+        r.weight_norm[0],
+        r.weight_norm[1],
+        r.weight_norm[2],
+        r.per_class_val_acc_std,
+        r.confusion_entropy,
+    ]
+    return torch.tensor(values, dtype=torch.float32)
+
+
+@semantic
+def confusion_stats(logits: torch.Tensor, labels: torch.Tensor, n_classes: int = 10) -> tuple[float, float]:
+    with torch.no_grad():
+        preds = torch.argmax(logits, dim=1)
+        confusion = torch.zeros(n_classes, n_classes, device=logits.device, dtype=torch.float32)
+        for i in range(n_classes):
+            mask = labels == i
+            if mask.sum() == 0:
+                continue
+            pred_i = preds[mask]
+            for j in range(n_classes):
+                confusion[i, j] = (pred_i == j).sum().float()
+        total_per_class = confusion.sum(dim=1, keepdim=True)
+        total_per_class = torch.clamp(total_per_class, min=1e-8)
+        accuracy_per_class = confusion.diagonal() / total_per_class.squeeze()
+        std = float(accuracy_per_class.std())
+        off_diag = confusion.clone()
+        off_diag.fill_diagonal_(0)
+        off_diag_sum = off_diag.sum()
+        if off_diag_sum > 0:
+            off_diag = off_diag / off_diag_sum
+            entropy = float(-(off_diag[off_diag > 0] * torch.log(off_diag[off_diag > 0])).sum())
+        else:
+            entropy = 0.0
+    return std, entropy
+
+
+@semantic
+class Normalizer:
+    medians: torch.Tensor
+    iqrs: torch.Tensor
+
+    def __init__(self, medians: torch.Tensor | None = None, iqrs: torch.Tensor | None = None) -> None:
+        if medians is None:
+            self.medians = torch.zeros(TELEMETRY_DIM, dtype=torch.float32)
+        else:
+            self.medians = medians
+        if iqrs is None:
+            self.iqrs = torch.ones(TELEMETRY_DIM, dtype=torch.float32)
+        else:
+            self.iqrs = iqrs
+
+    def fit(self, vectors: list[torch.Tensor]) -> None:
+        stacked = torch.stack(vectors)
+        self.medians = torch.median(stacked, dim=0).values
+        q1 = torch.quantile(stacked, 0.25, dim=0)
+        q3 = torch.quantile(stacked, 0.75, dim=0)
+        iqrs = q3 - q1
+        self.iqrs = torch.clamp(iqrs, min=1e-8)
+
+    def apply(self, v: torch.Tensor) -> torch.Tensor:
+        return (v - self.medians) / self.iqrs
+
+    def to_json(self) -> str:
+        import json
+
+        return json.dumps(
+            {
+                "medians": self.medians.tolist(),
+                "iqrs": self.iqrs.tolist(),
+            }
+        )
+
+    @classmethod
+    def from_json(cls, s: str) -> Normalizer:
+        import json
+
+        data = json.loads(s)
+        return cls(
+            medians=torch.tensor(data["medians"], dtype=torch.float32),
+            iqrs=torch.tensor(data["iqrs"], dtype=torch.float32),
+        )
+
+    @classmethod
+    def identity(cls) -> Normalizer:
+        return cls(
+            medians=torch.zeros(TELEMETRY_DIM, dtype=torch.float32),
+            iqrs=torch.ones(TELEMETRY_DIM, dtype=torch.float32),
+        )
+
+
+_NON_SEMANTIC["TelemetryDivergence"] = "exception class — no computation depends on its definition"
+
+
+@semantic
+def build_record(
+    epoch: int,
+    train_loss: float,
+    val_loss: float,
+    val_acc: float,
+    train_loss_delta: float,
+    val_loss_delta: float,
+    grad_norm_mean: tuple[float, float, float],
+    grad_norm_var: tuple[float, float, float],
+    act_saturation: tuple[float, float, float],
+    weight_norm: tuple[float, float, float],
+    per_class_val_acc_std: float,
+    confusion_entropy: float,
+) -> TelemetryRecord:
+    return TelemetryRecord(
+        epoch=epoch,
+        train_loss=train_loss,
+        val_loss=val_loss,
+        val_acc=val_acc,
+        train_loss_delta=train_loss_delta,
+        val_loss_delta=val_loss_delta,
+        grad_norm_mean=grad_norm_mean,
+        grad_norm_var=grad_norm_var,
+        act_saturation=act_saturation,
+        weight_norm=weight_norm,
+        per_class_val_acc_std=per_class_val_acc_std,
+        confusion_entropy=confusion_entropy,
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
