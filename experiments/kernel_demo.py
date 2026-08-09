@@ -175,10 +175,13 @@ class Config:
     n_collect: int = 300  # spec's "extend collection pre-eval" lever
     d_model: int = 64
     n_layers: int = 2
-    tune_frac: float = 0.2
-    batch_size: int = 128
     eval_chunk: int = 1000  # plan-authored
     fsync_every: int = 20  # plan-authored durability cadence
+    # Frozen beyond the spec's frozen-block list: both are trajectory-defining
+    # (batch_size shapes every gradient step; run_seed derives the data split
+    # and every episode population) and no other hash covers them — outside
+    # FROZEN_FIELDS an edit would pass every refusal gate silently.
+    batch_size: int = 128
     run_seed: int = 20260809
 
 
@@ -215,6 +218,8 @@ FROZEN_FIELDS: tuple[str, ...] = (
     "policy_batch_size",
     "policy_steps",
     "warmup_frac",
+    "batch_size",
+    "run_seed",
 )
 
 
@@ -972,6 +977,9 @@ def env_block(device: str, worker_count: int) -> dict[str, object]:
         "gpu_name": torch.cuda.get_device_name(dev) if is_cuda else "cpu",
         "tf32_matmul": torch.backends.cuda.matmul.allow_tf32,
         "tf32_cudnn": torch.backends.cudnn.allow_tf32,
+        # Provenance only, NOT a replay-refusal key: CPU GEMM reductions are
+        # thread-count-dependent (policy training runs on CPU), so record it.
+        "torch_num_threads": torch.get_num_threads(),
         "worker_count": worker_count,
         "device_index": dev.index,
     }
@@ -1158,6 +1166,11 @@ def take_snapshot(ctx: EpisodeCtx) -> Snapshot:
 @semantic
 def germinate(ctx: EpisodeCtx, seed_name: str) -> float:
     cfg = ctx.cfg
+    if ctx.slot.stage is not Stage.DORMANT:
+        # Defense-in-depth on the one sanctioned influence-raising path: a
+        # second germination would append duplicate optimizer param groups
+        # and orphan the prior seed silently.
+        raise RuntimeError(f"germinate refused: slot is {ctx.slot.stage.name}, not DORMANT")
     seed = build_seed(seed_name, ctx.host.feat_channels, derive(ctx.episode_seed, "arm", seed_name)).to(ctx.device)
     prior = ctx.host.training
     ctx.host.eval()  # host BN protection (spec): tau-init must not touch host state
@@ -1338,7 +1351,10 @@ def run_arm(
         r_test=r_test,
         curve_val=ctx.curves_val,
         curve_test=ctx.curves_test,
-        init_seed=derive(episode_seed, "arm", arm_name),
+        # Provenance must name the stream actually drawn from: the nullseed
+        # arm germinates a conv_light module (gain zeroed afterwards), so its
+        # init came from conv_light's generator, not a "nullseed" stream.
+        init_seed=derive(episode_seed, "arm", "conv_light" if arm_name == "nullseed" else arm_name),
         g_at_init=g_at_init,
         rms_ratio_blend_entry=slot.rms_ratio_blend_entry,
         hash_after_training=hash_after_training,
@@ -1385,11 +1401,18 @@ def run_fan(
     if include_nullseed:
         ns = run_arm(cfg, data, device, episode_seed, pathology, future, snap, "nullseed", read_test)
         arms.append(ns)
-        if ns.status == "ok" and ns.host_hashes != expected:
-            # HARD STOP: the zero-normalized hash IS the spec's value-exact
-            # check; there is no weaker fallback, curves are never a comparand.
-            raise RuntimeError("null-seed host hashes mismatch base while the twin holds — value-exactness broken")
-        meta["nullseed_ok"] = ns.status == "ok"
+        # HARD STOP, unconditionally: delta==0 must reproduce the base
+        # bitwise — INCLUDING mirroring a base divergence at the same epoch.
+        # The zero-normalized hash IS the spec's value-exact check; there is
+        # no weaker fallback, curves are never a comparand, and a diverged
+        # nullseed must never be downgraded to an ordinary diverged-arm
+        # record (the harness-integrity instrument reporting a result).
+        if ns.status != twin.status or (ns.host_hashes or []) != expected:
+            raise RuntimeError(
+                "null-seed mismatch vs base while the twin holds — value-exactness broken "
+                f"(nullseed status={ns.status!r}, twin status={twin.status!r})"
+            )
+        meta["nullseed_ok"] = True
     return arms, meta
 
 
@@ -1615,13 +1638,20 @@ class Store:
                     raise ValueError(f"duplicate fan_id {r.fan_id} (manifest {r.manifest_hash!r})")
                 seen.add(key)
         # None coalesces to -1 so event records (fan_epoch=None) sort before
-        # that episode's fans instead of raising TypeError.
+        # that episode's fans instead of raising TypeError. The trailing
+        # discriminators (checkpoint, iteration, fan_id) make merged order
+        # canonical even for kinds the leading key cannot separate (an
+        # episode's 4 policy_run comparators, repeated preflight_iters) —
+        # shard-file/append order must never leak into consumers.
         records.sort(
             key=lambda r: (
                 r.episode_seed,
                 -1 if r.fan_epoch is None else r.fan_epoch,
                 r.kind,
                 -1 if r.refan_k is None else r.refan_k,
+                r.policy_checkpoint_id or "",
+                -1 if r.iteration is None else r.iteration,
+                r.fan_id,
             )
         )
         return records
@@ -1741,6 +1771,10 @@ def decide_live(
     with torch.no_grad():
         p_logit, seed_logits = policy(tokens, torch.tensor([tokens.shape[1]]))
     policy.train(prior)
+    if not (torch.isfinite(p_logit).all() and torch.isfinite(seed_logits).all()):
+        # NaN > 0.5 is False: a non-finite checkpoint would silently read as
+        # "never germinate, lift 0" across every episode. Loud, never that.
+        raise RuntimeError("decide_live: policy produced non-finite logits")
     if float(torch.sigmoid(p_logit[0])) > 0.5:  # deterministic — no sampling slot at eval
         logits = seed_logits[0]
         best = int((logits == logits.max()).nonzero()[0])  # deterministic tie-break: lowest index
@@ -2263,8 +2297,8 @@ def draw_schedule(episode_seed: int, cfg: Config, label: str = "schedule") -> tu
     # (collection uses "schedule"; the frozen eval grid uses "evalgrid").
     lo, hi = cfg.window
     g = make_generator(derive(episode_seed, label))
-    perm = torch.randperm(hi - lo + 1, generator=g)[:2]
-    a, b = sorted(int(lo + i) for i in perm)
+    perm = torch.randperm(hi - lo + 1, generator=g)[: cfg.fans_per_episode]
+    a, b = sorted(int(lo + i) for i in perm)  # unpack pins fans_per_episode == 2 loudly
     return a, b
 
 
@@ -2729,17 +2763,40 @@ def gate8_pressure(cfg: Config, data: DataBundle, device: str, worker_count: int
         return (arm.host_hashes or [""])[-1], time.perf_counter() - t0
 
     h_solo, t_solo = run_once()
-    sibling = (
-        "import dataclasses, torch\n"
+    # Siblings must apply COLLECTION-shaped pressure: full GPU-resident data
+    # (not the ~1.5MB selftest bundle) and long-running episodes, and the
+    # pressured leg must actually overlap them — each sibling touches a ready
+    # sentinel after its bundle is resident, and the parent waits for all
+    # sentinels before timing the pressured run.
+    import tempfile
+
+    ready_dir = Path(tempfile.mkdtemp(prefix="gate8_ready_"))
+    sibling_template = (
+        "import dataclasses, pathlib, torch\n"
         "import experiments.kernel_demo as k\n"
         "k.enable_class1()\n"
-        f"tiny = dataclasses.replace(k.Config(), horizon=4, stage_k=1, stage_m=1, stage_f=1, batch_size=64)\n"
-        f"bundle = k._tiny_bundle_for_selftest({device!r})\n"
+        "tiny = dataclasses.replace(k.Config(), horizon=4, stage_k=1, stage_m=1, stage_f=1, batch_size=64)\n"
+        f"bundle = k.load_data(k.Config(), {device!r})\n"
+        "pathlib.Path({ready!r}).touch()\n"
         f"ctx = k.make_episode(tiny, bundle, {device!r}, k.derive(tiny.run_seed, 'gate8-sibling'))\n"
         "k.run_base(ctx, tiny, fan_epochs=())\n"
     )
-    procs = [subprocess.Popen([sys.executable, "-c", sibling]) for _ in range(max(0, worker_count - 1))]
+    procs = []
+    ready_files = []
+    for i in range(max(0, worker_count - 1)):
+        ready = str(ready_dir / f"ready_{i}")
+        ready_files.append(ready)
+        procs.append(subprocess.Popen([sys.executable, "-c", sibling_template.format(ready=ready)]))
+    deadline = time.monotonic() + 300.0
+    while not all(Path(r).exists() for r in ready_files):
+        if time.monotonic() > deadline or any(p.poll() not in (None, 0) for p in procs):
+            for p in procs:
+                p.terminate()
+            return GateResult(False, "gate8 siblings failed to become resident", {"worker_count": worker_count}, remedy)
+        time.sleep(0.5)
     h_pressured, t_pressured = run_once()  # timed while siblings run
+    for p in procs:
+        p.terminate()  # pressure measured; full sibling episodes need not finish
     for p in procs:
         p.wait()
     match = h_pressured == h_solo
@@ -2750,6 +2807,7 @@ def gate8_pressure(cfg: Config, data: DataBundle, device: str, worker_count: int
         "pressured_s": t_pressured,
         "concurrency_factor": concurrency_factor,  # the measured factor for the runtime table
         "worker_count": worker_count,
+        "sibling_data": "full load_data bundle, ready-file synchronized",
         "match": match,
     }
     return GateResult(match, reason, detail, remedy)
@@ -2783,6 +2841,8 @@ def freeze_manifest(
     det_mode_cost: dict[str, float] | None,
     concurrency_factor: float | None,
     gate8_outcome: dict[str, object] | None,
+    *,
+    n_train: int | None = None,
 ) -> dict[str, object]:
     not_ok = [name for name, g in gates.items() if not g["ok"]]
     if not_ok:
@@ -2808,6 +2868,9 @@ def freeze_manifest(
         "beta_now": fan_density["best_minus_noop"] / cfg.beta_now_div,
         "schedule_id": make_schedule_id(cfg),
         "data_split_id": data_split_id(cfg),
+        # Freezing against a --subset preflight must be detectable: gates,
+        # normalizer and density were calibrated on THIS many train images.
+        "n_train": n_train,
         "gate_results": gates,
         "gate8_outcome": gate8_outcome,
         "det_mode_cost": det_mode_cost,
@@ -2861,7 +2924,13 @@ def run_preflight(
         es = derive(cfg.run_seed, "preflight", i)
         if es in pf_voided or pf_fan_counts.get(es, 0) >= cfg.fans_per_episode:
             continue
-        run_collection_episode(cfg, data, device, es, "preflight", store, worker_id=0, read_test=False, skip_fan_ids=pf_existing)
+        try:
+            run_collection_episode(cfg, data, device, es, "preflight", store, worker_id=0, read_test=False, skip_fan_ids=pf_existing)
+        except TwinDivergence as td:
+            # Same localisation artifact worker_main writes — a twin abort
+            # must never surface as a bare traceback without its report.
+            write_divergence_report(store_root, cfg, es, "noop", td.first_bad_epoch, None, device, 1)
+            raise
     merged = store.merge()
     # A void_event with refan_k set is a completed-but-diverged refan: skip it
     # too, or every preflight invocation re-runs it and re-appends the void.
@@ -2942,6 +3011,7 @@ def run_preflight(
             cast("dict[str, float] | None", certified.get("det_mode_cost")),
             cast("float | None", concurrency),
             g8,
+            n_train=int(data.train_x.shape[0]),
         )
     return result
 
@@ -3001,6 +3071,12 @@ def worker_main(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "a", encoding="utf-8") as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
         data = data_loader(cfg, device, None)  # load once, resident per process
+        manifest_n = json.loads((Path(store_root) / "frozen.json").read_text(encoding="utf-8")).get("n_train")
+        if manifest_n not in (None, int(data.train_x.shape[0])):
+            # The manifest's gates/normalizer/density were calibrated on a
+            # different data size (--subset preflight?) — collecting against
+            # it would silently mix calibrations.
+            raise RuntimeError(f"collect refused: n_train mismatch (manifest {manifest_n}, live {int(data.train_x.shape[0])})")
         store = Store(store_root, cfg.fsync_every)
         try:
             for es in seeds:
@@ -3167,7 +3243,9 @@ def run_collect(
 AGREEMENT_MARGIN = semantic_const("AGREEMENT_MARGIN", 0.15)  # "+15 points (test units)", pre-registered
 N_EVAL_REFANS = semantic_const("N_EVAL_REFANS", 30)  # ceiling estimate sample size
 
-EVAL_COMPARATORS = ("trained", "random", "schedule_only", "fixed_epoch")
+# Behavior-bearing: shapes comparator identities and the whole eval battery —
+# on the semantic surface like its section-16 neighbours.
+EVAL_COMPARATORS = semantic_const("EVAL_COMPARATORS", ("trained", "random", "schedule_only", "fixed_epoch"))
 
 
 @semantic
@@ -3197,7 +3275,7 @@ def class_derangement(classes: list[str], seed: int) -> dict[str, str]:
 
 
 @semantic
-def when_contrast(episodes: list[dict[str, object]]) -> dict[str, float]:
+def when_contrast(episodes: list[dict[str, object]]) -> dict[str, float | None]:
     # episodes carry the per-episode WHEN-contrast series in "lift"
     # (trained_live - fixed_epoch at eval) and trained-live's germination
     # flag. Unrestricted = mean over ALL episodes (a never-germinating
@@ -3205,13 +3283,15 @@ def when_contrast(episodes: list[dict[str, object]]) -> dict[str, float]:
     # confound the spec names); restricted = mean over episodes where
     # trained-live germinated.
     if not episodes:
-        return {"unrestricted_mean": 0.0, "restricted_mean": 0.0, "germination_rate": 0.0}
+        return {"unrestricted_mean": 0.0, "restricted_mean": None, "germination_rate": 0.0}
     lifts = [_as_float(e["lift"]) for e in episodes]
     germ = [bool(e["germinated"]) for e in episodes]
     acted = [lift for lift, g in zip(lifts, germ, strict=True) if g]
     return {
         "unrestricted_mean": sum(lifts) / len(episodes),
-        "restricted_mean": sum(acted) / len(acted) if acted else 0.0,
+        # A conditional mean over zero acted episodes is UNDEFINED — None,
+        # never a silent 0.0 (the germination_rate beside it disambiguates).
+        "restricted_mean": sum(acted) / len(acted) if acted else None,
         "germination_rate": len(acted) / len(episodes),
     }
 
@@ -3258,11 +3338,15 @@ def run_train(cfg: Config, store_root: str) -> dict[str, object]:
     # receives frozen_density, never `records`-derived density).
     print(f"collection-density diagnostic (UNUSED for betas): {measure_fan_density(records)}")
     assert abs(cast(float, manifest["beta_which"]) - cfg.beta_which_frac * frozen_density["best_minus_second"]) < 1e-9
+    assert abs(cast(float, manifest["beta_now"]) - frozen_density["best_minus_noop"] / cfg.beta_now_div) < 1e-9
     pol_dir = root / "policies"
     pol_dir.mkdir(parents=True, exist_ok=True)
     out: dict[str, object] = {}
     for name, mask_fn in (("trained", None), ("schedule_only", schedule_only_mask)):
         gen = make_generator(derive(cfg.run_seed, "policy", name))
+        # Deliberate: the policy trains on CPU (deterministic per env_block's
+        # recorded thread count) and is moved to CUDA only at eval — benign at
+        # d_model=64; the env pins make any numerics drift refusable.
         policy, info = train_policy(records, cfg, normalizer, gen, frozen_density=frozen_density, mask_fn=mask_fn)
         ckpt_id = state_hash(policy)  # checkpoints keyed by state-dict hash
         torch.save(policy.state_dict(), pol_dir / f"{name}_{ckpt_id}.pt")
@@ -3297,6 +3381,10 @@ def _query_dicts(policy: Policy, normalizer: Normalizer, tele: list[dict[str, ob
         p = float(torch.sigmoid(p_logit[0]))
         pi = torch.softmax(seed_logits[0], dim=-1)
     policy.train(prior)
+    if not (math.isfinite(p) and bool(torch.isfinite(pi).all())):
+        # NaN > 0.5 is False: a non-finite checkpoint would silently read as
+        # restraint (lift exactly 0) on every query. Loud, never that.
+        raise RuntimeError("_query_dicts: policy produced non-finite output")
     return p, {name: float(pi[i]) for i, name in enumerate(SEED_NAMES)}
 
 
@@ -3361,6 +3449,10 @@ def run_eval(
     manifest = json.loads((root / "frozen.json").read_text(encoding="utf-8"))
     if manifest["frozen_block_hash"] != frozen_block_hash(cfg) or manifest["config_hash"] != config_hash():
         raise RuntimeError("eval refused: manifest mismatch (live Config/source differ from frozen.json)")
+    if manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+        # A --subset eval against a full-data manifest (or vice versa) would
+        # burn the one-shot on the wrong data — refuse before anything runs.
+        raise RuntimeError(f"eval refused: n_train mismatch (manifest {manifest.get('n_train')}, live {int(data.train_x.shape[0])})")
     manifest_hash = cast(str, manifest["manifest_hash"])
     merged = store.merge()
     # A base divergence before the first fan epoch legitimately yields a
@@ -3368,7 +3460,20 @@ def run_eval(
     # the episode was processed and its outcome recorded). Counting only
     # kind=="fan" made eval permanently unreachable after any such episode,
     # since --extend raises `required` by the same n.
-    train_eps = {r.episode_seed for r in merged if r.kind in ("fan", "void_event") and r.seed_namespace == "train"}
+    # Fan-level completeness, mirroring collect's done-set: an episode counts
+    # only when voided OR carrying its full fan complement — episode-presence
+    # alone would silently accept a half-collected episode (crash between the
+    # two fan appends + operator never re-running collect).
+    tr_fan_counts: dict[int, int] = {}
+    tr_voided: set[int] = set()
+    for r in merged:
+        if r.seed_namespace != "train":
+            continue
+        if r.kind == "fan":
+            tr_fan_counts[r.episode_seed] = tr_fan_counts.get(r.episode_seed, 0) + 1
+        elif r.kind == "void_event":
+            tr_voided.add(r.episode_seed)
+    train_eps = tr_voided | {es for es, c in tr_fan_counts.items() if c >= cfg.fans_per_episode}
     required = cfg.n_collect + _recorded_extensions(merged)
     if len(train_eps) < required:
         raise RuntimeError(f"eval refused: incomplete collection ({len(train_eps)} train episodes < {required})")
@@ -3502,19 +3607,24 @@ def run_eval(
         grid_missing = [fe for fe in grid_epochs if fan_identity(es, fe, "fan", None, None, None) not in existing]
         base_voided = fan_identity(es, None, "void_event", None, None, None) in existing
         if grid_missing and not base_voided:
-            run_collection_episode(
-                cfg,
-                data,
-                device,
-                es,
-                "eval",
-                store,
-                0,
-                True,
-                manifest_hash=manifest_hash,
-                schedule_label="evalgrid",
-                skip_fan_ids=frozenset(existing),
-            )
+            try:
+                run_collection_episode(
+                    cfg,
+                    data,
+                    device,
+                    es,
+                    "eval",
+                    store,
+                    0,
+                    True,
+                    manifest_hash=manifest_hash,
+                    schedule_label="evalgrid",
+                    skip_fan_ids=frozenset(existing),
+                )
+            except TwinDivergence as td:
+                # Same localisation artifact worker_main writes on twin abort.
+                write_divergence_report(store_root, cfg, es, "noop", td.first_bad_epoch, manifest_hash, device, 1)
+                raise
         refan_done = (
             fan_identity(es, grid_epochs[0], "refan", 0, None, None) in existing
             or fan_identity(es, grid_epochs[0], "void_event", 0, None, None) in existing  # diverged base, already voided
@@ -3599,9 +3709,11 @@ def run_eval(
         )
     else:
         nd_matched, nd_p = 0, 1.0
-    # restraint regret: what never-germinating left on the table, from the
-    # episode's LAST grid point (+ labeled per-point pairs stored above)
+    # restraint regret: what never-germinating left on the table. Headline =
+    # the episode's LAST grid point; the spec ALSO requires every grid point
+    # reported separately, labeled as containing option value.
     regrets: list[float] = []
+    regret_grid_points: list[dict[str, object]] = []
     for e_summary in per_comp["trained"]:
         if e_summary["germinated"]:
             continue
@@ -3609,6 +3721,15 @@ def run_eval(
         ep_grid = [g for g in grid if g.episode_seed == es_r]
         if not ep_grid:
             continue
+        for g_rec in ep_grid:
+            by_g = _arm_by_name(g_rec)
+            regret_grid_points.append(
+                {
+                    "episode_seed": es_r,
+                    "fan_epoch": g_rec.fan_epoch,
+                    "regret": max(0.0, max(_as_float(by_g[n]["r_test"]) for n in SEED_NAMES) - _as_float(by_g["noop"]["r_test"])),
+                }
+            )
         last = max(ep_grid, key=lambda g: g.fan_epoch or 0)
         by = _arm_by_name(last)
         # Regret vs fan-optimal-WITH-no-op: when no-op is the fan optimum,
@@ -3621,7 +3742,11 @@ def run_eval(
         c = e_summary.get("chosen")
         if isinstance(c, str):
             chosen_marginal[c] = chosen_marginal.get(c, 0) + 1
-    density = cast(dict[str, float], manifest["fan_density"])
+    # Gate 3's paired refan noise floor (all keys carry the same value); a
+    # frozen manifest always has it — freeze refuses on any failed gate, and
+    # a passing gate3 recorded its floor. KeyError here is loud, as intended.
+    g3_detail = cast(dict[str, object], cast(dict[str, dict[str, object]], manifest["gate_results"])["gate3_contrast"]["detail"])
+    sigma_r_floor = next(iter(cast(dict[str, float], g3_detail["floor"]).values()))
     # The WHEN contrast is trained_live - fixed_epoch per episode (spec),
     # paired by eval seed — NOT trained's own lift alone.
     when_eps: list[dict[str, object]] = [
@@ -3654,14 +3779,19 @@ def run_eval(
         "when_contrast": when_contrast(when_eps),
         "restraint_regret": {
             "last_grid_point_mean": (sum(regrets) / len(regrets)) if regrets else 0.0,
-            "per_point": regrets,
+            "last_grid_point": regrets,
+            "per_grid_point": regret_grid_points,
+            "label": "per-grid-point regret contains option value (a later grid point could still have acted)",
         },
         "chosen_seed_marginal": chosen_marginal,
         "per_grid_point": per_point,
         "power_note": {
-            "mde_lift_at_n_eval": z_power * density["best_minus_noop"] / (cfg.n_eval**0.5),
+            # MDE needs an SD, not a mean effect-size gap: gate 3's paired
+            # refan floor is E|R - R'| for iid draws, so sd(R) = floor*sqrt(pi)/2.
+            # A LOWER anchor — it carries future-resampling noise only.
+            "mde_lift_at_n_eval": z_power * (sigma_r_floor * math.sqrt(math.pi) / 2.0) / (cfg.n_eval**0.5),
             "mde_agreement_at_grid": z_power * 0.5 / ((cfg.n_eval * 2) ** 0.5),
-            "density_source": "manifest fan_density (gate 3 measurement)",
+            "density_source": "gate 3 refan noise floor (sd from E|R-R'|; lower anchor, future-resampling only)",
         },
     }
     results["verdict"] = verdict(results, cfg)
@@ -3792,12 +3922,31 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
         raise RuntimeError(f"replay refused: env mismatch on {bad_env} (recorded vs live)")
     if rec.config_hash != config_hash():
         raise RuntimeError("replay refused: config_hash mismatch (live semantic surface differs from the record)")
+    # Config is _NON_SEMANTIC, so a frozen-constant edit moves NEITHER hash
+    # above — without this check it would masquerade as a KERNEL SELECTION
+    # divergence below (config drift misattributed as GPU nondeterminism).
+    if rec.frozen_block_hash != frozen_block_hash(cfg):
+        raise RuntimeError("replay refused: frozen_block_hash mismatch (live Config differs from the record)")
     if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest.get("manifest_hash"):
         raise RuntimeError("replay refused: manifest_hash mismatch")
+    if manifest is not None and manifest.get("data_split_id") not in (None, data_split_id(cfg)):
+        raise RuntimeError("replay refused: data_split_id mismatch (live run_seed/split differs from the manifest)")
     if rec.kind != "fan" or rec.fan_epoch is None:
         raise RuntimeError(f"replay supports kind='fan' records, got {rec.kind!r}")
+    # Replay under the RECORDED observation mode: collection fans carry no
+    # r_test (read_test=False), eval-grid fans do — inserting test-set passes
+    # the original run never executed is a record/replay path asymmetry.
+    read_test = any(a.get("r_test") is not None for a in rec.arms)
     data = load_data(cfg, device)
-    ctx = make_episode(cfg, data, device, rec.episode_seed, read_test=True)
+    if manifest is not None and manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+        raise RuntimeError("replay refused: n_train mismatch (record was collected against a different data size)")
+    ctx = make_episode(cfg, data, device, rec.episode_seed, read_test=read_test)
+    # Localisation anchors the record already carries: check the re-derived
+    # inputs BEFORE blaming the kernel branch.
+    if ctx.pathology != rec.pathology_id:
+        raise RuntimeError("replay mismatch: diverged at PATHOLOGY DERIVATION (episode seed population moved)")
+    if rec.common_future_hash and ctx.future.hash != rec.common_future_hash:
+        raise RuntimeError("replay mismatch: diverged at FUTURE DERIVATION (common_future_hash differs)")
     live_init = state_hash(ctx.host)
     if live_init != rec.host_init_hash:
         # Localisation: the host was wrong before any kernel ran.
@@ -3806,9 +3955,15 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     snap = trace.snapshots[rec.fan_epoch]
     include_nullseed = any(a["name"] == "nullseed" for a in rec.arms)
     arms, _meta = run_fan(
-        cfg, data, device, rec.episode_seed, ctx.pathology, ctx.future, snap, trace, True, include_nullseed=include_nullseed
+        cfg, data, device, rec.episode_seed, ctx.pathology, ctx.future, snap, trace, read_test, include_nullseed=include_nullseed
     )
     recorded = {str(a["name"]): a for a in rec.arms}
+    # A status flip (recorded ok, replays diverged — or vice versa) is the
+    # STRONGEST replay divergence: nondeterminism changed whether an arm
+    # NaN'd. Check it before the value comparison, which only sees ok/ok.
+    flipped = [a.name for a in arms if a.name in recorded and a.status != recorded[a.name].get("status")]
+    if flipped:
+        raise RuntimeError(f"replay mismatch: arm STATUS flipped (ok<->diverged) for {flipped}")
     mismatched = [
         a.name
         for a in arms
@@ -3818,7 +3973,7 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
         and a.r_val != _as_float(recorded[a.name]["r_val"])
     ]
     if mismatched:
-        # Seeding verified above, so the divergence is in the branch itself.
+        # Seeding + anchors verified above, so the divergence is in the branch.
         raise RuntimeError(f"replay mismatch: diverged at KERNEL SELECTION for arms {mismatched}")
     return {"fan_id": fan_id, "ok": True, "arms_verified": [a.name for a in arms if a.status == "ok"]}
 

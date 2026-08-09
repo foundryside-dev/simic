@@ -43,9 +43,19 @@ def test_when_contrast_six_episode_fixture_with_two_never_germinates():
         {"germinated": False, "lift": 0.0},
     ]
     out = when_contrast(eps)
-    assert abs(out["restricted_mean"] - 0.25) < 1e-12
-    assert abs(out["unrestricted_mean"] - 1.0 / 6) < 1e-12
-    assert abs(out["germination_rate"] - 4 / 6) < 1e-12
+    rm, um, gr = out["restricted_mean"], out["unrestricted_mean"], out["germination_rate"]
+    assert rm is not None and um is not None and gr is not None
+    assert abs(rm - 0.25) < 1e-12
+    assert abs(um - 1.0 / 6) < 1e-12
+    assert abs(gr - 4 / 6) < 1e-12
+
+
+def test_when_contrast_no_germination_restricted_mean_is_none():
+    # A conditional mean over zero acted episodes is undefined — None, never
+    # a silent 0.0 (the silent-zero scar class).
+    out = when_contrast([{"germinated": False, "lift": -0.05}, {"germinated": False, "lift": 0.03}])
+    assert out["restricted_mean"] is None
+    assert out["germination_rate"] == 0.0
 
 
 def _results(all_pass: bool = True) -> dict[str, object]:
