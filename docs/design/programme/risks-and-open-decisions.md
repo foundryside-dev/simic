@@ -116,3 +116,12 @@ Fix the acceptable Field-to-Academy selection regret, accept/no-op disagreement,
 ### 27.15 Scaffold interaction budget
 
 Fix which two-way and three-way scaffold interaction cells are required at toy, image and scaled stages. The programme must preserve interpretability without committing to an unnecessarily exhaustive Cartesian product at every scale.
+
+**Decided at MVP scale (ADR-0014):** the worked cost model
+(`cost-model.md#b-fleet-arithmetic--why-branches-do-not-buy-power`) fixes
+the allocation — the two corner cells (fully scaffolded, fully withdrawn)
+at full n = 32 trajectories, the six intermediate cells at n = 16 with
+their MDE declared (2.19× the random-arm rate; an interpretability
+instrument, not a confirmatory claim). The image- and scaled-stage
+allocations remain open and re-price when the cost model's placeholders
+retire.
