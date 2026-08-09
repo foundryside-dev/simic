@@ -6,6 +6,28 @@ demo proves the substrate loop and the counterfactual-fan supervision
 economics, not generative morphogenesis.
 
 Spec (LOCKED, rev 6): docs/superpowers/specs/2026-08-09-kernel-demo-design.md
+
+Narrative order (one file, read top to bottom):
+  1  identity & config   — semantic surface, config_hash, frozen block, derive/rng
+  2  data                — CIFAR splits, GPU residency, CommonFuture, augment
+  3  telemetry           — TelemetryRecord (blind by construction), Normalizer
+  4  host                — undersized CNN, four pathologies, fixed 64-wide slot
+  5  seeds               — delta contract, tau-init (D11), decay groups
+  6  slot lifecycle      — STE, alpha/beta schedules, trust region, optimizer
+  7  determinism         — Class 1 knobs, zero-normalized state_hash (D8), env
+  8  episode             — epoch loop, snapshot, germination (D12)
+  9  fan executor        — arm-local materialization, twin, null-seed
+  10 records & store     — schema, shards, split walls, durability
+  11 policy              — trunk, factored head, deployment rule, masks
+  12 learning            — objectives, frozen temperatures, warm-up, tune ckpt
+  13 --selftest          — check battery, --certify artifact
+  14 --preflight         — gates 1-8, refans, FreezeManifest
+  15 --collect           — idempotent spawn workers, halt channel
+  16 --train / --eval    — comparator battery, frozen grid, verdict
+  17 --report / --replay — tables (D4/D6), bitwise replay with localisation
+
+Plots live in the standalone sidecar kernel_demo_plots.py (never on the
+semantic surface).
 """
 
 from __future__ import annotations
@@ -29,6 +51,7 @@ from typing import TextIO, cast
 import torch
 from torch import nn
 
+# section 1 — IDENTITY AND CONFIG
 SCHEMA_VERSION = 1
 
 _SEMANTIC_SURFACE: list[Callable[..., object]] = []
