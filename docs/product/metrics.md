@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-09 (session 9 checkpoint)
+# Metrics — Simic             Last read: 2026-08-09 (session 10 checkpoint)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -13,7 +13,7 @@
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 38 open / 12 closed — flat across session 9 (2026-08-09), an owner-directed static-content quality session (PDR-0018, outside the burn-down). **Second consecutive flat session: the pacing warning session 8 armed now FIRES.** 22 days to the pacing date needs ~1.7 closures per working day; next DECIDE must either resume wave:1 closures or re-plan the date by PDR (PDR-0005: a fired signal must fire, never drift silently) | 2026-08-09 (session 9 checkpoint) |
+| Design-debt burn-down: open `hld-review` tracker items | 0 by 2026-08-31 | 38 open / 13 closed — still flat through session 10 (2026-08-09), the owner-directed Namespec 2.0 cascade (ADR-0008, PDR-0020; the namespec issue itself opened and closed same-day, netting zero; 27 open items retitled, counts unaffected). **The pacing warning fired at session 9 and STANDS unanswered** — three working sessions without a wave:1 closure; 22 days to the pacing date needs ~1.7 closures per working day; next DECIDE must either resume wave:1 closures or re-plan the date by PDR (PDR-0005: a fired signal must fire, never drift silently) | 2026-08-09 (session 10 checkpoint) |
 | Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11 (pre-code) | 2026-08-08 |
 
 ## Guardrails (must NOT degrade)

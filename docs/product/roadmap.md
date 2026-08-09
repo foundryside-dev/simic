@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-08 (session 6 reconciliation; PDR-0012, ADR-0003)
+# Roadmap — Simic            Updated: 2026-08-09 (session 10; PDR-0020, ADR-0008 — Namespec 2.0 renames applied; no bet changed horizon)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
