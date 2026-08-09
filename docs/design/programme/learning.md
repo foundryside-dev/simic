@@ -27,9 +27,9 @@ Candidate-design objectives may include:
 
 The first generator should be a small deterministic or latent-conditioned network. Flow or diffusion models are introduced only if simpler models fail to provide useful candidate coverage.
 
-Momir is trained to consume Nissa telemetry and the resolved request as separate inputs. During bootstrap it may additionally consume `BootstrapAncestryContext`; ancestry dropout progressively replaces this with null context. A training-only utility head does not grant Momir live admission authority. At inference, Momir proposes a pool that still passes through Elesh, Tezzeret, Urabrask and Augustin.
+Momir is trained to consume Nissa telemetry and the resolved request as separate inputs. During bootstrap it may additionally consume `BootstrapAncestryContext`; ancestry dropout progressively replaces this with null context. A training-only utility head does not grant Momir live admission authority. At inference, Momir proposes a pool that still passes through Elesh, Urabrask, Jin-Gitaxias and Isperia.
 
-### 17.2 Narset
+### 17.2 Aurelia
 
 Recommended training sequence:
 
@@ -40,13 +40,13 @@ Recommended training sequence:
 5. reinforcement-learning refinement;
 6. held-out generalisation.
 
-Narset's objective must not pay it for outcomes caused solely by Tamiyo granting a larger budget. It is evaluated on action quality inside the envelope it received.
+Aurelia's objective must not pay it for outcomes caused solely by Ugin granting a larger budget. It is evaluated on action quality inside the envelope it received.
 
-The `GrowthIntent` action channel is deliberately coarse and canonical. Narset is never rewarded for selecting a topology family, ancestor, diagnosis, rank, width or operator. Joint training with Momir must include anti-collusion tests so the pair cannot encode structural hints in nominally irrelevant continuous values, field ordering, candidate count or aliases. Early training should hold Momir fixed or use a known-good provider so Narset learns commissioning rather than co-design.
+The `GrowthIntent` action channel is deliberately coarse and canonical. Aurelia is never rewarded for selecting a topology family, ancestor, diagnosis, rank, width or operator. Joint training with Momir must include anti-collusion tests so the pair cannot encode structural hints in nominally irrelevant continuous values, field ordering, candidate count or aliases. Early training should hold Momir fixed or use a known-good provider so Aurelia learns commissioning rather than co-design.
 
-### 17.3 Tamiyo
+### 17.3 Ugin
 
-Tamiyo learns on a slower horizon and initially consumes aggregate regional outcomes rather than raw local telemetry.
+Ugin learns on a slower horizon and initially consumes aggregate regional outcomes rather than raw local telemetry.
 
 Training may use:
 
@@ -56,9 +56,9 @@ Training may use:
 - constrained optimisation;
 - or delayed long-horizon utility.
 
-Tamiyo is introduced only after Narset’s local behaviour, Augustin’s adjudication and Emrakul’s maintenance are stable enough that strategic outcomes are interpretable.
+Ugin is introduced only after Aurelia’s local behaviour, Isperia’s adjudication and Emrakul’s maintenance are stable enough that strategic outcomes are interpretable.
 
-### 17.4 Urabrask field surrogate
+### 17.4 Jin-Gitaxias field surrogate
 
 A field-QA surrogate may be trained against Academy-exact `BranchResult` and `QualityReport` labels. It predicts:
 
@@ -70,7 +70,7 @@ A field-QA surrogate may be trained against Academy-exact `BranchResult` and `Qu
 - evidence incompleteness;
 - and escalation need.
 
-It does **not** predict `ADMIT` as an authoritative output. Its result is part of Urabrask's evidence process and remains auditable against Academy QA.
+It does **not** predict `ADMIT` as an authoritative output. Its result is part of Jin-Gitaxias's evidence process and remains auditable against Academy QA.
 
 The surrogate's withdrawal gate is decision-aware. It must demonstrate acceptable:
 
@@ -82,9 +82,9 @@ The surrogate's withdrawal gate is decision-aware. It must demonstrate acceptabl
 
 Calibration expires when the host family, grammar level, compiler backend, execution profile or evidence distribution moves outside the certified envelope. Expired or low-margin cases escalate to Academy rather than silently extending the surrogate's authority.
 
-### 17.5 Augustin
+### 17.5 Isperia
 
-The initial Augustin is explicit, rule-driven and pre-registered. It applies:
+The initial Isperia is explicit, rule-driven and pre-registered. It applies:
 
 - hard eligibility;
 - no-op anchoring;
@@ -95,34 +95,34 @@ The initial Augustin is explicit, rule-driven and pre-registered. It applies:
 
 Later learned adjudication is possible, but only after:
 
-- Urabrask evidence is trustworthy;
+- Jin-Gitaxias evidence is trustworthy;
 - validation and test partitions are sealed;
 - decision calibration is measurable;
 - reasons and policy versions remain inspectable;
 - and a fixed-rule baseline is understood.
 
-A learned Augustin still cannot inspect candidate source or collect its own evidence.
+A learned Isperia still cannot inspect candidate source or collect its own evidence.
 
 ### 17.6 Emrakul
 
-The first maintenance behaviour is fixed and pre-registered. Learned maintenance begins only after Augustin continued-tenancy decisions and Urabrask re-adaptation measurements are reliable.
+The first maintenance behaviour is fixed and pre-registered. Learned maintenance begins only after Isperia continued-tenancy decisions and Jin-Gitaxias re-adaptation measurements are reliable.
 
 Emrakul may learn *how* to execute safe sedation and decay efficiently. It does not learn to override the tenancy verdict.
 
-### 17.7 Elesh and Tezzeret
+### 17.7 Elesh and Urabrask
 
 Elesh is primarily rule-driven. Learned structural analyses may be added only where they cannot replace hard safety and type checks.
 
-Tezzeret may use learned compilation heuristics, but semantic equivalence remains verified by Urabrask runtime QA against the Elesh canonical reference.
+Urabrask may use learned compilation heuristics, but semantic equivalence remains verified by Jin-Gitaxias runtime QA against the Elesh canonical reference.
 
 ### 17.8 Nissa
 
-Nissa may learn feature extractors or diagnostic embeddings only under a separately defined observation objective. It is not trained end to end through Narset's action reward or Momir's preferred output in a way that would turn the observation into an undocumented policy message.
+Nissa may learn feature extractors or diagnostic embeddings only under a separately defined observation objective. It is not trained end to end through Aurelia's action reward or Momir's preferred output in a way that would turn the observation into an undocumented policy message.
 
 Any learned telemetry must retain:
 
 - stable schema and basis semantics;
-- direct publication to Narset and Momir;
+- direct publication to Aurelia and Momir;
 - observation and snapshot identity;
 - provenance;
 - information ablations;
@@ -130,14 +130,14 @@ Any learned telemetry must retain:
 
 The existence of useful latent information is not itself a violation; the violation is allowing one agent to rewrite or selectively expose the evidence another agent receives.
 
-### 17.9 Tolaria, Leyline and Sarpadia
+### 17.9 Tolaria, Leyline and Urborg
 
 These infrastructure domains are not policy learners.
 
 - Tolaria may autotune execution or compilation-independent scheduling, but it may not optimise for candidate preference.
 - Leyline may generate code from schemas and deterministically resolve requests, but it does not learn case-specific rules or infer diagnoses.
-- Sarpadia may learn retrieval indices, but retrieval remains precedent selection rather than deployment policy.
-- Sarpadia's bootstrap reference population is curated and versioned by curriculum manifests; it does not become a hidden production ontology.
+- Urborg may learn retrieval indices, but retrieval remains precedent selection rather than deployment policy.
+- Urborg's bootstrap reference population is curated and versioned by curriculum manifests; it does not become a hidden production ontology.
 - Request resolution must remain a pure, reproducible transformation whose output can be recomputed from recorded inputs.
 - Tolaria may learn or autotune Field execution only inside a profile calibrated against Academy-exact evidence; exact replay remains available as a non-learned reference path.
 - `ScaffoldState` is declarative experiment metadata, not a policy output inferred by infrastructure.

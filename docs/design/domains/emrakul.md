@@ -13,24 +13,24 @@
 - initiate safe gradual decay;
 - lyse obsolete structures;
 - consolidate capacity where separately authorised;
-- and return recycled capacity to Tamiyo’s strategic view.
+- and return recycled capacity to Ugin’s strategic view.
 
 #### Inputs
 
-- Urabrask maintenance `QualityReport`;
-- Augustin `MaintenanceDecision`;
+- Jin-Gitaxias maintenance `QualityReport`;
+- Isperia `MaintenanceDecision`;
 - Tolaria maintenance execution;
-- Kasmina lifecycle and alpha state;
+- Wrenn lifecycle and alpha state;
 - Nissa long-horizon telemetry;
-- Tamiyo strategic budgets;
-- and Sarpadia lineage and historical outcomes.
+- Ugin strategic budgets;
+- and Urborg lineage and historical outcomes.
 
 #### Invariants
 
 - Emrakul acts only on committed or explicitly handed-off growth.
 - It does not construct replacements.
 - It does not decide continued-tenancy utility.
-- It does not alter Urabrask test policy or Augustin adjudication policy.
+- It does not alter Jin-Gitaxias test policy or Isperia adjudication policy.
 - Sedation precedes lysis where safety permits.
 - A lysis event is emitted once on a real transition.
 

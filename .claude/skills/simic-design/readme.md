@@ -1,6 +1,6 @@
 # Simic Design System
 
-Design system for **Simic — Counterfactual Generative Morphogenesis**, a research project by tachyon-beep (foundryside.dev). Simic is a lifecycle-driven neural training system: new structure is generated from the live state of a host network, then causally screened against doing nothing. Status: pre-implementation bootstrap — HLD v4.1, Namespec 1.0, locked.
+Design system for **Simic — Counterfactual Generative Morphogenesis**, a research project by tachyon-beep (foundryside.dev). Simic is a lifecycle-driven neural training system: new structure is generated from the live state of a host network, then causally screened against doing nothing. Status: pre-implementation bootstrap — HLD v4.1, Namespec 2.0, locked.
 
 Two surfaces:
 1. **Marketing/overview site** (https://simic.foundryside.dev/) — hand-written static HTML, vanilla CSS, **zero JavaScript**, zero external requests. Source: `site/` in the repo.
@@ -17,7 +17,7 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 **Person**: third person throughout. The system and its domains are the subjects ("Nissa observes and reports"). No "we", no "you". Direct imperatives appear only in obligations ("Do not strip armour to speed the forward motion").
 
 **Signature devices**:
-- Domain codenames as actors with one-verb authority: "Momir designs. Elesh conforms. Tezzeret compiles."
+- Domain codenames as actors with one-verb authority: "Momir designs. Elesh conforms. Urabrask compiles."
 - Invariant citations inline: `INV-15`, `INV-38`, set in mono accent.
 - File paths as authority citations: `docs/design/01-claim.md` §4.
 - Bold for the load-bearing clause of a paragraph, em for contrastive stress (*what*, *whether*, *who*).
@@ -27,7 +27,7 @@ Source repo: https://github.com/foundryside-dev/simic — explore it for the can
 **Examples** (verbatim):
 > "Doing nothing is a real competitor."
 > "Absent signal stays absent and is never a fabricated zero."
-> "Nissa sends the photograph directly to the designer. Narset sends only the assignment brief."
+> "Nissa sends the photograph directly to the designer. Aurelia sends only the assignment brief."
 
 ## VISUAL FOUNDATIONS
 

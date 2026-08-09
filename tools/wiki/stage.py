@@ -69,7 +69,7 @@ Ten transforms, each with a reason:
     H1 (the theme's title) straight to H3, a WCAG 1.3.1 heading-order break on
     all fourteen, under a synthesised title duplicating the chapter's own.
     They now shift up so the chapter heading IS the page H1 and the theme
-    injects nothing; `sarpadia.md`, which carries two headings at that level
+    injects nothing; `urborg.md`, which carries two headings at that level
     (§13.3 and the §15 data model), shifts to H2 instead so the page still has
     exactly one H1. Chapters already opening at `##` are untouched. The shift
     is anchor-neutral: python-markdown slugs come from heading TEXT and never
@@ -157,12 +157,18 @@ VIEW_ORDER = [
     "ArchiveIngestion",
     "RequestResolution",
     "MomirComponents",
-    "UrabraskComponents",
-    "AugustinComponents",
+    "Jin-GitaxiasComponents",
+    "IsperiaComponents",
 ]
 
 # Hyphenated filename fragments that stand for a slashed term in prose.
 SLASH_PAIRS = (("good", "bad"),)
+
+# Hyphenated proper names: filename stems whose hyphen is part of the name
+# itself, not a word separator. Without this, `domains/jin-gitaxias.md`
+# would read "Jin gitaxias" in the nav. Closed and mechanical — the namespec
+# (Namespec 2.0, ADR-0008) is the only source of such names.
+HYPHEN_NAMES = {"jin-gitaxias": "Jin-Gitaxias"}
 
 # Staged paths of pages this script GENERATES (no counterpart in docs/design/
 # or docs/adr/). hooks.py suppresses the "edit this page" pencil for these:
@@ -191,7 +197,7 @@ def derive_title(rel: Path) -> str:
 
     `04-architecture.md`               -> "Architecture"
     `programme/risks-and-open-decisions.md` -> "Risks and open decisions"
-    `domains/augustin.md`              -> "Augustin"
+    `domains/isperia.md`              -> "Isperia"
 
     The numeric prefix is dropped from the *label* only; mkdocs still orders
     the nav by filename, so 01..07 stay in sequence.
@@ -203,6 +209,8 @@ def derive_title(rel: Path) -> str:
     # admission", matching how the chapters cite them.
     adr = re.match(r"^(\d{4})[-_]", stem) if rel.parts[0] == ADR_STAGED_DIR else None
     stem = re.sub(r"^\d+[-_]", "", stem)
+    if stem in HYPHEN_NAMES:
+        return HYPHEN_NAMES[stem]
     # Vocabulary pairs the project writes with a slash. A filename cannot carry
     # `/`, so "good-bad-sentences" has to be re-joined or it reads "Good bad
     # sentences" instead of "Good/Bad sentences". Closed and mechanical, in the
@@ -421,12 +429,12 @@ def normalise_heading_levels(text: str) -> str:
     monolith, where §13 was a third-level section, and wrong once the page has
     its own H1: the theme renders the derived title as H1 and the page then
     jumped straight to H3, a WCAG 1.3.1 heading-order break on all fourteen,
-    with the chapter's real title ("13.11 Augustin — Independent Judge") sitting
-    redundantly under a synthesised one ("Augustin").
+    with the chapter's real title ("13.11 Isperia — Independent Judge") sitting
+    redundantly under a synthesised one ("Isperia").
 
     Shifting to H1 fixes both at once: the chapter's own heading becomes the
     page H1, so the theme stops injecting a duplicate. The nav label still comes
-    from the front-matter title, so the sidebar keeps reading "Augustin".
+    from the front-matter title, so the sidebar keeps reading "Isperia".
 
     Chapters that already open at `##` (01-07) are left exactly as they are —
     there the synthesised H1 is a genuinely better page title than "5. Locked
@@ -434,7 +442,7 @@ def normalise_heading_levels(text: str) -> str:
 
     A chapter with SEVERAL headings at its shallowest level shifts to H2, not
     H1, keeping the synthesised title as the one H1 that describes the page.
-    `domains/sarpadia.md` is the case: it carries both §13.3 and the §15 data
+    `domains/urborg.md` is the case: it carries both §13.3 and the §15 data
     model at the same level, and promoting both would give the page two H1s.
 
     Anchors are unaffected: python-markdown's toc slugify derives an id from
@@ -465,7 +473,11 @@ def check_model_matches_domains() -> list[str]:
     dsl = SOURCE / "assets" / "model.dsl"
     if not dsl.is_file():
         return [f"model.dsl missing: {dsl}"]
-    modelled = set(re.findall(r"^\s*(\w+)\s*=\s*container\s", dsl.read_text(encoding="utf-8"), re.M))
+    # DSL identifiers cannot carry hyphens, so Jin-Gitaxias is `jin_gitaxias`
+    # there while its chapter file is `jin-gitaxias.md` (ADR-0008: underscores
+    # in identifiers/packages, hyphens in document paths). Normalise to the
+    # chapter convention before comparing.
+    modelled = {m.replace("_", "-") for m in re.findall(r"^\s*(\w+)\s*=\s*container\s", dsl.read_text(encoding="utf-8"), re.M)}
     canonical = {p.stem for p in (SOURCE / "domains").glob("*.md") if p.stem != "README"}
     errors = []
     for name in sorted(canonical - modelled):
@@ -481,7 +493,7 @@ def parse_view_descriptions() -> dict[str, str]:
     dsl = SOURCE / "assets" / "model.dsl"
     if not dsl.is_file():
         return {}
-    pattern = r'^\s*(?:systemContext|container|component)\s+\w+\s+"(\w+)"\s+"([^"]*)"'
+    pattern = r'^\s*(?:systemContext|container|component)\s+\w+\s+"([\w-]+)"\s+"([^"]*)"'
     return dict(re.findall(pattern, dsl.read_text(encoding="utf-8"), re.M))
 
 

@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-08 (session 6 reconciliation; PDR-0012, ADR-0003)
+# Roadmap — Simic            Updated: 2026-08-09 (session 10; PDR-0020, ADR-0008 — Namespec 2.0 renames applied; no bet changed horizon)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -11,7 +11,7 @@
   (PDR-0007); the HLD is decomposed into docs/design/ chapters (PDR-0009,
   ADR-0001); remaining work runs as six region-based waves stamped as
   `wave:*` labels (PDR-0008) · tracker: wave:0 cleared and the wave:1
-  Augustin pair landed (ADR-0004, ADR-0005); dependency-critical path now
+  Isperia pair landed (ADR-0004, ADR-0005); dependency-critical path now
   simic-0bf2c40dec → simic-38a07fad39, six wave:1 items remain ·
   metric: design-debt burn-down (metrics.md)
 - **Information-management regime (ADR-0002)** — why: data management was the
@@ -24,7 +24,7 @@
 
 ## Next (shaped, decreasing certainty)
 - **Phase A — Namespec, Leyline contracts, dependency boundaries** (HLD §25.A;
-  §30 milestones 1–3) — ADR locking Namespec 1.0, package skeleton with
+  §30 milestones 1–3) — namespec ADR (Namespec 2.0 — done, ADR-0008), package skeleton with
   forbidden-import checks, core contracts, lifecycle/warrant rules, budgets,
   import-lint and authority tests. (not yet sequenced)
 - **Phase B — Tolaria host-training baseline and Academy profile** (HLD §25.B) —
@@ -33,9 +33,9 @@
 
 ## Later (directional bets, no order, no dates)
 - **Phases C–K toward the §24 Minimum Viable System** — growth mechanics, replay
-  and branching, Urabrask QA, Augustin adjudication and controls, Sarpadia/Momir
-  bootstrap curriculum, Nissa/Narset routing, Emrakul maintenance, Tamiyo
-  allocation, Oona and scale.
+  and branching, Jin-Gitaxias QA, Isperia adjudication and controls, Urborg/Momir
+  bootstrap curriculum, Nissa/Aurelia routing, Emrakul maintenance, Ugin
+  allocation, Tamiyo and scale.
 - **Esper-derived controls** — the working blueprint selector and the
   degenerate-architecture fixtures (~10%→~40% headroom) as sharp, cheap baselines
   for the generation hypothesis · adjudicated at the gate (PDR-0007): accepted

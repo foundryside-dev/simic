@@ -8,15 +8,15 @@
 |---|---|---|
 | Leyline | Shared contracts, grammar profiles and invariants | Stylebook and editorial constitution |
 | Tolaria | Host-training and deterministic execution substrate | Production environment, CMS and test presses |
-| Sarpadia | Historical archive, reference ancestry, lineage store and retrieval system | Morgue and archive |
-| Tamiyo | Strategic allocator | Editor-in-chief / managing editor |
-| Narset | Tactical commissioning and lifecycle controller | Assignments editor |
+| Urborg | Historical archive, reference ancestry, lineage store and retrieval system | Morgue and archive |
+| Ugin | Strategic allocator | Editor-in-chief / managing editor |
+| Aurelia | Tactical commissioning and lifecycle controller | Assignments editor |
 | Nissa | Diagnostic observer and direct evidence publisher | Reporting, photography and data desk |
 | Momir | Candidate growth designer | Writer / investigative journalist |
 | Elesh | Structural verifier and canonicaliser | Copy and standards desk |
-| Tezzeret | Compiler | Production and typesetting desk |
-| Urabrask | Quality assurance | Fact-checking and proof desk |
-| Augustin | Independent judge | Publishing editor |
-| Kasmina | Host and reversible growth physiology | Live-edition integrator |
+| Urabrask | Compiler and manufacturing pipeline | Production and manufacturing desk |
+| Jin-Gitaxias | Quality assurance | Fact-checking and proof desk |
+| Isperia | Independent judge | Publishing editor |
+| Wrenn | Host and reversible growth physiology | Live-edition integrator |
 | Emrakul | Post-commit maintenance and lysis executor | Corrections, withdrawal and retirement desk |
-| Oona | Observability, flight recorder and operator surface | Front page, broadcast and presentation |
+| Tamiyo | Observability, flight recorder and operator surface | Front page, broadcast and presentation |

@@ -2,6 +2,10 @@
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner-directed, in-session 2026-08-09) ·
+
+> **Namespec note (ADR-0008):** this record predates Namespec 2.0 and uses
+> Namespec 1.0 names; read it through the concordance in
+> [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
 Tracker: simic-dd5a578332
 
 ## Context

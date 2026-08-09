@@ -9,11 +9,11 @@
 - package ownership manifest is complete;
 - every package declares its verb or infrastructure context;
 - forbidden imports fail CI;
-- Urabrask cannot import Augustin policy;
-- Augustin cannot import Tolaria execution;
+- Jin-Gitaxias cannot import Isperia policy;
+- Isperia cannot import Tolaria execution;
 - Leyline imports no agent package;
-- Sarpadia storage imports no agent policy;
-- Oona is absent from training-critical dependency paths;
+- Urborg storage imports no agent policy;
+- Tamiyo is absent from training-critical dependency paths;
 - and public cross-boundary types use plain-English names.
 
 ### 21.2 Leyline contract tests
@@ -30,14 +30,14 @@
 
 ### 21.3 Observation routing and assignment-brief tests
 
-- Nissa publishes one `observation_id` to Narset and Momir.
-- Narset cannot construct or substitute a second Momir-facing telemetry record.
+- Nissa publishes one `observation_id` to Aurelia and Momir.
+- Aurelia cannot construct or substitute a second Momir-facing telemetry record.
 - `GrowthIntent` rejects every forbidden diagnostic, topology, ancestry and free-form design field.
 - Equivalent intent representations canonicalise identically.
 - Request resolution is deterministic and cannot exceed the active envelope.
-- Region contracts and grammar profiles are system-derived rather than Narset-authored.
+- Region contracts and grammar profiles are system-derived rather than Aurelia-authored.
 - Observation, intent, request and Tolaria snapshot mismatches fail closed.
-- Replacing Narset with another controller that emits the same canonical intent does not change Momir's output distribution.
+- Replacing Aurelia with another controller that emits the same canonical intent does not change Momir's output distribution.
 - Changing candidate count outside Momir's semantic condition does not change single-candidate semantics.
 
 ### 21.4 Tolaria training, determinism and Field-calibration gates
@@ -76,7 +76,7 @@
 - parent-relative and reference-frontier improvement;
 - ancestry-dropout and scaffold-free generation;
 - output invariance to irrelevant request serialisation and orchestration metadata;
-- no dependency on Narset hidden state or captioned telemetry;
+- no dependency on Aurelia hidden state or captioned telemetry;
 - and valid production inference with `BootstrapAncestryContext = null`.
 
 ### 21.6 Elesh tests
@@ -90,7 +90,7 @@
 - non-equivalent-graph hash separation;
 - and semantics-preserving pruning.
 
-### 21.7 Tezzeret tests
+### 21.7 Urabrask tests
 
 - deterministic compilation manifests;
 - canonical-hash preservation;
@@ -99,9 +99,9 @@
 - measured cost reporting;
 - and reproducible artefact identity.
 
-Reference-versus-compiled behaviour is certified by Urabrask integration tests rather than trusted as a compiler self-test.
+Reference-versus-compiled behaviour is certified by Jin-Gitaxias integration tests rather than trusted as a compiler self-test.
 
-### 21.8 Urabrask QA tests
+### 21.8 Jin-Gitaxias QA tests
 
 - `QualityReport` contains no admission verdict;
 - candidate source is absent from the QA view;
@@ -115,7 +115,7 @@ Reference-versus-compiled behaviour is certified by Urabrask integration tests r
 - evidence digests bind to the exact plan and results;
 - and field-surrogate error is measured against Academy QA.
 
-### 21.9 Augustin adjudication tests
+### 21.9 Isperia adjudication tests
 
 - no-op is always available and exactly zero;
 - source labels are absent from the adjudication view;
@@ -123,15 +123,15 @@ Reference-versus-compiled behaviour is certified by Urabrask integration tests r
 - all-net-harmful pools select no-op;
 - equal-benefit cases prefer lower declared cost according to policy;
 - excessive uncertainty produces retest or defer;
-- Tamiyo envelope limits are enforced;
+- Ugin envelope limits are enforced;
 - thresholds remain frozen in confirmatory mode;
 - warrants bind to the selected semantic hash and evidence digest;
 - and repeated identical evidence produces identical decisions.
 
-### 21.10 Kasmina tests
+### 21.10 Wrenn tests
 
 - admitted hash equals embodied hash;
-- no influence before an Augustin warrant;
+- no influence before an Isperia warrant;
 - gradient isolation;
 - blend monotonicity where required;
 - smooth decay;
@@ -140,7 +140,7 @@ Reference-versus-compiled behaviour is certified by Urabrask integration tests r
 - invalid-warrant rejection;
 - and occupant-state reset on recycling.
 
-### 21.11 Sarpadia tests
+### 21.11 Urborg tests
 
 - full-pool retention;
 - structural-reject retention;
@@ -153,21 +153,21 @@ Reference-versus-compiled behaviour is certified by Urabrask integration tests r
 - retrieval compatibility filtering;
 - explicit ancestry-present versus ancestry-null provenance;
 - reference controls remain available after scaffold withdrawal;
-- Narset cannot select or mutate ancestry context;
+- Aurelia cannot select or mutate ancestry context;
 - and raw/canonical/artifact/evidence/decision identity linkage.
 
-### 21.12 Tamiyo and Narset authority tests
+### 21.12 Ugin and Aurelia authority tests
 
-- Tamiyo cannot issue a lifecycle command;
-- Narset cannot exceed an envelope;
-- Narset cannot name a raw graph implementation;
-- Narset cannot include diagnosis, topology, rank, width, operator, ancestor or mechanism fields in `GrowthIntent`;
-- Narset cannot construct a Momir-facing telemetry record;
-- Narset cannot select bootstrap ancestors;
+- Ugin cannot issue a lifecycle command;
+- Aurelia cannot exceed an envelope;
+- Aurelia cannot name a raw graph implementation;
+- Aurelia cannot include diagnosis, topology, rank, width, operator, ancestor or mechanism fields in `GrowthIntent`;
+- Aurelia cannot construct a Momir-facing telemetry record;
+- Aurelia cannot select bootstrap ancestors;
 - canonical-equivalent intents produce identical resolved requests;
 - request values cannot exceed the bandwidth allowed by declared coarse classes;
-- Narset cannot bypass Urabrask or Augustin;
-- and commitment removes Narset's ordinary authority.
+- Aurelia cannot bypass Jin-Gitaxias or Isperia;
+- and commitment removes Aurelia's ordinary authority.
 
 ### 21.13 Emrakul tests
 
@@ -180,9 +180,9 @@ Reference-versus-compiled behaviour is certified by Urabrask integration tests r
 - real lysis counted once;
 - and capacity return after recycling.
 
-### 21.14 Oona isolation tests
+### 21.14 Tamiyo isolation tests
 
-- training trace is identical with Oona enabled and disabled;
+- training trace is identical with Tamiyo enabled and disabled;
 - missing projection data fails visibly;
 - audit bundle completeness;
 - no direct state mutation path from UI adapters;
@@ -258,11 +258,11 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - equivalence-detection precision;
 - compile latency;
 - runtime cost-estimation error;
-- Urabrask semantic-conformance failure rate;
+- Jin-Gitaxias semantic-conformance failure rate;
 - gradient-conformance failure rate;
 - and cross-device semantic agreement.
 
-### 22.5 Urabrask QA quality
+### 22.5 Jin-Gitaxias QA quality
 
 - defect-detection sensitivity and specificity;
 - evidence reproducibility;
@@ -273,7 +273,7 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - false-pass and false-fail rates;
 - and QA cost–coverage Pareto frontier.
 
-### 22.6 Augustin adjudication quality
+### 22.6 Isperia adjudication quality
 
 - best-candidate selection regret;
 - no-op precision and recall;
@@ -285,7 +285,7 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - provider-blindness audit results;
 - and reason-code completeness.
 
-### 22.7 Narset tactical quality
+### 22.7 Aurelia tactical quality
 
 - intervention timing regret;
 - unnecessary-intervention rate;
@@ -300,7 +300,7 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - abort-too-late rate;
 - and lifecycle completion rate.
 
-### 22.8 Tamiyo strategic quality
+### 22.8 Ugin strategic quality
 
 - budget utilisation;
 - regional starvation rate;

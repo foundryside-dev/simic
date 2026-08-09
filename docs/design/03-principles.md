@@ -6,26 +6,26 @@
 
 ### 6.1 Strategy and tactics are separate
 
-Tamiyo determines where developmental resources may be spent over a slow horizon. Narset decides what local action to take at a particular state. Tamiyo cannot choose a candidate or issue an alpha tick. Narset cannot create capacity that is absent from Tamiyo's envelope.
+Ugin determines where developmental resources may be spent over a slow horizon. Aurelia decides what local action to take at a particular state. Ugin cannot choose a candidate or issue an alpha tick. Aurelia cannot create capacity that is absent from Ugin's envelope.
 
-> **Tamiyo establishes what may be spent and where. Narset decides what to do with it now.**
+> **Ugin establishes what may be spent and where. Aurelia decides what to do with it now.**
 
 ### 6.2 Observation, commissioning, and interpretation are separate
 
-Nissa produces one canonical, typed, versioned `TelemetryEnvelope` for a particular host observation and publishes it independently to every authorised consumer. Narset and Momir receive the same evidence by identity, not a copy interpreted or rewritten by another agent.
+Nissa produces one canonical, typed, versioned `TelemetryEnvelope` for a particular host observation and publishes it independently to every authorised consumer. Aurelia and Momir receive the same evidence by identity, not a copy interpreted or rewritten by another agent.
 
-Narset may interpret the observation to decide whether and where to commission work. Momir independently interprets the same observation to decide what phenotype to design. Nissa must not smuggle a lifecycle decision or structural recommendation into telemetry.
+Aurelia may interpret the observation to decide whether and where to commission work. Momir independently interprets the same observation to decide what phenotype to design. Nissa must not smuggle a lifecycle decision or structural recommendation into telemetry.
 
-> **Nissa sends the photograph directly. Narset sends only the assignment brief.**
+> **Nissa sends the photograph directly. Aurelia sends only the assignment brief.**
 
-“Raw telemetry” means uncaptioned by Narset, not untyped or unconstrained. Nissa may perform neutral normalisation, alignment, missing-value masking, stable feature construction, and provenance attachment. It may not emit `deficit_type`, `recommended_structure`, or equivalent prescriptions.
+“Raw telemetry” means uncaptioned by Aurelia, not untyped or unconstrained. Nissa may perform neutral normalisation, alignment, missing-value masking, stable feature construction, and provenance attachment. It may not emit `deficit_type`, `recommended_structure`, or equivalent prescriptions.
 
 ### 6.3 Developmental intent and phenotype are separate
 
-Narset authors a narrow `GrowthIntent`. It may specify:
+Aurelia authors a narrow `GrowthIntent`. It may specify:
 
 - the insertion region;
-- a resource or urgency class inside Tamiyo's envelope;
+- a resource or urgency class inside Ugin's envelope;
 - one-shot versus nursery maturation;
 - assurance class;
 - and tactical deadline or escalation context.
@@ -39,41 +39,41 @@ It must not specify:
 - rank, width, gate, operator, or connectivity hints;
 - or any field whose practical purpose is to steer Momir toward a structural answer.
 
-Leyline and Kasmina deterministically resolve the selected region and active capabilities into a `GrowthRequest`. This attaches the tensor contract, grammar profile, exact derived budgets, and compatibility information as system constraints rather than Narset-authored design hints.
+Leyline and Wrenn deterministically resolve the selected region and active capabilities into a `GrowthRequest`. This attaches the tensor contract, grammar profile, exact derived budgets, and compatibility information as system constraints rather than Aurelia-authored design hints.
 
-> **Narset constrains the feasible solution space. Momir chooses a point within it.**
+> **Aurelia constrains the feasible solution space. Momir chooses a point within it.**
 
-Coarse enumerated classes are preferred over arbitrary continuous request values. This reduces the opportunity for jointly trained Narset and Momir to invent a covert design code through harmless-looking budget, latency, ordering, or candidate-count fields.
+Coarse enumerated classes are preferred over arbitrary continuous request values. This reduces the opportunity for jointly trained Aurelia and Momir to invent a covert design code through harmless-looking budget, latency, ordering, or candidate-count fields.
 
 ### 6.4 Design, conformance, and compilation are separate
 
-Momir creates possibilities. Elesh establishes structural legality and canonical semantic identity. Tezzeret realises that identity efficiently for a target runtime.
+Momir creates possibilities. Elesh establishes structural legality and canonical semantic identity. Urabrask realises that identity efficiently for a target runtime.
 
-> **Momir establishes possibility. Elesh establishes identity. Tezzeret establishes execution.**
+> **Momir establishes possibility. Elesh establishes identity. Urabrask establishes execution.**
 
 ### 6.5 QA and judgement are separate
 
-Urabrask establishes the facts that can only be learned by executing a candidate: runtime conformance, numerical safety, gradients, cost, trajectory behaviour, shock, regression and uncertainty.
+Jin-Gitaxias establishes the facts that can only be learned by executing a candidate: runtime conformance, numerical safety, gradients, cost, trajectory behaviour, shock, regression and uncertainty.
 
-Augustin applies policy to those facts: eligibility, the tail-risk veto, budget, expected risk, utility weights, no-op anchoring, admission margins and continued tenancy.
+Isperia applies policy to those facts: eligibility, the tail-risk veto, budget, expected risk, utility weights, no-op anchoring, admission margins and continued tenancy.
 
-> **Leyline contains the law. Urabrask establishes the evidence. Augustin applies the law.**
+> **Leyline contains the law. Jin-Gitaxias establishes the evidence. Isperia applies the law.**
 
-Urabrask may report that a mandatory QA test failed. It must not decide which otherwise eligible candidate deserves admission. Augustin may reject every candidate. It must not alter the test plan, future data or measured result.
+Jin-Gitaxias may report that a mandatory QA test failed. It must not decide which otherwise eligible candidate deserves admission. Isperia may reject every candidate. It must not alter the test plan, future data or measured result.
 
-### 6.6 Kasmina and Tolaria are different substrates
+### 6.6 Wrenn and Tolaria are different substrates
 
-Kasmina is the **model physiology**: the host network, insertion regions, reversible slots, gradients, alpha and lifecycle state.
+Wrenn is the **model physiology**: the host network, insertion regions, reversible slots, gradients, alpha and lifecycle state.
 
 Tolaria is the **training and execution reality**: data movement, optimiser stepping, devices, precision, distributed scheduling, checkpointing, snapshots, replay, branch execution and rollback.
 
-> **Kasmina is what is trained. Tolaria is where and how it is trained.**
+> **Wrenn is what is trained. Tolaria is where and how it is trained.**
 
 There must be one Tolaria execution path for the live host and counterfactual branches wherever practical. A special branch-only trainer would undermine paired comparisons.
 
 ### 6.7 Static validity and dynamic validity are separate
 
-Elesh answers whether a design is legal in principle. Urabrask answers whether Tezzeret's artefact behaves correctly in practice. Static verification does not replace execution, and passing runtime tests does not excuse a structurally illegal graph.
+Elesh answers whether a design is legal in principle. Jin-Gitaxias answers whether Urabrask's artefact behaves correctly in practice. Static verification does not replace execution, and passing runtime tests does not excuse a structurally illegal graph.
 
 ### 6.8 Every intervention is reversible
 
@@ -89,7 +89,7 @@ Counterfactual branches begin from the same complete snapshot, receive the same 
 
 ### 6.11 The tested object and embodied semantics are identical
 
-The canonical semantic identity tested by Urabrask, selected by Augustin, and embodied by Kasmina must be the same. Compilation may change execution strategy but not meaning.
+The canonical semantic identity tested by Jin-Gitaxias, selected by Isperia, and embodied by Wrenn must be the same. Compilation may change execution strategy but not meaning.
 
 ### 6.12 Costs are contractual
 
@@ -97,7 +97,7 @@ Every constructor, compiler, QA plan, training run, branch, maturation process a
 
 ### 6.13 Experience includes failures
 
-Every candidate, structural rejection, compilation failure, QA defect, adjudication rejection, no-op victory, stale integration, lifecycle reversal and lysis event is recorded in Sarpadia.
+Every candidate, structural rejection, compilation failure, QA defect, adjudication rejection, no-op victory, stale integration, lifecycle reversal and lysis event is recorded in Urborg.
 
 ### 6.14 Generalisation follows acquisition
 
@@ -105,15 +105,15 @@ Exact repetition and controlled one-axis variation precede composed variation, u
 
 ### 6.15 Observability is read-only
 
-Oona may subscribe to, persist, aggregate and present events. It cannot create actions, mutate budgets or become a hidden dependency of the training path.
+Tamiyo may subscribe to, persist, aggregate and present events. It cannot create actions, mutate budgets or become a hidden dependency of the training path.
 
 ### 6.16 Infrastructure remains neutral
 
-Leyline defines records; Tolaria executes requests; Sarpadia retains history. None decides which candidate should live.
+Leyline defines records; Tolaria executes requests; Urborg retains history. None decides which candidate should live.
 
 ### 6.17 Bootstrap ancestry is temporary; controls endure
 
-Conventional Norm, Attention, Convolution, low-rank, and gated-residual seeds may be retained in Sarpadia as a **reference population** for Momir's initial curriculum. They are demonstrations, ancestral material, and counterfactual controls—not Kasmina-owned production blueprints and not Narset actions.
+Conventional Norm, Attention, Convolution, low-rank, and gated-residual seeds may be retained in Urborg as a **reference population** for Momir's initial curriculum. They are demonstrations, ancestral material, and counterfactual controls—not Wrenn-owned production blueprints and not Aurelia actions.
 
 The ancestry context is progressively withdrawn from Momir's proposal input. The same reference seeds may remain permanently in the experimental harness as blinded competitors. Removing a scaffold is not the same as deleting a baseline.
 
@@ -123,9 +123,9 @@ Momir receives three conceptually distinct inputs:
 
 1. diagnostic evidence directly from Nissa;
 2. operational constraints through the resolved `GrowthRequest`;
-3. optional historical ancestry or retrieval context from Sarpadia.
+3. optional historical ancestry or retrieval context from Urborg.
 
-These channels preserve separate provenance and may be independently ablated. Narset's hidden state, commentary, and diagnostic interpretation are never Momir inputs. This permits failures to be attributed to observation, commissioning, design, conformance, compilation, QA, judgement, embodiment, or maintenance rather than to an inseparable controller-generator pair.
+These channels preserve separate provenance and may be independently ablated. Aurelia's hidden state, commentary, and diagnostic interpretation are never Momir inputs. This permits failures to be attributed to observation, commissioning, design, conformance, compilation, QA, judgement, embodiment, or maintenance rather than to an inseparable controller-generator pair.
 
 ### 6.19 Scaffolds are explicit, independently gated and retained as references
 
@@ -186,7 +186,7 @@ clean measurement substrate is proven to carry real topological signal —
 so the design pushes from a fixed blueprint menu to generated growth
 (Momir), from shaped reward to measured counterfactuals (the branching
 engine), and from single-region caution toward strategic allocation
-(Tamiyo). The counterfactual engine is simultaneously both: armour against
+(Ugin). The counterfactual engine is simultaneously both: armour against
 Goodhartable shaping, and the forward mechanism that makes generation
 adjudicable at all.
 
@@ -213,38 +213,38 @@ Two standing obligations for future contributors:
 | A confirmatory run changes two scaffold axes without single-axis controls | The result is causally uninterpretable |
 | Leyline calculates a case-specific decision | Constitution became case management |
 | Leyline's resolver infers a deficit or topology | Contract assembly became design policy |
-| Sarpadia deploys a retrieved candidate | History mutated the present |
-| Tamiyo chooses blend ticks or candidate IDs | Strategy collapsed into micromanagement |
-| Narset exceeds its envelope | Tactics escaped strategic governance |
-| Narset forwards a modified telemetry object to Momir | Assignments desk rewrote the source material |
-| `GrowthIntent` contains `preferred_topology_family` | Narset became a co-designer |
+| Urborg deploys a retrieved candidate | History mutated the present |
+| Ugin chooses blend ticks or candidate IDs | Strategy collapsed into micromanagement |
+| Aurelia exceeds its envelope | Tactics escaped strategic governance |
+| Aurelia forwards a modified telemetry object to Momir | Assignments desk rewrote the source material |
+| `GrowthIntent` contains `preferred_topology_family` | Aurelia became a co-designer |
 | `GrowthIntent` contains `deficit_type=RANK_COLLAPSE` | A diagnosis was smuggled into the assignment brief |
-| Narset selects a bootstrap ancestor | The legacy blueprint selector reappeared |
-| Fine-grained budget values predict topology choice | Narset and Momir formed a covert design channel |
+| Aurelia selects a bootstrap ancestor | The legacy blueprint selector reappeared |
+| Fine-grained budget values predict topology choice | Aurelia and Momir formed a covert design channel |
 | Nissa emits `should_grow` | Policy hidden in telemetry |
 | Nissa emits `recommended_structure` | Source reporting became editorial prescription |
-| Momir reads Narset hidden state | Design is coupled to controller implementation rather than contract |
+| Momir reads Aurelia hidden state | Design is coupled to controller implementation rather than contract |
 | Momir approves or filters its live pool by admission outcome | Designer judging itself |
 | Momir fails when ancestry context is null | Bootstrap scaffold became a production dependency |
 | Elesh consumes future utility | Structural conformance contaminated by policy |
 | Elesh changes non-equivalent semantics | Canonicaliser became designer |
-| Tezzeret invents topology | Compiler became Momir |
-| Urabrask returns `ADMIT` or issues a warrant | QA became judge |
-| Urabrask changes mandatory tests after seeing results | QA tailored the examination |
-| Augustin calls Tolaria or runs a tensor probe | Judge gathered its own evidence |
-| Augustin changes future data or requests a favourable branch | Evidentiary tampering |
-| Augustin knows candidate source | Adjudication contamination |
-| Kasmina owns a preferred stock blueprint library | Host physiology regained a design ontology |
-| Kasmina calculates utility | Host physiology acquired opinions |
-| Kasmina raises alpha without an Augustin warrant | Constitutional admission bypass |
+| Urabrask invents topology | Compiler became Momir |
+| Jin-Gitaxias returns `ADMIT` or issues a warrant | QA became judge |
+| Jin-Gitaxias changes mandatory tests after seeing results | QA tailored the examination |
+| Isperia calls Tolaria or runs a tensor probe | Judge gathered its own evidence |
+| Isperia changes future data or requests a favourable branch | Evidentiary tampering |
+| Isperia knows candidate source | Adjudication contamination |
+| Wrenn owns a preferred stock blueprint library | Host physiology regained a design ontology |
+| Wrenn calculates utility | Host physiology acquired opinions |
+| Wrenn raises alpha without an Isperia warrant | Constitutional admission bypass |
 | Emrakul judges an unborn candidate | Maintenance leaked into admission |
 | Emrakul generates a replacement genotype | Destruction became design |
-| Oona changes optimiser, alpha or budget | Witness became control plane |
-| Sarpadia stores only accepted growth | Survivorship bias |
+| Tamiyo changes optimiser, alpha or budget | Witness became control plane |
+| Urborg stores only accepted growth | Survivorship bias |
 | Reference seeds disappear from evaluation when withdrawn from Momir | Scaffold removal was confused with baseline deletion |
 | Branch-trained growth is copied into a divergent live host | Co-adaptation transplant error |
 | Candidate hash changes between QA, judgement and embodiment | Test–judge–deploy identity failure |
-| Narset retains authority after commitment | Development never handed off |
-| Urabrask and Augustin share one mutable policy object | Evidence and judgement are not independent |
+| Aurelia retains authority after commitment | Development never handed off |
+| Jin-Gitaxias and Isperia share one mutable policy object | Evidence and judgement are not independent |
 | Candidate source is “hidden” only by convention | Blinding is not enforced by construction |
 | A package name no longer supports its canonical sentence | Namespec responsibility drift |

@@ -14,27 +14,27 @@ The first coherent implementation contains:
 - exact Tolaria snapshot, restore, branch and common-future replay under one Academy reference profile;
 - one explicit three-axis `ScaffoldState` and scaffold manifest registry;
 - a calibrated-stochastic harness capable of measuring Field-to-Academy disagreement, even if full Field operation remains disabled;
-- one fixed Tamiyo strategic envelope;
-- one heuristic Narset tactical controller;
-- one Nissa telemetry schema published directly to Narset and Momir;
-- one narrow Narset GrowthIntent and deterministic request resolver;
-- one versioned Sarpadian stock-reference bootstrap corpus;
+- one fixed Ugin strategic envelope;
+- one heuristic Aurelia tactical controller;
+- one Nissa telemetry schema published directly to Aurelia and Momir;
+- one narrow Aurelia GrowthIntent and deterministic request resolver;
+- one versioned Urborg stock-reference bootstrap corpus;
 - one small deterministic or latent-conditioned Momir designer that also runs with ancestry absent;
 - one rule-driven Elesh verifier and canonicaliser;
-- one eager-mode Tezzeret compiler with explicit manifests;
-- one rule-driven Urabrask QA suite with mandatory no-op measurement;
-- one fixed, provider-blind Augustin judge;
-- fixed Kasmina maturation and blend schedules;
+- one eager-mode Urabrask compiler with explicit manifests;
+- one rule-driven Jin-Gitaxias QA suite with mandatory no-op measurement;
+- one fixed, provider-blind Isperia judge;
+- fixed Wrenn maturation and blend schedules;
 - fixed Emrakul safe-maintenance rules;
-- Sarpadia retention of complete candidate pools, evidence and decisions;
-- Oona flight recording and branch inspection;
+- Urborg retention of complete candidate pools, evidence and decisions;
+- Tamiyo flight recording and branch inspection;
 - reference-seed bootstrap, scaffold-withdrawal, static and short-horizon counterfactual curricula;
 - and random, analytic, retrieval, online-optimised and no-op controls.
 
 The MVP does **not** require:
 
-- learned Tamiyo;
-- learned Augustin;
+- learned Ugin;
+- learned Isperia;
 - learned Emrakul;
 - arbitrary graph generation;
 - asynchronous CUDA code generation;
@@ -48,7 +48,7 @@ The MVP does **not** require:
 
 ### Phase A — Namespec, Leyline and dependency boundaries
 
-- record Namespec 1.0 in an ADR;
+- record the namespec in an ADR (Namespec 2.0 — ADR-0008);
 - define package ownership and forbidden authority;
 - define all core contracts;
 - encode lifecycle and warrant rules;
@@ -63,9 +63,9 @@ The MVP does **not** require:
 - define the Academy-exact runtime profile;
 - establish deterministic mainline traces;
 - implement `ScaffoldManifest` and `ScaffoldState` recording;
-- and ensure Kasmina exposes a neutral host-runtime protocol.
+- and ensure Wrenn exposes a neutral host-runtime protocol.
 
-### Phase C — Kasmina, Elesh and Tezzeret mechanics
+### Phase C — Wrenn, Elesh and Urabrask mechanics
 
 - implement the universal growth envelope;
 - define raw and canonical graph IRs;
@@ -83,7 +83,7 @@ The MVP does **not** require:
 - measure ranking, decision and tail disagreement against Academy;
 - and keep Field profiles disabled until the declared gate passes.
 
-### Phase E — Urabrask QA
+### Phase E — Jin-Gitaxias QA
 
 - implement `TestPlan`;
 - implement runtime semantic and gradient conformance;
@@ -93,7 +93,7 @@ The MVP does **not** require:
 - establish Academy versus Field QA;
 - and implement escalation from uncertain Field evidence to Academy-exact retest.
 
-### Phase F — Augustin adjudication and controls
+### Phase F — Isperia adjudication and controls
 
 - implement hard eligibility;
 - implement mandatory no-op policy;
@@ -103,9 +103,9 @@ The MVP does **not** require:
 - add random, analytic, retrieval and bounded online controls;
 - and produce the QA-cost and adjudication-regret curves.
 
-### Phase G — Sarpadia and Momir bootstrap curriculum
+### Phase G — Urborg and Momir bootstrap curriculum
 
-- migrate legacy stock blueprints into a versioned reference population outside Kasmina;
+- migrate legacy stock blueprints into a versioned reference population outside Wrenn;
 - store complete pools, reports, decisions and no-op cases;
 - implement blinded views, lineage, equivalence and ancestry records;
 - collect frozen-state teachers, parents, mutations and failures;
@@ -115,9 +115,9 @@ The MVP does **not** require:
 - retain stock seeds as blinded controls after ancestry withdrawal;
 - and consume losers through ranking or utility objectives.
 
-### Phase H — Nissa routing and Narset lifecycle integration
+### Phase H — Nissa routing and Aurelia lifecycle integration
 
-- publish one Nissa observation directly to Narset and Momir;
+- publish one Nissa observation directly to Aurelia and Momir;
 - replace blueprint actions with `GrowthIntent`;
 - implement deterministic `GrowthRequest` resolution;
 - train local commissioning and lifecycle behaviour with known-good candidates;
@@ -128,17 +128,17 @@ The MVP does **not** require:
 ### Phase I — Emrakul maintenance
 
 - implement continued-tenancy QA;
-- implement Augustin maintenance decisions;
+- implement Isperia maintenance decisions;
 - calibrate sedation, decay and lysis execution;
 - and separate host dependence from intrinsic value.
 
-### Phase J — Tamiyo strategic allocation
+### Phase J — Ugin strategic allocation
 
 - introduce multiple regions or cells;
 - allocate global resources;
 - and train or search strategic policies after local behaviour is stable.
 
-### Phase K — Oona and scale
+### Phase K — Tamiyo and scale
 
 - complete event projections and audit bundles;
 - expose architecture-smell events;

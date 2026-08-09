@@ -9,7 +9,7 @@
 The architecture repeatedly faces problems whose unrestricted form is initially too noisy or sparse to teach anything reliable:
 
 - Tolaria cannot attribute branch differences while execution noise is unknown;
-- Narset cannot learn intervention timing when every host trajectory diverges for unrelated reasons;
+- Aurelia cannot learn intervention timing when every host trajectory diverges for unrelated reasons;
 - Momir cannot learn useful design when almost every unconstrained graph proposal is invalid or useless.
 
 The response is not to pretend the unrestricted problem is easy. It is to establish a controlled classroom in which causal signal exceeds nuisance variation, calibrate the instruments there, and then remove the classroom constraints one at a time.
@@ -22,7 +22,7 @@ This is a uniform theory of generalisation rather than three unrelated training 
 |---|---|---|---|---|---|
 | Tolaria Academy exactness | Attribution error | Bitwise-exact paired worlds | Repeated stochastic worlds and surrogate calibration | Ranking, decision, uncertainty and tail criteria | Causal oracle, CI, regression and disputed-case retest |
 | Repeated host trajectories | Host variance | Fixed acquisition seeds and identical trajectories | Held-out in-family initialisations and one-axis variation | Stable tactical timing and lifecycle outcomes | Policy-language and regression fixtures |
-| Sarpadian reference ancestry | Generator collapse | Reconstruction, imitation and bounded mutation | Ancestry dropout and partial de novo design | Structural validity and positive coverage with null ancestry | Blinded controls and historical precedent |
+| Urborg reference ancestry | Generator collapse | Reconstruction, imitation and bounded mutation | Ancestry dropout and partial de novo design | Structural validity and positive coverage with null ancestry | Blinded controls and historical precedent |
 
 ### F.3 Tolaria's training wheels
 
@@ -56,9 +56,9 @@ Academy exactness therefore remains available after withdrawal. It defines the u
 
 The primary gate owners are:
 
-- **Urabrask** certifies Tolaria execution and Field-surrogate evidence against Academy results;
-- **Augustin** authorises use of that evidence for a declared assurance class and applies uncertainty margins;
-- **Narset curriculum evaluation** certifies host-distribution generalisation;
+- **Jin-Gitaxias** certifies Tolaria execution and Field-surrogate evidence against Academy results;
+- **Isperia** authorises use of that evidence for a declared assurance class and applies uncertainty margins;
+- **Aurelia curriculum evaluation** certifies host-distribution generalisation;
 - **Momir curriculum evaluation** certifies null-ancestry design competence;
 - **Leyline** validates that the run's declared `ScaffoldState` matches the actual configuration.
 

@@ -2,6 +2,10 @@
 
 Date: 2026-08-08 · Status: accepted
 Deciders: John (gate adjudication PDR-0007; peer review §22 accepted into the
+
+> **Namespec note (ADR-0008):** this record predates Namespec 2.0 and uses
+> Namespec 1.0 names; read it through the concordance in
+> [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
 wave programme) · Tracker: simic-ae3caf44f1
 
 ## Context

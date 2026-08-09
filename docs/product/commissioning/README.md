@@ -39,7 +39,7 @@ pointer stub. Prompts must ground in the decomposed chapters:
 |---|---|
 | Snapshot §9.7 | `Snapshot` contract — `docs/design/05-leyline-contracts.md#911-snapshot` |
 | Contract tests §21.1 | `docs/design/programme/evaluation.md#212-leyline-contract-tests` |
-| Tezzeret tests §21.4 | `docs/design/programme/evaluation.md#217-tezzeret-tests` |
+| Urabrask tests §21.4 | `docs/design/programme/evaluation.md#217-urabrask-tests` |
 | Statistical unit §14.7 | `docs/design/07-counterfactual-engine.md#149-statistical-unit` |
 | Tolaria spec §13.2 | `docs/design/domains/tolaria.md` (execution regimes) |
 | Execution-uncertainty margins §14.4.1 | `docs/design/07-counterfactual-engine.md#1441-execution-uncertainty-and-adjudication-margins` |

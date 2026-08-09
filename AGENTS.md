@@ -10,7 +10,7 @@ reversibly under warrant, and eventually retired.
 
 ## Canonical design authority
 
-The HLD (v4.1, Namespec 1.0 — locked) is decomposed into standalone chapters
+The HLD (v4.1, Namespec 2.0 — locked, ADR-0008) is decomposed into standalone chapters
 under **`docs/design/`** (ADR-0001). Entry point and §→file concordance:
 **`docs/design/00-INDEX.md`**. Load `docs/design/02-constitution.md` (naming
 constitution + the 45 INV-nn invariants) in every working session, plus the
@@ -31,34 +31,37 @@ state, not free-edit documentation.
 
 Three infrastructure domains carry prepositions (Leyline = contracts and the
 deterministic request resolver; Tolaria = the single training/execution
-substrate for mainline and branches; Sarpadia = append-only history, ancestry
+substrate for mainline and branches; Urborg = append-only history, ancestry
 and retrieval). Eleven agent domains carry verbs — the canonical sentence
 (`docs/design/02-constitution.md`):
 
-> Nissa observes and reports. Tamiyo plans. Narset commissions and acts.
-> Momir designs. Elesh conforms. Tezzeret compiles. Urabrask tests the
-> compiled result in Tolaria. Augustin judges the resulting evidence under
-> Leyline. Kasmina embodies the admitted growth. Emrakul destroys what no
-> longer earns continued tenancy. Sarpadia retains every precedent. Oona
-> reveals the account.
+> Under Leyline, Ugin plans, Aurelia commissions and acts, Nissa observes,
+> Momir designs, Elesh conforms, Urabrask compiles, Jin-Gitaxias tests in
+> Tolaria, Isperia judges, Wrenn embodies, Emrakul destroys, and Tamiyo
+> reveals; every precedent is kept in Urborg.
 
 The codenames are behavioural mandates and act as an architecture linter: a
 subsystem acting contrary to its verb is exercising authority it must not have
 (`02-constitution.md`, `04-architecture.md`, `domains/README.md`, and the
-smell catalogue in `03-principles.md`). The core loop: Tolaria trains
+smell catalogue in `03-principles.md`). Namespec 2.0 (ADR-0008) adds a
+faction layer: Momir → Elesh → Urabrask → Jin-Gitaxias form the Phyrexian
+industrial synthesis core (bio-foundry → standardisation → manufacturing →
+QA), and the remaining authorities are the governance cage that contains it —
+a Phyrexian name on a governance lever, or a cage name inside the assembly
+line, is an authority smell before it is a diff. The core loop: Tolaria trains
 the host → Nissa observes the ablated host and publishes the **same**
-`TelemetryEnvelope` directly to Narset and Momir → Tamiyo grants a
-`StrategicEnvelope` → Narset issues a narrow `GrowthIntent` (assignment brief;
+`TelemetryEnvelope` directly to Aurelia and Momir → Ugin grants a
+`StrategicEnvelope` → Aurelia issues a narrow `GrowthIntent` (assignment brief;
 diagnosis/topology/ancestry hints are schema-invalid) → Leyline's deterministic
 resolver produces the canonical `GrowthRequest` → Momir designs raw candidates
-(optionally conditioned on Sarpadia bootstrap ancestry) → Elesh canonicalises
-and verifies → Tezzeret compiles without changing semantics → Urabrask runs QA
-in Tolaria's matched common-future branches and certifies evidence → Augustin
-adjudicates provider-blind against no-op and issues warrants → Kasmina
+(optionally conditioned on Urborg bootstrap ancestry) → Elesh canonicalises
+and verifies → Urabrask compiles without changing semantics → Jin-Gitaxias runs QA
+in Tolaria's matched common-future branches and certifies evidence → Isperia
+adjudicates provider-blind against no-op and issues warrants → Wrenn
 germinates/blends/commits under an admission warrant → Emrakul later
-sedates/decays/lyses under maintenance warrants → Sarpadia records everything →
-Oona reveals it. The newsroom rule (`appendices/newsroom.md`): **Nissa sends
-the photograph; Narset sends only the assignment brief.**
+sedates/decays/lyses under maintenance warrants → Urborg records everything →
+Tamiyo reveals it. The newsroom rule (`appendices/newsroom.md`): **Nissa sends
+the photograph; Aurelia sends only the assignment brief.**
 
 ## Non-negotiable invariants (`02-constitution.md` has all 45; these are the spine)
 
@@ -69,22 +72,22 @@ the photograph; Narset sends only the assignment brief.**
 - **Lexicographic admission:** the tail-risk veto is adjudicated before any
   utility comparison and cannot be traded against measured benefit; the
   assurance class owns the veto operating point.
-- **QA/judgement split:** Urabrask certifies evidence but never issues
-  verdicts or warrants; Augustin judges but never executes or alters tests.
-- **Dual provider blindness:** neither Urabrask nor Augustin sees candidate
+- **QA/judgement split:** Jin-Gitaxias certifies evidence but never issues
+  verdicts or warrants; Isperia judges but never executes or alters tests.
+- **Dual provider blindness:** neither Jin-Gitaxias nor Isperia sees candidate
   source; blinding is by construction (fields absent, not ignored).
-- **Warrants:** Kasmina never raises influence without a valid Augustin
+- **Warrants:** Wrenn never raises influence without a valid Isperia
   admission warrant; ordinary decay/lysis requires a maintenance warrant.
 - **Assignment-brief boundary:** `GrowthIntent` carries scope and operational
   constraints only; equivalent intents resolve to one canonical request, and
-  Momir never sees Narset hidden state.
+  Momir never sees Aurelia hidden state.
 - **Semantic identity:** artefact, QA report, decision and embodiment all
-  reference the same canonical hash; Tezzeret preserves semantics.
-- **Authority separation:** Narset pre-commit only, Emrakul post-commit only,
-  Tamiyo never issues local transitions, Nissa never emits `should_grow`.
-- **Complete history:** Sarpadia is append-only and retains failures, rejected
+  reference the same canonical hash; Urabrask preserves semantics.
+- **Authority separation:** Aurelia pre-commit only, Emrakul post-commit only,
+  Ugin never issues local transitions, Nissa never emits `should_grow`.
+- **Complete history:** Urborg is append-only and retains failures, rejected
   pools, no-op wins and abstentions — never winners-only.
-- **Oona isolation:** disconnecting observability cannot change training.
+- **Tamiyo isolation:** disconnecting observability cannot change training.
 - **Leyline dependency direction:** contracts import nothing from subsystems.
 - **Grouped statistics:** branches of one base trajectory never cross splits.
 - **Scaffold discipline:** every run declares its three-axis `ScaffoldState`;
@@ -94,8 +97,8 @@ the photograph; Narset sends only the assignment brief.**
 ## Target layout and sequencing
 
 Code goes under `src/simic/<subsystem>/` — one package per domain (`leyline/`,
-`tolaria/`, `sarpadia/`, `tamiyo/`, `narset/`, `nissa/`, `momir/`, `elesh/`,
-`tezzeret/`, `urabrask/`, `augustin/`, `kasmina/`, `emrakul/`, `oona/`) plus
+`tolaria/`, `urborg/`, `ugin/`, `aurelia/`, `nissa/`, `momir/`, `elesh/`,
+`urabrask/`, `jin_gitaxias/`, `isperia/`, `wrenn/`, `emrakul/`, `tamiyo/`) plus
 `controls/`, `curriculum/`, `benchmarks/`, `experiments/`, `analysis/`,
 `scripts/`, with
 `tests/{namespec,contracts,observation_routing,request_resolution,bootstrap_withdrawal,scaffold_withdrawal,unit,integration,training,determinism,counterfactual,authority,blinding,end_to_end}/`

@@ -8,18 +8,18 @@
 
 ```text
 The host trained in Tolaria.
-Nissa published observation O-41 to Narset and Momir.
-Tamiyo allocated a regional growth budget.
-Narset commissioned growth in Region A under the conservative assurance class.
-Leyline resolved the request from Narset's intent and Kasmina's region contract.
-Sarpadia supplied bootstrap ancestry during curriculum stage M2.
+Nissa published observation O-41 to Aurelia and Momir.
+Ugin allocated a regional growth budget.
+Aurelia commissioned growth in Region A under the conservative assurance class.
+Leyline resolved the request from Aurelia's intent and Wrenn's region contract.
+Urborg supplied bootstrap ancestry during curriculum stage M2.
 Momir designed twelve candidates and three explicitly ancestry-free candidates.
 Elesh canonicalised nine and rejected six as malformed or duplicate.
-Tezzeret compiled the nine canonical designs.
-Urabrask tested the artefacts, their parents, the stock controls and no-op in Tolaria.
-Augustin selected no-op because every eligible candidate had negative policy utility.
-Oona revealed the result.
-Sarpadia retained the entire rejected pool and the no-op victory.
+Urabrask compiled the nine canonical designs.
+Jin-Gitaxias tested the artefacts, their parents, the stock controls and no-op in Tolaria.
+Isperia selected no-op because every eligible candidate had negative policy utility.
+Tamiyo revealed the result.
+Urborg retained the entire rejected pool and the no-op victory.
 ```
 
 ### Unhealthy
@@ -27,20 +27,20 @@ Sarpadia retained the entire rejected pool and the no-op victory.
 ```text
 Tolaria decided not to grow.
 Nissa requested an attention module.
-Narset sent Momir a summary saying rank had collapsed.
-Narset chose the Attention ancestor.
-Narset encoded “use convolution” by requesting 100,064 parameters.
-Momir read Narset's LSTM state.
+Aurelia sent Momir a summary saying rank had collapsed.
+Aurelia chose the Attention ancestor.
+Aurelia encoded “use convolution” by requesting 100,064 parameters.
+Momir read Aurelia's LSTM state.
 Momir admitted its best candidate.
 Elesh rejected a legal graph because its predicted accuracy was low.
-Tezzeret added a helpful residual path during compilation.
-Urabrask issued an admission token.
-Augustin reran the test on an easier batch.
-Kasmina selected the cheapest candidate from its stock library.
-Sarpadia installed last week's winner.
+Urabrask added a helpful residual path during compilation.
+Jin-Gitaxias issued an admission token.
+Isperia reran the test on an easier batch.
+Wrenn selected the cheapest candidate from its stock library.
+Urborg installed last week's winner.
 Emrakul designed a replacement.
-Oona adjusted alpha from the dashboard.
-Leyline imported Narset to decide what WAIT means today.
+Tamiyo adjusted alpha from the dashboard.
+Leyline imported Aurelia to decide what WAIT means today.
 ```
 
 ### Review prompt

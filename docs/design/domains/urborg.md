@@ -2,7 +2,7 @@
 [← HLD index](../00-INDEX.md)
 
 <!-- hld: source: v4.1 monolith lines 1917–1952 -->
-### 13.3 Sarpadia — Historical Infrastructure
+### 13.3 Urborg — Historical Infrastructure
 
 #### Responsibilities
 
@@ -13,7 +13,7 @@
 - provide ordinary retrieval and similarity indices without deploying results;
 - preserve structural rejects, compilation failures, QA defects, no-op victories and withdrawals;
 - enforce base-trajectory grouped splits;
-- and expose blinded, provenance-safe views to Momir, Urabrask, Augustin and analysis.
+- and expose blinded, provenance-safe views to Momir, Jin-Gitaxias, Isperia and analysis.
 
 #### Retrieval modes
 
@@ -27,46 +27,46 @@
 
 #### Invariants
 
-- Sarpadia never mutates the live host.
+- Urborg never mutates the live host.
 - A retrieval result is precedent, not a verdict.
 - Failed and withdrawn records are first-class history.
 - Bootstrap ancestry is versioned and removable from production inference.
-- Narset cannot select an ancestor through Sarpadia.
+- Aurelia cannot select an ancestor through Urborg.
 - Branches from one base trajectory remain in one statistical split.
 
 #### Smell
 
-> If Sarpadia forgets the dead, history has become propaganda. If it installs a precedent, history has started governing the present.
+> If Urborg forgets the dead, history has become propaganda. If it installs a precedent, history has started governing the present.
 
 ---
 
 <!-- hld: source: v4.1 monolith lines 2530–2652 -->
-### 15. Sarpadia Data Model and Learning Use
+### 15. Urborg Data Model and Learning Use
 
-Sarpadia is both an operational archive and a research data factory.
+Urborg is both an operational archive and a research data factory.
 
 #### 15.1 Required records
 
 For every case it stores:
 
 - complete Tolaria run and snapshot provenance;
-- Tamiyo envelope;
-- Narset request and action context;
+- Ugin envelope;
+- Aurelia request and action context;
 - Nissa telemetry;
 - every raw Momir graph;
 - every Elesh rejection and canonicalisation report;
-- every Tezzeret artefact manifest;
-- every Urabrask test plan and quality report;
+- every Urabrask artefact manifest;
+- every Jin-Gitaxias test plan and quality report;
 - every Tolaria branch trace;
-- every Augustin admission or maintenance decision;
-- Kasmina embodiment state;
+- every Isperia admission or maintenance decision;
+- Wrenn embodiment state;
 - maturation and blend history;
 - Emrakul maintenance history;
 - and final outcome.
 
 #### 15.2 Blinded views
 
-Sarpadia maintains a privileged provenance map and produces separate blinded views:
+Urborg maintains a privileged provenance map and produces separate blinded views:
 
 ```text
 qa_view
@@ -147,9 +147,9 @@ Retrieval returns evidence and candidate material, not an automatic deployment d
 
 - satisfy current Leyline versions;
 - pass Elesh compatibility and canonicalisation;
-- compile through Tezzeret;
-- pass Urabrask QA;
-- and compete under Augustin against no-op and fresh candidates.
+- compile through Urabrask;
+- pass Jin-Gitaxias QA;
+- and compete under Isperia against no-op and fresh candidates.
 
 <!-- hld: post-monolith addition (2026-08-08) — future direction, non-binding -->
 ##### Future direction (non-binding): contextual retrieval over the precedent store
@@ -163,17 +163,17 @@ fewer retrieval failures with the hybrid form and ~67% with reranking
 (["Introducing Contextual Retrieval"](https://www.anthropic.com/news/contextual-retrieval),
 Sep 2024), measured on codebase-like corpora — close in character to
 canonical genotypes and QA evidence. This is an implementation note for
-Sarpadia's index layer only. It binds nothing: it changes no contract, no
+Urborg's index layer only. It binds nothing: it changes no contract, no
 blinded view, no invariant, and no retrieval-mode semantics — a retrieval
 result remains precedent, not a verdict, however the index is built.
 
 #### 15.6 Training consumers
 
 - **Momir** consumes successful, failed and contrasting candidate sets.
-- **Narset** consumes action trajectories and regret labels.
-- **Tamiyo** consumes regional allocation outcomes over long horizons.
-- **Urabrask’s field surrogate** consumes Academy measurements and evidence-completeness labels.
-- **Augustin** may be calibrated or later trained from adjudication cases, but the initial policy is explicit and rule-driven.
+- **Aurelia** consumes action trajectories and regret labels.
+- **Ugin** consumes regional allocation outcomes over long horizons.
+- **Jin-Gitaxias’s field surrogate** consumes Academy measurements and evidence-completeness labels.
+- **Isperia** may be calibrated or later trained from adjudication cases, but the initial policy is explicit and rule-driven.
 - **Emrakul** consumes maintenance, re-adaptation and safe-decay outcomes.
 
 No consumer treats multiple branches from one base trajectory as independent validation or test examples.

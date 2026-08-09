@@ -3,6 +3,10 @@
 Date: 2026-08-08 · Status: accepted
 Deciders: John (owner; in-session rulings 2026-08-08) · Tracker: simic-a708c5b1b7, simic-3a17fe545d, PDR-0006
 
+> **Namespec note (ADR-0008):** this record predates Namespec 2.0 and uses
+> Namespec 1.0 names; read it through the concordance in
+> [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
+
 ## Context
 
 The HLD left the umbrella name open — remain `simic`, return to `esper`, or

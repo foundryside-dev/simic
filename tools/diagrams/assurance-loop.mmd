@@ -2,7 +2,7 @@
 %% Source: docs/design/04-architecture.md §7.4.
 %% Rendered by build.sh; do not hand-edit the generated SVGs.
 flowchart TD
-    ART["Tezzeret artefact"] --> PLAN["Urabrask builds<br/>a blinded TestPlan"]
+    ART["Urabrask artefact"] --> PLAN["Jin-Gitaxias builds<br/>a blinded TestPlan"]
     PLAN --> TOL["Tolaria restores<br/>one common Snapshot"]
 
     %% One rank of matched branches over an identical future. Deliberately not
@@ -16,8 +16,8 @@ flowchart TD
     BK --> CERT
     BN --> CERT
 
-    CERT["Urabrask verifies conformance<br/>and certifies the measurements"] --> QR["QualityReport"]
-    QR --> AUG["Augustin applies eligibility,<br/>then the tail-risk veto,<br/>then utility policy"]
-    AUG --> VERD["ADMIT one · REJECT<br/>DEFER · REQUIRE_RETEST · NO_OP"]
+    CERT["Jin-Gitaxias verifies conformance<br/>and certifies the measurements"] --> QR["QualityReport"]
+    QR --> ISP["Isperia applies eligibility,<br/>then the tail-risk veto,<br/>then utility policy"]
+    ISP --> VERD["ADMIT one · REJECT<br/>DEFER · REQUIRE_RETEST · NO_OP"]
 
     class BN accent
