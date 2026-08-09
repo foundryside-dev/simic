@@ -1,6 +1,6 @@
 # Kernel Demo — "Simic in 20 minutes"
 
-**Date:** 2026-08-09 · **Status:** rev 5 (final; panel round 3 verified) — awaiting owner sign-off
+**Date:** 2026-08-09 · **Status:** rev 6 — **LOCKED** (owner-approved; panel round 3 verified; external-review patches folded). Design: APPROVE. Implementation: GO.
 **Target:** `experiments/kernel_demo.py` (single file, plus optional plotting sidecar)
 **Panel:** five SME reviews, two rounds, under `docs/superpowers/reviews/2026-08-09-kernel-demo-*`.
 Round-2 verdicts: morpho 19/20 closed · lifecycle 7/9 + 1 reopened · reward 10/13 ·
@@ -88,19 +88,19 @@ execution:
 
 - CIFAR-10; deliberately undersized 3-stage CNN (~150k params); checkable
   property: plateaus by epoch ~12–15 under the mild pathology.
-- **Data partition:** train 50k; the 10k test set is split once by fixed
-  seed into 5k **val** / 5k **test**. Val feeds telemetry and all
-  training-time rewards; test is the only accuracy any *reported* metric
-  uses. **Unit rule (R2: reward N4; corrected R3: stats — the first
-  version regressed R2-6): everything *reported at eval* is computed in
-  test units; every training label in val units; and **pre-flight gates
-  whose remedy is the sampler (1, 2b, 4) compute in val units** — tuning
-  the sampler against test-unit statistics would iteratively fit the
-  report's own 5k partition. The arbitration with reward N4 (val-noise
-  inflation in the probe) is accepted as second-order: gate thresholds are
-  majority-null-based, and the inflation is bounded by
-  `P(val-argmax = test-argmax)`, which is reported beside fan density as
-  the measured cost of the unit wall.**
+- **Data partition:** train **45k**; **val = 5k held out of the official
+  train split**; **test = the official 10k, untouched** (rev 6, external
+  review: val and test no longer share a partition, and the reported
+  metrics get the full 10k's noise floor). Val feeds telemetry and all
+  training-time rewards. **Unit rule, absolute (rev 6 — the previous
+  gate-list form leaked through gates 3/6, whose window/horizon remedies
+  are frozen-block constants and can fit the report partition exactly as
+  the sampler can): anything whose result is allowed to change the frozen
+  block reads val; test is unread until after freeze.** Everything
+  reported at eval is computed in test units. The val-noise inflation
+  this puts in pre-flight probes is second-order (thresholds are
+  majority-null-based) and bounded by `P(val-argmax = test-argmax)`,
+  reported beside fan density as the measured cost of the unit wall.
 - Dev runs may subset the training set behind a flag; headline runs use
   full data.
 
@@ -125,10 +125,15 @@ Param-group ordering and state restore byte-identical across arms.
 | Under-normalized | spiky grad norms, activation saturation | norm |
 | Channel-starved | early plateau, high train-loss floor | conv-heavy |
 | No spatial mixing (1×1 stage 2) | class-confusion spread | attn |
-| Mild handicap | clean curves | conv-light or **no-op** |
+| Mild handicap | clean curves | conv-light (WHICH); **no-op often wins (NOW)** |
 
-The design-intent winner map is verified in pre-flight gate 2b (test
-units), not assumed.
+The mild row carries two targets on purpose (rev 6, external review:
+no-op belongs to NOW, not WHICH): its designed *seed* winner,
+conditional on acting, is **conv-light** — that is what the money chart's
+≥3-of-4 criterion scores — while "no-op frequently beats every seed here"
+is the NOW-side property that gate 1 checks and the restraint metrics
+measure. The design-intent winner map is verified in pre-flight gate 2b
+(val units), not assumed.
 
 **Blindness rule:** every `TelemetryRecord` field is a deterministic
 function of host state and logical epoch index; wall-clock, durations,
@@ -281,6 +286,12 @@ gone). The policy never gates its own data.
    reproduce the base run bitwise through the whole horizon — exercises
    group-append ordering, seed-group momentum isolation, α/β machinery,
    and per-arm init RNG, which the twin (single-group) cannot.
+   **Pre-stated contingency (rev 6, external review): the null-seed
+   bitwise claim is empirical** — Δ≡0 still executes kernels the base run
+   doesn't, and signed-zero/STE-add edge cases exist. If `--selftest`
+   trips the null-seed check *while the twin holds*, the remedy is
+   value-exact (zero-normalized-hash) comparison for the null-seed arm
+   only; the twin's bitwise requirement is untouched.
 4. Arm seed modules init from `derive(episode_seed, arm_name)` via their
    own generators. **`host_init_hash` recorded per episode.** Its
    justification under process workers (R3: determinism): it is the
@@ -364,7 +375,11 @@ acts live only at eval, under the stated deployment rule.
   "overfit 450 fans" is diagnosable and distinguishable from "the approach
   doesn't work." Collection defaults to 300 episodes (= 600 fans); it may
   be extended on tune-curve evidence, but only before any eval-namespace
-  episode runs.
+  episode runs. **The pre-stated levers for a bad tune curve are both
+  directions: extend collection, or shrink the trunk** (rev 6, external
+  review — ~480 training fans against a ~100k-param trunk; a smaller
+  policy is a legitimate remedy and pre-stating it keeps the choice out
+  of post-hoc territory).
 
 ## Pre-flight validation (gates → freeze → collection)
 
@@ -374,8 +389,13 @@ scheduled fan only** (R2: morpho N8, reward N9 — within-episode fans share
 a base run). Gates, each stating its remedy (R2: dynarch R2-F3 — a failed
 gate names what may be retuned; gate 5's remedy is never the sampler):
 
-1. **No-op wins vs the exact null** — binomial vs 20%: above in mild,
-   below in the three targeted pathologies. *Remedy: sampler.*
+1. **No-op wins where designed — an engineering sanity check, not
+   inference** (rev 6, external review: at ~7–8 episodes per pathology a
+   binomial test against 20% cannot reject downward at α=0.05 even on
+   zero wins; headline-scale statistics are not spent on a sampler
+   shakedown). Empirical thresholds, pre-stated: no-op is the fan
+   val-argmax in ≥2 mild episodes, and is the *modal* winner in no
+   targeted pathology. *Remedy: sampler.*
 2. **Signal at the right target** — (a) linear probe telemetry →
    pathology, GroupShuffleSplit by episode; (b) probe telemetry →
    **val-argmax** vs majority-class null, plus realized
@@ -383,15 +403,18 @@ gate names what may be retuned; gate 5's remedy is never the sampler):
    corrected unit rule — this gate's remedy is the sampler). *Remedy:
    sampler.*
 3. **Contrast beats noise** — fan density `mean(R_best − R_second)` and
-   `mean(R_best − R_noop)` within fans (test units), vs the refan noise
-   floor. *Remedy: averaging window, horizon.*
+   `mean(R_best − R_noop)` within fans (**val units** — this gate's
+   remedies are frozen-block constants, so the absolute unit rule
+   applies), vs the refan noise floor. *Remedy: averaging window,
+   horizon.*
 4. **No degenerate dominance** — no seed is val-argmax in >40% of fans
    overall, nor a majority in every pathology (val units — sampler
    remedy). *Remedy: sampler/menu balance.*
 5. **Magnitude sanity** — `RMS(Δ)/RMS(h)` at blend entry within ~2× band
    across arms. *Remedy: τ, λ, seed LR — never the sampler.*
 6. **Horizon adequacy** — fan density per scheduled epoch does not
-   collapse with t. *Remedy: horizon, window.*
+   collapse with t (**val units**, same reason as gate 3). *Remedy:
+   horizon, window.*
 7. **Now-vs-later materiality (R2: reward N1b):** from the paired ordered
    fans, report `P(A(t_late) > A(t_early))` and the mean gap. This decides
    whether the earliest-profitable deployment rule leaves measurable value
@@ -410,15 +433,33 @@ Then the frozen block locks (hash recorded) and collection starts.
 Frozen battery, fixed before any eval run:
 
 - `N_eval = 100` eval-namespace seeds shared by every policy: **trained,
-  random, schedule-only, and fixed-epoch** (R2: morpho N1 — the
-  fixed-epoch null is the trained WHICH head with germination forced at
-  the pre-registered mid-window epoch t*=10, same seeds, no retraining).
+  random, schedule-only, and fixed-epoch**. **Constitutional definitions
+  (rev 6, external review — the comparators are load-bearing and may not
+  be inherited from review threads):**
+  - **schedule-only** — the strongest boring null: identical
+    architecture, training data, objective, and training procedure to the
+    trained policy, with input telemetry **masked to the logical epoch
+    index only**. It answers: does telemetry add anything beyond learning
+    when these canned pathologies tend to pay off?
+  - **random** — germinates at one epoch drawn uniformly from the
+    decision window (from `derive(episode_seed, "random-null")`), seed
+    chosen uniformly over the four; always acts.
+  - **fixed-epoch** — the trained WHICH head with germination forced at
+    the pre-registered mid-window epoch t*=10, same seeds, no retraining
+    (R2: morpho N1).
+  - The **exploration schedule** itself is likewise pinned: 2 epochs
+    drawn uniformly without replacement from the decision window, ordered.
   **The WHEN contrast `trained_live − fixed_epoch` is reported twice (R3:
   stats, morpho note): unrestricted, and restricted to episodes where
   trained-live germinated.** The unrestricted version confounds timing
   with restraint (fixed-epoch always acts; the confound inflates exactly
   when restraint has value); the timing claim is worded off the
-  restricted version, with the germination rate beside it.
+  restricted version, with the germination rate beside it. **One further
+  scoping sentence (rev 6, external review): the restricted contrast
+  bundles timing with time-conditional seed choice** — germinating at
+  epoch 7 may also mean choosing a different seed than the t*=10 query
+  would — so the claim it supports is "chooses profitable moments,
+  including what to plant at them," not timing in isolation.
 - **Lift:** per-episode `R_chosen^test − R_noop^test`, paired by seed.
   Never-germinating scores exactly 0. **Statistic: one-sided sign-flip
   permutation test on the mean per-episode lift** (R2: stats R2-2, morpho
@@ -430,8 +471,14 @@ Frozen battery, fixed before any eval run:
   **fan epochs drawn from the same distribution as the exploration
   schedule** (from the eval seeds), so teacher-forced agreement is
   measured on the training state distribution (R3: morpho N16, the one
-  open round-2 item). Teacher-forced queries, ground truth =
-  **test-argmax**. Nulls: majority-class rate and schedule-only. Reported
+  open round-2 item). **Grid size pre-registered: 2 points per eval
+  episode = 200 points.** Teacher-forced queries, ground truth =
+  **test-argmax over the four seed arms** (rev 6, external review — the
+  argmax set is pinned: restraint is NOW's job and is measured by the
+  restraint metrics, so the WHICH head is never scored against a
+  no-op-winning fan it structurally cannot match; this also gives the
+  mild row its single designed winner). Nulls: majority-class rate and
+  schedule-only. Reported
   next to the money chart: the policy's chosen-seed marginal (R2: stats
   R2-9) and a companion chart with diverged fans excluded (R3: stats —
   shows whether the diagonal is driven by diagnosis or by
@@ -463,9 +510,21 @@ Frozen battery, fixed before any eval run:
 - Thresholds: trained lift > 0 (permutation p<0.05) **and** > schedule-only
   (paired, same test); conditional-on-acting agreement ≥ majority-class
   null + 15 points (test units); money chart row-argmax = designed winner
-  for ≥3 of 4 pathologies (exact α=5.08% under the uniform null — the
-  chosen-seed marginal is reported so a skewed marginal is visible);
-  falsifier collapses the diagonal to within the null's CI.
+  for ≥3 of 4 pathologies, judged against a **permutation null** (rev 6,
+  external review: the exact 13/256 = 5.08% figure assumes a uniform 25%
+  per row and dies the moment the policy's seed marginal skews — instead,
+  pathology labels are shuffled across eval fans, row winners recomputed,
+  and the ≥3-of-4 statistic compared to that empirical null, which
+  preserves whatever marginal Aurelia actually has; the uniform figure is
+  kept only as a footnote); falsifier collapses the diagonal to within
+  the null's CI.
+- **Power note, written at freeze (rev 6, external review):** using gate
+  3's measured fan density, record the minimum detectable effect for the
+  lift test at N_eval=100 (≈25% of episodes mild, near-zero lift by
+  design) and for the agreement gate at 200 grid points. A miss then
+  reads "underpowered below X" or "the approach failed" — not an
+  uninterpretable p=0.08. One paragraph, effect-size input free from
+  gate 3.
 - The WHEN contribution (`live − fixed_epoch`) has **no pass threshold**:
   it is reported, and it gates only the wording of the timing claim.
 
