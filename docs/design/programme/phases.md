@@ -60,7 +60,8 @@ The MVP does **not** require:
 
 - move ordinary host execution behind one Tolaria engine;
 - make data, optimiser, scheduler, precision and device state explicit;
-- define the Academy-exact runtime profile;
+- define the Academy-exact runtime profile, including its pinned execution-stack identity and re-baselining procedure (ADR-0013);
+- measure the exactness tax (deterministic-kernel overhead) on the MVP hosts, feed the §22.11 cost model, and choose the Academy operating point — including the CPU-lab option — from that data;
 - establish deterministic mainline traces;
 - implement `ScaffoldManifest` and `ScaffoldState` recording;
 - and ensure Wrenn exposes a neutral host-runtime protocol.

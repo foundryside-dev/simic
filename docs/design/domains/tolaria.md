@@ -33,6 +33,8 @@ These modes describe *what Tolaria is doing*. An orthogonal execution regime des
 
 **Academy-exact regime** is the causal reference and metrology profile. Device, kernels, library and compiler versions, dtype, thread count, random state, optimiser state, dataloader state and future minibatches are pinned. Restore plus common future must produce bitwise-identical traces. This regime is deliberately narrow and may be slower than ordinary operation.
 
+The pinned configuration is a declared **execution-stack identity** (ADR-0013): bitwise identity holds within it and is never a portability claim across stacks. Moving the pin is a recorded re-baselining event — replay fixtures re-run under the candidate stack, acceptance recorded, both identities retained in Urborg provenance. The device class is not the profile: the metrology lab may be hosted on CPU, where exactness is nearly free at MVP host scale, while calibrated-stochastic and Field regimes use the GPUs. Kernel-selection and RNG-stream rules for paired branches across a topology change — the same semantics recompiling to different kernels — are a named Tolaria LLD deliverable.
+
 **Calibrated-stochastic regime** permits bounded nondeterminism while executing repeated matched branches. Tolaria measures the resulting outcome distribution, ranking stability and decision disagreement against Academy-exact results.
 
 **Field regime** permits production-oriented kernels, mixed precision, distributed execution and other validated stochastic behaviour. Field evidence carries execution uncertainty and may be escalated to Academy-exact execution when the candidate margin is too small, risk is high, or calibration has expired.
