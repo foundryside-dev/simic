@@ -279,9 +279,10 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - no-op precision and recall;
 - false-intervention rate;
 - harmful-admission rate;
+- near-miss rate: thin-margin veto passes followed by large uncontained integration shock ([`../domains/isperia.md`](../domains/isperia.md#the-vetos-training-signal));
 - unnecessary-retest rate;
 - decision stability under identical evidence;
-- policy sensitivity to declared weights;
+- policy sensitivity to declared weights — measured retrospectively over the full decision corpus, since re-adjudication is GPU-free ([`../domains/isperia.md`](../domains/isperia.md#retrospective-policy-re-adjudication));
 - provider-blindness audit results;
 - and reason-code completeness.
 

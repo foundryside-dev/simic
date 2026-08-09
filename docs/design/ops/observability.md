@@ -37,6 +37,7 @@ Tamiyo exposes the system at three levels.
 - QA tests, defects, warnings and evidence completeness;
 - measured versus surrogate-predicted trajectories;
 - Isperia eligibility and utility decomposition;
+- counterfactual policy sweeps: recorded decisions re-adjudicated under a candidate `adjudication_policy_version`, with decision deltas (retrospective and GPU-free — [`../domains/isperia.md`](../domains/isperia.md#retrospective-policy-re-adjudication));
 - lineage and retrieval paths;
 - lifecycle transitions;
 - and divergence-localisation traces.

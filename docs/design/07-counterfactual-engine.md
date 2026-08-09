@@ -24,6 +24,8 @@ For each selected host state, the pool may include:
 
 During the bootstrap, reference seeds may appear both in Momir's ancestry context and as independent controls. After scaffold withdrawal they remain only as blinded controls unless an experiment explicitly restores ancestry.
 
+The deliberately harmful and long-term-regressing candidates are **permanent pool members, not a curriculum stage**: they survive every scaffold withdrawal as retained reference capability (INV-42) because they are the tail veto's continuous exercise against known-bad structure. Real rollbacks approach zero when the veto works (ADR-0010), so these fixtures — together with near-miss records (`domains/isperia.md`) — are the veto's only dense, renewable source of evidence.
+
 Jin-Gitaxias and Isperia receive blinded identifiers. Candidate source and ancestry are reattached only after QA and adjudication.
 
 ### 14.2 Data separation
