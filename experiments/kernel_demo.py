@@ -2819,6 +2819,184 @@ def run_preflight(cfg: Config, data: DataBundle, device: str, store_root: str, f
     return result
 
 
+# section 15 — COLLECT
+@semantic
+def write_divergence_report(
+    store_root: str,
+    cfg: Config,
+    episode_seed: int,
+    arm_name: str,
+    first_bad_epoch: int,
+    manifest_hash: str | None,
+    device: str,
+    worker_count: int,
+) -> str:
+    pathology = PATHOLOGIES[derive(episode_seed, "pathology") % 4]
+    host = build_host(pathology, derive(episode_seed, "host-init"))
+    report = {
+        "episode_seed": episode_seed,
+        "arm_name": arm_name,
+        "first_bad_epoch": first_bad_epoch,
+        "config_hash": config_hash(),
+        "frozen_block_hash": frozen_block_hash(cfg),
+        "manifest_hash": manifest_hash,
+        "env_block": env_block(device, worker_count),
+        "host_init_hash": state_hash(host),
+    }
+    path = Path(store_root) / f"divergence_{episode_seed}.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+    return str(path)
+
+
+def worker_main(
+    worker_id: int,
+    device: str,
+    cfg: Config,
+    store_root: str,
+    seeds: list[int],
+    halt: object,  # multiprocessing.Event (spawn-context type is not importable statically)
+    data_loader: Callable[[Config, str, int | None], DataBundle],
+    episode_runner: Callable[..., None],
+    manifest_hash: str | None,
+    worker_count: int,
+    log_dir: str,
+) -> None:
+    enable_class1()  # MUST be the first statement of every process
+    dev = torch.device(device)
+    if dev.type == "cuda":
+        torch.cuda.set_device(dev)
+    import time
+
+    log_path = Path(log_dir) / f"worker_{worker_id}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
+        data = data_loader(cfg, device, None)  # load once, resident per process
+        store = Store(store_root, cfg.fsync_every)
+        try:
+            for es in seeds:
+                if halt.is_set():  # type: ignore[attr-defined]
+                    print(f"worker={worker_id} halting between episodes", flush=True)
+                    break
+                t0 = time.perf_counter()
+                try:
+                    episode_runner(
+                        cfg, data, device, es, "train", store, worker_id, False, manifest_hash=manifest_hash, worker_count=worker_count
+                    )
+                except TwinDivergence as td:
+                    write_divergence_report(store_root, cfg, es, "noop", td.first_bad_epoch, manifest_hash, device, worker_count)
+                    halt.set()  # type: ignore[attr-defined]
+                    print(f"worker={worker_id} TwinDivergence episode={es} epoch={td.first_bad_epoch}: HALT", flush=True)
+                    break
+                print(
+                    f"heartbeat worker={worker_id} episode={es} epochs={cfg.horizon} elapsed={time.perf_counter() - t0:.1f}s",
+                    flush=True,
+                )
+        finally:
+            store.close()
+
+
+_NON_SEMANTIC["worker_main"] = "process orchestration; every semantic step it dispatches is independently on the surface"
+_NON_SEMANTIC["write_divergence_report"] = "diagnostic artifact writer; every hash it records is computed by functions on the surface"
+
+
+@semantic
+def run_collect(
+    cfg: Config,
+    store_root: str,
+    devices: list[str],
+    n_workers_per_device: int,
+    limit: int | None = None,
+    extend: int = 0,
+    *,
+    data_loader: Callable[[Config, str, int | None], DataBundle] = load_data,
+    episode_runner: Callable[..., None] = run_collection_episode,
+) -> dict[str, object]:
+    import multiprocessing
+
+    frozen_path = Path(store_root) / "frozen.json"
+    if not frozen_path.exists():
+        raise RuntimeError("collect refused: no frozen.json (run preflight --freeze first)")
+    manifest = json.loads(frozen_path.read_text(encoding="utf-8"))
+    if manifest["frozen_block_hash"] != frozen_block_hash(cfg):
+        raise RuntimeError("collect refused: frozen_block_hash mismatch (live Config differs from the manifest)")
+    if manifest["config_hash"] != config_hash():
+        raise RuntimeError("collect refused: config_hash mismatch (live source differs from the manifest)")
+    if not dataclass_gates_ok(manifest["gate_results"]):
+        raise RuntimeError("collect refused: manifest gate_results not all ok")
+    manifest_hash = cast(str, manifest["manifest_hash"])
+    store = Store(store_root, cfg.fsync_every)
+    merged = store.merge()
+    ext_events = [r for r in merged if r.kind == "extension_event"]
+    if extend:
+        if any(r.seed_namespace == "eval" for r in merged):
+            raise RuntimeError("--extend refused: eval-namespace records exist (pre-registration would be voided)")
+        store.append(
+            0,
+            make_fan_record(
+                kind="extension_event",
+                episode_seed=cfg.run_seed,
+                seed_namespace="train",
+                split_role="train",
+                pathology_id="all",
+                fan_epoch=None,
+                refan_k=None,
+                schedule_id=make_schedule_id(cfg),
+                policy_checkpoint_id=None,
+                iteration=len(ext_events),  # derived from store state
+                config_hash=config_hash(),
+                frozen_block_hash=frozen_block_hash(cfg),
+                manifest_hash=manifest_hash,
+                common_future_hash="",
+                host_init_hash="",
+                env={},
+                arms=[],
+                telemetry=[],
+                decisions=None,
+                gate_results={"event": "extension", "n": extend},
+            ),
+        )
+        store.close()
+        store = Store(store_root, cfg.fsync_every)
+        merged = store.merge()
+        ext_events = [r for r in merged if r.kind == "extension_event"]
+    extensions = 0
+    for r in ext_events:
+        n = (r.gate_results or {}).get("n")
+        if isinstance(n, int):
+            extensions += n
+    targets = [derive(cfg.run_seed, "train", i) for i in range(cfg.n_collect + extensions)]
+    if limit is not None:
+        targets = targets[:limit]
+    done = {r.episode_seed for r in merged if r.seed_namespace == "train" and r.kind in ("fan", "void_event")}
+    todo = [es for es in targets if es not in done]
+    store.close()
+    slots = [(d, w) for d in devices for w in range(n_workers_per_device)]
+    statuses: dict[int, str] = {}
+    halted = False
+    if todo:
+        ctx_mp = multiprocessing.get_context("spawn")
+        halt = ctx_mp.Event()
+        log_dir = str(Path(store_root) / "logs")
+        procs = []
+        for wid, (device, _w) in enumerate(slots):
+            seeds = todo[wid :: len(slots)]
+            p = ctx_mp.Process(
+                target=worker_main,
+                args=(wid, device, cfg, store_root, seeds, halt, data_loader, episode_runner, manifest_hash, len(slots), log_dir),
+            )
+            p.start()
+            procs.append(p)
+        for p in procs:
+            p.join()
+        halted = halt.is_set()
+        for wid, p in enumerate(procs):
+            statuses[wid] = "crashed" if p.exitcode != 0 else ("halted" if halted else "clean")
+    ok = not halted and all(s != "crashed" for s in statuses.values())
+    return {"collected": len(todo), "workers": statuses, "halted": halted, "ok": ok}
+
+
 def main(argv: list[str] | None = None) -> None:
     enable_class1()  # MUST be the first statement of every process
     ap = argparse.ArgumentParser(prog="kernel_demo")
@@ -2832,6 +3010,11 @@ def main(argv: list[str] | None = None) -> None:
             p.add_argument("--certify", action="store_true")
         if m == "preflight":
             p.add_argument("--freeze", action="store_true")
+        if m == "collect":
+            p.add_argument("--devices", default="cuda:0")
+            p.add_argument("--workers", type=int, default=6)
+            p.add_argument("--limit", type=int, default=None)
+            p.add_argument("--extend", type=int, default=0)
         if m == "replay":
             p.add_argument("fan_id")
     args = ap.parse_args(argv)
@@ -2845,6 +3028,10 @@ def main(argv: list[str] | None = None) -> None:
         data = load_data(cfg, args.device, args.subset)
         out = run_preflight(cfg, data, args.device, args.store, freeze=args.freeze)
         raise SystemExit(0 if dataclass_gates_ok(cast(dict[str, dict[str, object]], out["gates"])) else 1)
+    if args.mode == "collect":
+        result_c = run_collect(cfg, args.store, args.devices.split(","), args.workers, limit=args.limit, extend=args.extend)
+        print(result_c)
+        raise SystemExit(0 if result_c["ok"] else 1)
     raise SystemExit(f"not implemented: {args.mode}")
 
 
