@@ -19,6 +19,7 @@
 - issue maintenance warrants;
 - calibrate thresholds on validation trajectories only;
 - own containment accountability: adjudicate every emergency containment back to the warrant and policy version that admitted the growth (ADR-0010);
+- re-adjudicate the historical corpus under candidate policy versions (retrospective sweeps — analysis records only, INV-36);
 - and emit explicit decision reasons and policy versions.
 
 #### Lexicographic admission order (ADR-0004)
@@ -120,6 +121,19 @@ A rollback is evidence that a warrant was issued wrongly, and warrants are Isper
 Every containment event therefore routes back to the decision, not just to the log. `AdmissionDecision` already carries `evidence_digest`, `selected_semantic_hash`, `adjudication_policy_version` and the per-candidate eligibility and veto results, so the containment record names the warrant that authorised the growth, the policy version in force, and the specific checks that passed and should not have. That is a defect report against a policy, actionable in a way "candidate X was bad" is not.
 
 Blame attaches to the policy version, never to Isperia-the-component. With the initial rule-driven adjudicator this is literally true: a rollback means the declared thresholds were wrong, and the fix is an ADR and a version bump. Retrospective re-adjudication then asks directly: *under the revised policy, would this warrant have issued?* — a regression test for judgement. Containment catastrophes carry their own failure code (`CONTAINMENT_CATASTROPHE`, `urborg.md`); they are never booked as integration shock, because one is a cost and the other is a veto failure.
+
+<!-- hld: added 2026-08-09 (simic-43f5e2264a, peer review) -->
+#### Retrospective policy re-adjudication
+
+Isperia's rule-driven policy is the Esper reward function promoted to a versioned, hand-editable artefact — and the promotion pays for itself here. Because `QualityReport` records are immutable, stored in Urborg, and Isperia consumes nothing else, the entire historical corpus can be re-adjudicated under a candidate policy with **zero retraining and zero GPU time**: sweep the declared weights (λ, μ, ν, ξ, ω) across every decision the system has ever made and read off how admission and tenancy history would have changed. This is the direct answer to the pivot's originating failure — a reward whose behaviour could not be tuned even when the signal was provably present — and it is a first-class capability, not an incidental property of the storage layer.
+
+Three uses are named:
+
+- **Policy revision.** Before an `adjudication_policy_version` bump, the candidate policy is swept over the historical corpus and the decision deltas travel with the ADR as evidence.
+- **Regression testing judgement.** Every containment (ADR-0010) asks: under the revised policy, would this warrant have issued? A policy fix that does not flip the decision it was written for has not fixed anything.
+- **Sensitivity analysis.** The §22.6 metric "policy sensitivity to declared weights" is measured retrospectively over the full corpus rather than estimated from a sample.
+
+Boundaries: re-adjudication produces analysis records, never rewrites — historical decisions stand, and corrections create new records (INV-36). Sweeps consume the same blinded views as live adjudication (INV-17, INV-37). And a sweep is evidence for revising a policy, not a calibration procedure: threshold calibration still binds to validation trajectories only, because weights tuned against the full history are the old overfit reward in a new costume.
 
 #### Invariants
 
