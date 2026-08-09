@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Architecture — Simic</title>
-<meta name="description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the newsroom routing rule, and the sentence test used as an architecture lint.">
+<meta name="description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the evidence-routing rule, and the sentence test used as an architecture lint.">
 <link rel="canonical" href="https://simic.foundryside.dev/architecture.html">
 <link rel="icon" href="assets/mark.svg">
 
@@ -12,7 +12,7 @@
 <meta property="og:site_name" content="Simic">
 <meta property="og:url" content="https://simic.foundryside.dev/architecture.html">
 <meta property="og:title" content="Architecture — Simic">
-<meta property="og:description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the newsroom routing rule, and the sentence test used as an architecture lint.">
+<meta property="og:description" content="The fourteen bounded domains of Simic, the canonical sentence, the core loop, the evidence-routing rule, and the sentence test used as an architecture lint.">
 <meta property="og:image" content="https://simic.foundryside.dev/assets/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -182,62 +182,41 @@
     </table>
   </div>
 
-  <h2 id="newsroom">The newsroom principle<a class="hlink" href="#newsroom" aria-label="Permalink to “The newsroom principle”">#</a></h2>
+  <h2 id="newsroom">The evidence-routing rule<a class="hlink" href="#newsroom" aria-label="Permalink to “The evidence-routing rule”">#</a></h2>
 
   <p>
-    The resemblance to a newsroom is structural rather than decorative. A
-    newsroom separates source observation, assignment, authorship, standards
-    review, production, fact-checking, publication judgement, correction,
-    archive and presentation because allowing one desk to control the complete
-    chain corrupts both evidence and accountability.
+    One routing rule is load-bearing enough to state on its own. Nissa
+    publishes one canonical observation identity independently to Aurelia and
+    Momir (INV-07). Aurelia commissions work from that evidence but is never
+    the channel through which the designer receives it (INV-09):
   </p>
-
-  <div class="tablewrap" tabindex="0">
-    <table>
-      <caption>The analogy, desk by desk</caption>
-      <thead>
-        <tr><th scope="col" class="name">Domain</th><th scope="col">Newsroom desk</th></tr>
-      </thead>
-      <tbody>
-        <tr><td class="name">Nissa</td><td>Reporting, photography and data — publishes what was observed</td></tr>
-        <tr><td class="name">Ugin</td><td>Editor-in-chief — allocates desks, time and strategic resources</td></tr>
-        <tr><td class="name">Aurelia</td><td>Assignments editor — is there a story, which beat, what scope and deadline</td></tr>
-        <tr><td class="name">Momir</td><td>Writer — determines the substantive answer from evidence and commission</td></tr>
-        <tr><td class="name">Elesh</td><td>Copy and standards desk — house form, without deciding whether the story is valuable</td></tr>
-        <tr><td class="name">Urabrask</td><td>Production — turns canonical copy into an executable edition without changing meaning</td></tr>
-        <tr><td class="name">Jin-Gitaxias</td><td>Fact-checking and QA — establishes what the finished artefact actually does</td></tr>
-        <tr><td class="name">Isperia</td><td>Publishing editor — run, return, defer, or spike</td></tr>
-        <tr><td class="name">Wrenn</td><td>Integrates accepted material into the live edition</td></tr>
-        <tr><td class="name">Emrakul</td><td>Correction, withdrawal and retirement after publication</td></tr>
-        <tr><td class="name">Urborg</td><td>Morgue and archive — including corrections, failed investigations, abandoned drafts</td></tr>
-        <tr><td class="name">Tamiyo</td><td>Presentation — front page, dashboards, the public account</td></tr>
-        <tr><td class="name">Leyline</td><td>Stylebook, editorial constitution and record format</td></tr>
-        <tr><td class="name">Tolaria</td><td>Production environment, CMS, presses and test editions</td></tr>
-      </tbody>
-    </table>
-  </div>
 
   <blockquote class="canon">
     <p>
-      <strong>Aurelia does not send the photograph. Nissa sends the photograph
-      directly to Momir. Aurelia sends only the assignment brief.</strong>
+      <strong>Nissa sends the evidence directly to Momir. Aurelia sends only
+      the assignment brief. Momir never receives reality through Aurelia’s
+      caption.</strong>
     </p>
   </blockquote>
 
   <p>
     That rule turns into a concrete code-review question: <em>does this field
-    belong in an assignment brief, or does it impose an editorial angle?</em>
+    specify the assignment, or does it smuggle a conclusion?</em>
     Scope, region, resource class, deadline, maturity mode and assurance class
     are assignment fields. A deficit diagnosis, topology preference, ancestor
-    choice, expected mechanism or proposed solution is an editorial angle, and
-    is schema-invalid in Aurelia's channel.
+    choice, expected mechanism or proposed solution does the designer’s job
+    for it, and is schema-invalid in Aurelia’s channel.
   </p>
 
   <p>
-    The metaphor is never the enforcement mechanism. Enforcement is contractual:
+    Enforcement is contractual, never metaphorical:
     direct evidence publication, a narrow <code>GrowthIntent</code>,
     deterministic request resolution, immutable provenance, and tests that
-    reject diagnostic or structural hints in Aurelia's channel.
+    reject diagnostic or structural hints in Aurelia’s channel. And if the
+    codenames aren’t carrying the authority model for you, the design docs
+    retell it, desk by desk, as a newsroom —
+    <a class="cite" href="/design/appendices/newsroom/">the newsroom
+    rendering</a> — same separations, no new vocabulary.
   </p>
 
   <h2 id="loops">The loops<a class="hlink" href="#loops" aria-label="Permalink to “The loops”">#</a></h2>

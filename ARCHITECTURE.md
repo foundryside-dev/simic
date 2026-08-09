@@ -59,10 +59,9 @@ Tamiyo; those edges are omitted above for legibility. Two details in the
 diagram are load-bearing:
 
 - **Nissa publishes the same observation identity independently to Aurelia
-  and Momir.** Aurelia is not a telemetry proxy; the newsroom formulation is
-  "Nissa sends the photograph; Aurelia sends only the assignment brief." A
-  `GrowthIntent` carries scope and operational constraints only — diagnosis,
-  topology and ancestry hints are schema-invalid (INV-07, INV-09).
+  and Momir.** Aurelia is not a telemetry proxy: a `GrowthIntent` carries
+  scope and operational constraints only — diagnosis, topology and ancestry
+  hints are schema-invalid (INV-07, INV-09).
 - **The request resolver is not a fifteenth agent.** It is a pure Leyline
   service that combines `GrowthIntent` + `StrategicEnvelope` + Wrenn's
   `RegionContract` + the active `GrammarProfile` into one canonical

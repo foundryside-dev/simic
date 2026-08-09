@@ -85,6 +85,7 @@ Escalate BEFORE acting — the agent MUST get owner sign-off for:
   git without permission.
   Repo discipline (restates HLD §30; owner-confirmed 2026-08-08): HLD
   constitutional constraints (Namespec 2.0, the §18 invariants, the
-  authority boundaries, the newsroom rule, the no-op requirement, scaffold
-  withdrawal) change only through an ADR naming the displaced invariant.
+  authority boundaries, the evidence-routing rule (INV-07/INV-09), the no-op
+  requirement, scaffold withdrawal) change only through an ADR naming the
+  displaced invariant.
   (Taxonomy + rationale: product-ownership-operating-model.md.)

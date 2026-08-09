@@ -1,6 +1,6 @@
 # Simic HLD — Index
 
-**Architecture version:** 4.1 · **Namespec:** 1.0 — locked · **Status:** canonical
+**Architecture version:** 4.1 · **Namespec:** 2.0 — locked (ADR-0008) · **Status:** canonical
 design authority (decomposed from the v4.1 monolith per [ADR-0001](../adr/0001-hld-decomposition-structure.md);
 the monolith is archived, content-identical, at
 [`../concept/archive/simic-v4.1-monolith.md`](../concept/archive/simic-v4.1-monolith.md)).
@@ -33,7 +33,7 @@ load the chapters your task names; do not load the rest.
 | `ops/observability.md` | Live/investigation/audit views and the naming-smell view |
 | `ops/repo-structure.md` | Target codebase layout, dependency direction, repository handoff |
 | `ops/migration.md` | Current-to-target migration |
-| `appendices/` | Newsroom principle, scaffold-withdrawal pattern, glossary, good/bad sentences |
+| `appendices/` | Newsroom rendering (alternative lens), scaffold-withdrawal pattern, glossary, good/bad sentences |
 | `TEMPLATE-lld.md` | Header template for Tier 2 LLDs; LLDs land just-in-time under `lld/` (reserved, empty until Phase A) |
 
 ## Reading paths
@@ -42,7 +42,7 @@ load the chapters your task names; do not load the rest.
 - **Admission / adjudication work:** `02` + `domains/isperia.md` + `domains/jin-gitaxias.md` + `07-counterfactual-engine.md`.
 - **Contract / schema work:** `02` + `05-leyline-contracts.md` + `04-architecture.md` (flow).
 - **Experiment / curriculum design:** `02` + `01-claim.md` + `programme/*`.
-- **New here:** `01` → `04` → `02`, then `appendices/newsroom.md` for the authority model.
+- **New here:** `01` → `04` → `02`; if the codenames aren't carrying the authority model for you, `appendices/newsroom.md` retells it as a newsroom.
 
 ## Citation convention
 

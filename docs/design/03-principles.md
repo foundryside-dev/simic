@@ -81,7 +81,7 @@ A growth begins at zero or negligible influence. Influence is controlled through
 
 ### 6.9 Doing nothing is a real competitor
 
-Every adjudication includes a mandatory no-intervention alternative whose policy utility is exactly zero. A growth request does not imply that any growth must be admitted. In newsroom terms, every story may be spiked.
+Every adjudication includes a mandatory no-intervention alternative whose policy utility is exactly zero. A growth request does not imply that any growth must be admitted.
 
 ### 6.10 Paired branches differ only in the intervention
 

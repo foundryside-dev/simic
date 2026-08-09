@@ -45,7 +45,7 @@ Leyline imported Aurelia to decide what WAIT means today.
 
 ### Review prompt
 
-When a proposed change is difficult to place, write it as a sentence using the subsystem names and, if useful, translate it into the newsroom analogy.
+When a proposed change is difficult to place, write it as a sentence using the subsystem names and, if useful, translate it into the newsroom rendering (Appendix E).
 
 Ask:
 
