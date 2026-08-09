@@ -28,6 +28,8 @@ load the chapters your task names; do not load the rest.
 | `programme/curriculum.md` | Static-to-counterfactual curriculum, scaffold withdrawal stages |
 | `programme/learning.md` | Learning responsibilities per subsystem |
 | `programme/evaluation.md` | Testing strategy and evaluation framework |
+| `programme/cost-model.md` | Worked compute cost model — HER accounting, fleet arithmetic, amortisation bar, restructure trigger, K/N (ADR-0014) |
+| `programme/prereg-cost-model-campaign-1.md` | Committed pre-registration for the measurement campaign that retires the cost model's placeholders |
 | `programme/phases.md` | Minimum Viable System and implementation phases A–K |
 | `programme/risks-and-open-decisions.md` | Risk table and open design decisions |
 | `ops/observability.md` | Live/investigation/audit views and the naming-smell view |
@@ -76,7 +78,7 @@ names and file anchors survive restructuring, numbers do not.
 | §18 constitutional invariants (INV-01..45) | `02-constitution.md` |
 | §19 observability | `ops/observability.md` |
 | §20 target codebase structure | `ops/repo-structure.md` |
-| §21–§22 testing, evaluation | `programme/evaluation.md` |
+| §21–§22 testing, evaluation | `programme/evaluation.md` (§22.11's worked model: `programme/cost-model.md`, ADR-0014) |
 | §23 migration | `ops/migration.md` |
 | §24–§25 MVS, implementation phases | `programme/phases.md` |
 | §26–§27 risks, open decisions | `programme/risks-and-open-decisions.md` |

@@ -55,26 +55,6 @@
       }
     ]
   },
-  "extraKnownMarketplaces": {
-    "foundryside-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "tachyon-beep/skillpacks"
-      }
-    },
-    "superpowers-marketplace": {
-      "source": {
-        "source": "github",
-        "repo": "obra/superpowers-marketplace"
-      }
-    },
-    "claude-code-plugins": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/anthropics/claude-code.git"
-      }
-    }
-  },
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true,
     "superpowers@claude-plugins-official": true,
@@ -119,6 +99,27 @@
     "yzmir-simulation-foundations@foundryside-marketplace": true,
     "yzmir-structure-synthesis@foundryside-marketplace": true,
     "yzmir-systems-thinking@foundryside-marketplace": true,
-    "yzmir-training-optimization@foundryside-marketplace": true
+    "yzmir-training-optimization@foundryside-marketplace": true,
+    "axiom-experiment-formalisation@foundryside-marketplace": true
+  },
+  "extraKnownMarketplaces": {
+    "foundryside-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "tachyon-beep/skillpacks"
+      }
+    },
+    "superpowers-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "obra/superpowers-marketplace"
+      }
+    },
+    "claude-code-plugins": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/anthropics/claude-code.git"
+      }
+    }
   }
 }

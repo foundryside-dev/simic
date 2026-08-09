@@ -341,7 +341,16 @@ The system is evaluated as a quality–cost–stability frontier rather than by 
 - rent paid;
 - total accelerator time;
 - offline training cost;
-- and amortised cost per successful intervention.
+- amortised cost per successful intervention;
+- and cost per adjudicated pool (so that correct abstention does not read as economic failure).
+
+All economy metrics are denominated in the **host-equivalent run (HER)**
+and governed by the worked cost model (`cost-model.md`, ADR-0014), which
+fixes the fleet arithmetic, the per-admitted-growth cost stack, the
+amortisation bar, the 40-HER restructure trigger, and the K/N constants of
+the headline criterion. The companion pre-registration
+(`prereg-cost-model-campaign-1.md`) commits the measurement campaign that
+retires the model's placeholders.
 
 ### 22.12 Reliability
 

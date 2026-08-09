@@ -6,10 +6,18 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.20.2
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy (uv env)
+        # mirrors-mypy ran a pinned 1.20.2 in an isolated venv with no torch,
+        # so torch resolved to Any and nn.Module subclasses failed [misc] —
+        # while masking every torch-typing error before that. This local hook
+        # runs the SAME mypy 2.3.0 + torch-aware venv as `uv run mypy .`.
+        entry: uv run mypy .
+        language: system
+        types: [python]
+        pass_filenames: false
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
