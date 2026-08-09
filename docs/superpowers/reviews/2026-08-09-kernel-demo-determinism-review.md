@@ -1112,3 +1112,187 @@ paired numbers the thresholds are stated against will quietly mix two data strea
 ---
 - **Statement signature**: `determinism-reviewer`, axiom-determinism-and-replay v1.1.0
 - **Issued at**: 2026-08-09T11:24:44Z
+
+---
+
+# Round 3 (rev 4) — verification pass
+
+- **Reviewed by**: `determinism-reviewer` (axiom-determinism-and-replay v1.1.0)
+- **Subject**: rev 4 (commit `6b9f496`) · **Scope**: verification of round-2 dispositions only
+- **Issued at**: 2026-08-09T11:36:32Z
+
+## Verdicts
+
+| # | Round-2 item | Verdict | Evidence |
+|---|---|---|---|
+| N1 | RNG ownership rule | **CLOSED** | L64–70: named generators per purpose (episode, arm-init, learner, refan), `manual_seed` banned outside startup, `derive` specified as SHA-256→64-bit. `host_init_hash` in the record. See the sizing answer below |
+| N2 | `worker_count` in env block | **CLOSED-WITH-DEFECT** | Both halves adopted — but they contradict each other as written. See below; this is the one active problem in rev 4 |
+| N3 | Refan must re-run the no-op | **CLOSED** | Refan block: `derive(episode_seed,"refan",k)`, `k` recorded, **5 real arms including a fresh no-op**, `kind="refan"`, excluded from training. The parenthetical ("the twin would abort by construction unless re-based") shows the corollary landed, not just the instruction |
+| N4 | Twin abort semantics | **CLOSED**, one residual | Fan step 2: per-epoch host-state hash, first differing epoch named, divergence report, prior shards valid, twin non-optional and on the forbidden list. Residual: what "abort" now scopes to → below, LOW |
+| N5 | Eval action selection | **CLOSED** | L79 plus the deployment rule at L196–198: germinate at the first in-window epoch where `p > 0.5`, **deterministically**. The slot is removed rather than governed, which is the stronger fix |
+| N6 | Golden test vector | **NOT ADOPTED** | I substantially concede — see below. One narrow residual, with a cheaper closure than the one I proposed |
+| N7 / L2 | Forbidden-relaxations list | **CLOSED** | L74–78, printed by `--selftest`, twin-disable listed first |
+| H6 | Learner + eval RNG | **CLOSED** | Learner generator named; eval deterministic. Both halves of the round-2 partial |
+
+Round-1 and round-2 totals now stand at **19 of 19 round-1 findings closed** and **6 of 7
+round-2 findings closed**, with N2 carrying a defect introduced by its own fix and N6
+declined on proportionality grounds I mostly accept.
+
+## The one active problem — N2's two halves contradict each other
+
+Rev 4 adopted both of my N2 recommendations, and together they deadlock:
+
+- `worker_count` and `device_index` are in the **env block** (fan-record block).
+- `--replay` runs **single-worker**, and **"env-block mismatch refuses."**
+
+A fan collected at `worker_count = 4` therefore records `worker_count = 4`, and every
+`--replay` of it runs at 1 and refuses. **Replay is unreachable for every record the demo
+will actually produce.** This is not a wording quibble; it is the two fixes composing into a
+mode that cannot run.
+
+There are two coherent resolutions, and *which one is correct depends on a measurement nobody
+has taken yet*:
+
+1. **If memory pressure does not change algorithm selection at this model size** —
+   `worker_count` is pure provenance. Drop it from the refusal key (keep `torch`/CUDA/cuDNN/
+   driver/GPU/TF32 refusing), record it, and replay single-worker. Clean, and N2's original
+   worry turns out not to bite.
+2. **If it does** — then `worker_count` is genuinely part of the pinned environment, Class 1's
+   scope must say so ("bitwise at fixed `worker_count`"), and `--replay` must run at the
+   *recorded* worker count rather than at 1. Single-worker replay would then be a different
+   experiment, not a reproduction.
+
+Note also that single-worker replay does not by itself *solve* N2 — it makes replay's own
+conditions canonical, but a record made under collection pressure may legitimately not
+reproduce at rest. That is exactly why `host_init_hash` earns its keep: if a replay diverges
+and the init hash **matches**, the divergence is kernel selection, not seeding, and you know
+which of the two resolutions above you are in.
+
+I flagged the workspace-pinning option in round 2 as the third move; rev 4 took options 1 and
+2 and left it. That is a defensible call for a demo — I am not pressing it — but declining it
+is what leaves the question open, and the question is now load-bearing for three separate
+claims (below).
+
+## Direct answer: is the generator rule + `host_init_hash` still right-sized under processes?
+
+**Yes — keep both. The threading threat was never the main load they carry.** Adopting OS
+processes dissolves the cross-worker race that motivated N1's *severity*, but three
+justifications survive untouched, all process-model-independent:
+
+1. **Hermetic episodes, which is what makes `--replay` possible at all.** A worker process
+   runs many episodes sequentially — ~75 each across 300 collection episodes. If any draw
+   reads a process-global generator, episode *N*'s numbers depend on everything that drew
+   before it in that process, including whether episode *N−1* errored early. `--replay`
+   re-derives a *single* episode in a fresh process with no such history. Owned generators are
+   the difference between "this episode is a function of its seed" and "this episode is a
+   function of its seed and its position in a queue." Nothing about processes helps here.
+2. **It is the mechanism that implements round-1 H2.** `derive(episode_seed, arm_name)` yields
+   a number; order-independence of arm init is only real if that number seeds an *owned*
+   generator. Draw from a shared stream and the arms' inits depend on execution order again —
+   H2 reopens. Rev 4's own null-seed arm (step 3) explicitly tests "per-arm init RNG", which
+   only means something under this rule.
+3. **Refans need it.** `derive(episode_seed,"refan",k)` distinguishes refan *k* from *k+1*
+   only if each drives its own generator; on a shared stream they would differ by position too.
+
+On `host_init_hash`: keep it, but **its justification has changed and the spec should say so**,
+or someone will correctly notice the threading threat is gone and delete it. It is no longer a
+corruption detector; it is the **replay localiser** — the one field that separates "replay
+diverged because of seeding/derivation" from "replay diverged because of kernel selection."
+Under the N2 defect above, that distinction is precisely what you will need. One sentence of
+rationale in the spec protects it.
+
+## N6 — I mostly concede, with a narrower residual and a cheaper fix
+
+Your proportionality argument is right and I withdraw the golden vector as specified. Between
+`frozen_block_hash` (now exhaustively enumerated — pathologies, normalizer, temperatures,
+schedule, λ, τ, K/M/F, horizon, window, optimizer constants, diverged-arm convention, all
+thresholds), `config_hash`, the env-block refusal, and the twin arm running on every fan, rev 4
+has more continuous verification than most production systems. A committed hash triple would
+add little.
+
+The narrow residual: env-refusal catches *declared environment* changes and `frozen_block_hash`
+catches *frozen-block* changes, but neither obviously covers **the host architecture or
+`derive()` itself**. Both are outside the enumerated frozen block, both change every number in
+the store, and both are plausible mid-development edits. The cheap closure is not a golden
+vector — it is **one line extending `config_hash` to cover the host architecture definition and
+the `derive` implementation**. No new machinery, no new mode, and it closes the gap that
+actually remains. Take it or leave it; at this point it is hygiene, not a finding.
+
+## One measurement now gates three claims
+
+Declining the workspace-pin leaves a single open question — *does GPU memory pressure change
+cuDNN algorithm selection at this model size?* — and rev 4 has since made three separate claims
+depend on it:
+
+1. **N2's refusal key and replay fidelity** (above).
+2. **The null-seed arm (fan step 3)** must "reproduce the base run bitwise through the whole
+   horizon." Its second param group computes `f(h)` and allocates real activations, so it runs
+   under different memory pressure than the base run did. If pressure moves algorithm
+   selection, the null-seed arm aborts spuriously — and it will look like the group-append or
+   momentum-isolation bug it was built to detect.
+3. **The twin arm** re-runs the no-op continuation with the fan's other arms having been
+   resident. Same exposure, and the twin is the instrument that cannot report on itself.
+
+The demo therefore has three bitwise assertions whose failure mode is indistinguishable from a
+harness bug, all resting on one unmeasured property. The test is small and belongs in
+pre-flight beside the deterministic-mode slowdown already scheduled there: **run one episode's
+twin arm at `worker_count = 1` and at full worker count, same episode seed, and compare.**
+Clean at both → resolution 1 above, and all three claims are safe. Divergence → resolution 2,
+and the null-seed and twin comparisons need a fixed-pressure protocol.
+
+Relatedly and cheaply: **state whether the arms of one fan execute sequentially or
+concurrently.** Sequential execution keeps within-fan pressure close to the base run's and
+makes all three assertions much safer; the spec pins arms to one device but does not say.
+
+## Small residual on N4 — "abort" changed meaning when the worker model changed
+
+My round-2 wording asked for a twin divergence to "abort the whole process," written when
+workers were threads and one process *was* the run. Under one-process-per-worker that sentence
+now halts a single worker while its siblings keep collecting — and a twin divergence means
+deterministic mode is not holding, so the siblings' records are equally suspect. Rev 4 says
+prior shards remain valid (correct — each carries its own passed twin) but does not say what
+happens to *concurrent* work. One clause: *a twin divergence halts the run, not just the
+worker; sibling workers finish their current fan and stop; shards already written stay valid.*
+LOW, but it is a real gap opened by an otherwise-good change.
+
+## Note on what rev 4 added
+
+The **null-seed arm** is a genuinely good addition and it is sound: with the gain frozen at 0,
+`Δ = 0·f(h) = 0`, so the forward value is identical; the seed group receives zero gradient
+through `g`; weight decay on the seed's own conv weights and its momentum buffers never touch
+host parameters; and per-arm init draws leave the host stream untouched *because of the owned
+generator rule*. It exercises group-append ordering, seed-group momentum isolation, and the
+α/β machinery that the single-group twin structurally cannot reach. Its only exposure is the
+memory-pressure question above. The 1-in-10 subsample is the right cost point.
+
+## Confidence, gaps, caveats
+
+- **Verdict confidence: High.** Each disposition was checked against rev 4's text, and the
+  `(R2: …)` annotations made this mechanical.
+- **The N2 defect is certain** — it is a composition of two quoted clauses, not an inference.
+  **Which resolution is correct is unmeasured**, which is why I give both rather than picking.
+- **Medium confidence** that pressure-dependent algorithm selection bites at ~150k parameters.
+  The mechanism is real (heuristic selection takes the first algorithm whose workspace fits);
+  whether the fitting boundary is ever crossed at this size is exactly what the test answers.
+  I would not be surprised by a clean result.
+- Scope held to verification, per instruction. No new hunting; the memory-pressure synthesis
+  and the N4 residual arise from rev 4 edits, not from re-reading rev 3.
+- Still no code. The four round-2 items I flagged as "closable in prose, reopenable in
+  implementation" (generator rule, twin granularity, refan arm count, eval action rule) are
+  all now correctly *specified* — which is all a spec review can establish.
+
+## Result statement
+
+Rev 4 closes six of seven round-2 findings and leaves the determinism spine in good shape:
+19 of 19 round-1 and 6 of 7 round-2 items closed, with a forbidden-relaxations list guarding
+the twin arm that the whole headline comparison now rests on. One rev-4 edit is actively
+wrong — `worker_count` in a refusing env block plus single-worker `--replay` means every
+replay refuses — and the right repair depends on a small pre-flight measurement that three
+separate bitwise claims now quietly depend on. The RNG ownership rule and `host_init_hash`
+should both stay despite the switch to processes, because their real load was never
+thread-safety; and I withdraw the golden vector, where one line extending `config_hash` to
+the host architecture and `derive()` closes what actually remained.
+
+---
+- **Statement signature**: `determinism-reviewer`, axiom-determinism-and-replay v1.1.0
+- **Issued at**: 2026-08-09T11:36:32Z

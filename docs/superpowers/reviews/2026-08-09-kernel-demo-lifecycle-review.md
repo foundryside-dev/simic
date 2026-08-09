@@ -963,3 +963,139 @@ I did not reconcile against those four reviews.
 6. **Null-seed arm on a 1-in-10 subsample plus `--selftest`** (R2-F4) — the only
    item with a compute cost; defer if the schedule is tight, since step 6 already
    covers the highest-risk window.
+
+---
+
+# Round 3 (rev 4)
+
+**Reviewed:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` @ 6b9f496
+**Date:** 2026-08-09
+**Mode:** verification pass — round-2 dispositions only. No new hunting.
+
+## Verdict: all six round-2 items closed
+
+Verified against rev-4 text, not against the disposition summary.
+
+| # | Item | Verdict | Verified at |
+|---|---|---|---|
+| R2-F1 | Zero-init gain → bootstrap deadlock | **Closed** | L146–155. τ-init `g = τ·RMS(h)/RMS(f₀)`, τ=0.05 shared, gain-only. The rationale is recorded correctly, including "zero-init bought nothing" and why. **Q2 answered:** internal projections standard-init, final BN γ=1 — no nested zeros, so the harder deadlock I flagged does not exist. |
+| R2-F2 | Weight decay on the gain | **Closed** | L100–107. No-decay list is exactly gain + norm affines + biases. **Q1 answered:** μ=0.9 (my assumption confirmed), lr=0.05, wd=5e-4. |
+| R2-F3 | Gate-5 remedy misrouted | **Closed** | L344–345. *"Remedy: τ, λ, seed LR — never the sampler."* Per-gate remedies now on all seven gates, and the other six route sensibly (gate 4 → sampler/menu balance, gate 3 → averaging window/horizon). |
+| R2-F4 | Twin arm can't verify the param-group path | **Closed** | L254 (1-in-10 subsample) + L425 (`--selftest`). Both limbs present, as agreed. |
+| R2-F5 | `g` collision + missing `‖h‖²` | **Closed** | L167–170. `Δ* = −(∂L/∂Δ)·‖h‖²/(2λ)` — factor restored, symbol disambiguated. The stale "replacement-via-delta" description of `norm` is also gone from the seed table, which it needed to be once the gain made it partial. |
+| R2-F6 | β linear vs α cosine | **Closed** | L175–179. β is cosine, and the ramp is named in-spec as the sole fossilization mitigation under SGD-without-clipping. |
+
+The SGD confirmations from round 2 are recorded accurately at L181–184.
+
+## Constant LR vs my F5 concerns — sanity-check requested
+
+**Endorsed, and the justification is stronger than the one recorded.** The spec
+gives the reason as "no scheduler → no scheduler state in snapshots" (L102),
+which is true but is the smaller half of it.
+
+The larger half: `torch.optim.lr_scheduler` captures `base_lrs` from
+`optimizer.param_groups` **at construction time**. This design adds a second
+param group *at germination*, i.e. after any scheduler would already exist. That
+leaves `base_lrs` shorter than `param_groups`, and the next `.step()` either
+raises or silently mismatches LRs across groups depending on torch version.
+
+That is precisely the F5 bug class — optimizer state keyed positionally to a
+param-group list that changes mid-run — and it is the same failure shape as the
+determinism review's `state_dict()`-keyed-by-index HIGH (their L291–297). A
+scheduler would have re-opened it on a second front. **Constant LR eliminates it
+structurally rather than by discipline, which is the right kind of fix.** Worth
+amending L102 to say so, so the decision is recorded with its actual load-bearing
+reason.
+
+One cost to name, already covered by an existing gate: constant LR for 40 epochs
+means no annealing, so end-state val accuracy is noisier epoch-to-epoch than a
+decayed run, which widens the noise floor gate 3 measures fan density against.
+Real tension, but gate 3 detects it, and constant LR simultaneously *serves* the
+premise that the host must plateau by epoch ~12–15 (L96–98). Net: right call.
+
+## Two observations on rev-4 edits (both LOW, neither blocks)
+
+Raised only because both are new in rev 4 and cheap to close.
+
+**R3-1 — `g = τ·RMS(h)/RMS(f₀)` divides by a quantity that can approach zero for
+`norm`.** `norm`'s `f₀ = GroupNorm(h) − h` is the one seed whose `f₀` is small
+exactly when the host does not need it. On a well-normalized host the denominator
+shrinks and `g` blows up. I judge this **unlikely** in practice — post-ReLU
+activations carry a positive mean that GN recenters, so `RMS(GN(h)−h)` stays
+O(RMS(h)) even on a healthy host — but the failure is worth one line of guard
+because of how it would *present*: a huge `g` at germination yields either a gate-5
+failure or an immediately diverged arm, and the diverged-arm convention (L279,
+L293) would record it as `status="diverged"` on `norm`. That reads as an inflated
+per-seed-type failure rate — a property of the seed — when it is an init-guard
+bug. **Fix:** floor the denominator, `g = τ·RMS(h)/max(RMS(f₀), ε·RMS(h))`, and
+log `g` at germination in the fan record beside `RMS(Δ)/RMS(h)`.
+
+**R3-2 — the seed group takes the host's LR (L103–104, "same LR"), and the scalar
+gain sits in that group.** Under SGD, `∇_g = ⟨δ, f(h)⟩` is a dot product summed
+over the whole Δ tensor (~10⁵ elements), so the gain's gradient is structurally
+different in scale from the conv weights beside it in the same group. The trust
+region makes this a *stable* equilibrium rather than a runaway — curvature w.r.t.
+`g` is `2λ‖f‖²/‖h‖²`, which at the τ-init operating point is ≈ `2λ` — but
+stability of gradient descent needs `lr < 2/curvature`, giving roughly
+
+```
+λ < 1 / lr_seed ≈ 20        (at lr = 0.05)
+```
+
+λ's value is not yet in the spec (gate 5's remedy line is the only place it
+appears). **Fix:** when λ is chosen, respect that bound, or give the gain its own
+smaller LR. Gate 5 already detects the failure — an oscillating gain puts
+`RMS(Δ)/RMS(h)` out of band — so this is a "know the constraint before tuning"
+note, not a defect.
+
+## Confidence Assessment
+
+**Overall Confidence:** High on all six closure verdicts — each checked against
+cited rev-4 line ranges rather than against the disposition summary. High on the
+constant-LR endorsement (the `base_lrs` capture behaviour is standard torch
+semantics). **Moderate** on R3-1 (mechanism certain, likelihood judged low on a
+reasoned argument about post-ReLU activation statistics, unmeasured) and
+**Moderate** on R3-2 (the curvature derivation is sound, but it rests on the
+τ-init operating point holding and on λ's unstated value; the numeric bound is
+order-of-magnitude guidance, not a threshold to tune against).
+
+## Risk Assessment
+
+**Implementation Risk:** Low. **Reversibility:** Easy — both items are
+one-line spec edits, pre-implementation.
+
+| Risk | Severity | Likelihood | Mitigation |
+|---|---|---|---|
+| R3-1 fires → `norm` shows an inflated failure rate misread as a seed property | Medium *if* it fires | Low | ε-floor + log `g` at germination |
+| R3-2 → λ chosen above the stability bound; gain oscillates | Low–Medium | Low; needs an unusually large λ | Respect `λ < 1/lr_seed`, or separate gain LR. Gate 5 detects. |
+| Constant LR widens the R_a noise floor, compressing fan contrast | Low | Moderate | Already gated (gate 3); remedy line points at averaging window/horizon |
+
+## Information Gaps
+
+- **λ's value** is still unstated. It is the one harness constant in the
+  trust-region mechanism that has no number, and R3-2's bound is only actionable
+  once it is chosen.
+- **Whether `--selftest`'s null-seed smoke episode exercises a `norm` arm on a
+  healthy host** — the configuration that would surface R3-1 fastest.
+- I did not re-read the reward, statistics, or morphogenesis reviews this round.
+  Rev 4 folds their round-2 findings too (deployment rule, gate 7, permutation
+  tests); I verified only that none of those edits contradict the lifecycle items
+  above, not that they are correct on their own terms.
+
+## Caveats & Required Follow-ups
+
+This was a scoped verification pass, not a fresh review. It confirms that the six
+round-2 items are implemented as agreed and that no rev-4 lifecycle edit is
+wrong; it does not re-audit surfaces rev 4 changed for other reviewers.
+
+From my side the lifecycle design is **done** — no open HIGH or MEDIUM findings
+remain across three rounds. Recommended before implementation, in order:
+
+1. Pick λ, respecting `λ < 1/lr_seed ≈ 20` (R3-2).
+2. Add the ε-floor to the τ-init denominator and log `g` at germination (R3-1).
+3. Amend L102 to record the `base_lrs`/param-group footgun as the constant-LR
+   decision's load-bearing reason.
+
+The remaining risk in this area is now empirical, not structural: gate 5 is the
+instrument that decides whether the trust region and τ-init actually delivered
+comparable arms, and it runs on episodes already planned.

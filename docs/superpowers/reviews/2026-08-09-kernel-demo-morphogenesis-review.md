@@ -1202,3 +1202,91 @@ monitored via N2's learning curve.
 4. Reconcile with the sibling panel reviews.
 5. Then implement, with `--selftest` before `--collect` — unchanged from
    round 1, and rev 3 has already put `--selftest` in the mode list.
+
+---
+---
+
+# Round 3 (rev 4) — verification pass
+
+**Reviewed:** `docs/superpowers/specs/2026-08-09-kernel-demo-design.md` @ 6b9f496 (445 lines)
+**Mandate:** verdict round-2 findings only; no new hunting surfaces unless a
+rev-4 edit is actively wrong.
+
+**Verdict: 17 of 18 closed, 1 not closed (Low).** Five closures over-deliver.
+No rev-4 edit is wrong. Two implementation notes and one interpretive caveat
+are recorded below — none is a reopening.
+
+## Disposition
+
+| # | Round-2 finding | Verdict | Evidence in rev 4 |
+|---|---|---|---|
+| F7 res. | `schema_version` absent | **Closed** | L282 — first field in the record. |
+| F10 | Non-finite telemetry reaches policy | **Closed** | L125-127 — construction asserts all fields finite; a non-finite field marks the run diverged at that epoch with status recorded, "never a silent `inf` into the normalizer." Exactly the fix, at exactly the site. |
+| N1 | Nothing isolates WHEN | **Closed** | All three sub-gaps. (a) Deployment rule stated, L194-203: queried only inside the trained window 5-15, germinates at the first epoch where `p > 0.5`, deterministically — and L79-80 confirms no sampling slot exists at eval. (b) Claim rescoped to "at **profitable** moments" (L25-29), with "best moment" reserved for beating the null. (c) Fixed-epoch null in the battery (L360-365): trained WHICH head forced at t\*=10, same 100 seeds, no retraining; `trained_live_lift − fixed_epoch_lift` **is** the WHEN contribution, reported with no pass threshold and gating only the timing wording (L407-408). Bonus: gate 7 (L348-352) now measures now-vs-later materiality from the paired ordered fans, so the deployment rule's known limitation is quantified rather than assumed. |
+| N2 | No held-out set / no stopping rule | **Closed** | L315-321 — 80/20 by episode, checkpoint selection on tune via `J_which + J_now`, learning curve reported so "overfit" is distinguishable from "the approach doesn't work," collection extendable on tune evidence pre-eval only. The corpus also grew: exactly 2 fan epochs per episode (L237-239) makes 300 episodes = **600 fans**, not 450. |
+| N3 | Step-6 assertion misclassifies divergence | **Closed** | L263-266 — assertion conditioned on arm finiteness; a non-finite Δ is "arm divergence (status), not a harness abort." |
+| N4 | Argmax unit undefined; ceiling misses that noise | **Closed, resolved differently and better** | L92-96 establishes a **unit wall**: every reported argmax, ceiling, probe target and agreement number in test units; every training label in val units; each gate states its unit. `P(val-argmax = test-argmax)` is reported beside fan density as "the measured cost of the unit wall." I had recommended val-argmax for agreement; test-argmax with the disagreement rate published is the stronger choice — it makes agreement a claim about ground truth rather than about reproducing the training signal, and it surfaces the noise as a number rather than burying it in a ceiling. |
+| N5 | Objective combination unspecified | **Closed** | L213-222 — total loss written out, `sg[π]` inside `J_now`, with the consequence stated ("WHICH trains at 1× regardless of p and the frozen entropy calibration cannot drift"). |
+| N6 | Falsifier swap preserves signal | **Closed** | L388-391 — derangement across pathology classes, citing the ~25% same-pathology rate. |
+| N7 | Wilcoxon drops zeros | **Closed, over-delivered** | L366-372 — Wilcoxon replaced by a one-sided sign-flip permutation test on mean per-episode lift, with the reason stated in estimand terms: the zero-drop "silently converts the estimand to conditional-on-acting." I proposed documenting the zero handling; changing the test so the estimand matches the claim is strictly better. Pre-registered at L399-400 (10k resamples, one-sided, α=0.05). Sign-flipping is valid here — zeros stay in, contribute no variance, and correctly dilute the mean. |
+| N8 | Gates ignore episode clustering | **Closed** | L325-328 — unit of analysis is the episode; where an episode has two fans, gate statistics use the first scheduled fan only. |
+| N9 | Refan must re-run the no-op arm | **Closed, over-delivered** | L296-301 — 5 real arms including a fresh no-op continuation under the new future, with a sharper reason than mine: "the twin would abort by construction unless re-based." |
+| N10 | `policy_run` undefined | **Closed** | L283-285 — four kinds, each defined where used; `policy_run` spelled out as an eval live episode. |
+| N11 | Twin abort granularity | **Closed, over-delivered** | L248-253 — abort names the first differing epoch, emits a divergence report, prior shards remain valid; and the twin is now **non-optional** via the forbidden-relaxations list (L75-78), which is more than I asked. |
+| N12 | Ceiling estimated from n=30 | **Closed, over-delivered** | L381-387 — the ceiling is demoted out of every pass threshold and labeled as the Σp² *lower bound* of the true ceiling with a Wilson interval. The Σp² insight (understates by up to ~27%, an anti-conservative denominator) is sharper than my "n=30 is noisy"; the agreement gate now stands on the majority-class null alone. |
+| N13 | Trust-region formula / `g` collision | **Closed** | L171-173 — `Δ* = −(∂L/∂Δ)·‖h‖²/(2λ)`, symbol collision removed. |
+| N14 | `derive()` unspecified | **Closed, over-delivered** | L64-69 — SHA-256 truncated to 64 bits, plus an RNG ownership rule banning `torch.manual_seed` outside process startup and requiring every draw to come from a named generator. |
+| N15 | Retune rounds undisclosed | **Closed** | L135-137 plus `kind="preflight_iter"` (L283) — retune iterations logged to the store with an iteration counter, "a recorded selection process, not an invisible one." |
+| N16 | Eval grid epochs vs schedule distribution | **NOT closed** | L373 defines the grid as "frozen `(episode_seed, fan_epoch)`" and never states how `fan_epoch` is drawn. If the grid's epochs are not drawn from the same distribution as the collection schedule (L237-239), teacher-forced agreement is measured off the state distribution the policy was trained on. **Fix: one clause** — state that grid epochs use the same draw as the exploration schedule. Severity Low, unchanged. |
+
+## Checks on rev-4 edits (mandate: flag only if actively wrong)
+
+**Diverged-arm convention (L270-280) — endorsed.** Checked as requested. The
+choice of 0.10 is genuinely *measurement*, not convention: NaN logits make
+`argmax` return a constant index, so a destroyed classifier scores the frequency
+of one class, ≈0.10 on balanced CIFAR-10. All four rejections are correct, and
+two are correct for reasons specific to this demo — last-finite-epoch would
+score the spike-then-crash arm at its spike (the exact artifact the demo exists
+to expose), and `R_noop` would let a seed that wins big and destroys the host
+15% of the time be scored as noop-neutral on its failures. Naming null→0.0 as
+"the founding silent-default defect" is the right lineage. Scoring 0.10 *in the
+objectives* is also right: it teaches the policy to avoid divergence-prone
+seeds rather than hiding divergence from it.
+
+**Arithmetic spot-check.** L404's "exact α=5.08%" for ≥3-of-4 pathologies under
+a uniform null is correct: `4·(1/4)³·(3/4) + (1/4)⁴ = 13/256 = 5.078%`.
+
+**τ-init vs STE invisibility.** τ-init makes Δ ≠ 0 at germination, which does
+**not** break the STE guarantee — `h + (Δ − Δ.detach())` is exactly `h` for any
+finite Δ, and L152 says so. Consistent with N3's finiteness condition. Not
+wrong.
+
+### Two implementation notes (not reopenings)
+
+1. **τ-init's measurement pass and BN mode.** `g = τ·RMS(h)/RMS(f₀)` is measured
+   "on one fixed batch at germination" (L149-151). If that forward pass runs in
+   `train()` mode and the host carries BatchNorm, it will update host BN running
+   statistics — per arm — and trip the very step-6 bitwise assertion that N3 just
+   conditioned. The failure would be loud rather than silent, which is the
+   correct outcome, but it costs a debugging cycle. One clause: the τ-init pass
+   runs under `eval()` / `no_grad` with BN in inference mode.
+2. **`tune`: namespace or partition?** L130 lists `tune` as a top-level seed
+   namespace (`ns ∈ {dev, preflight, train, tune, eval}`) while L315 says the
+   train namespace "splits 80/20 by episode into `train`/`tune`." Those are two
+   different mechanisms. Either discharges N2 — a separate namespace makes the
+   grouping automatic, a partition requires the by-episode grouping the spec
+   already states — but the loader assertion at L313 needs to know which.
+
+### One interpretive caveat on N1
+
+`live − fixed_epoch` attributes to WHEN everything the NOW head does, which
+includes **restraint** as well as **timing**. A policy with no timing skill that
+correctly declines to act on mild episodes will produce a positive WHEN
+contribution, because the fixed-epoch null germinates unconditionally. This does
+not invalidate the null — restraint genuinely is a NOW decision — but "better
+moments" and "knows when not to act" are different claims and the difference
+does not separate them. Rev 4 already publishes what a reader needs to tell them
+apart: realized germination rate beside every lift number (L202-203, L372) and
+restraint regret as its own metric (L377-380). Worth one sentence at L365 noting
+that the contribution combines timing and restraint, so the wording chosen for
+the timing claim is picked with the germination rate in hand.

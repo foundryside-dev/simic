@@ -1269,3 +1269,180 @@ re-audit once `experiments/kernel_demo.py` and a pilot store exist. I audited on
 statistics — the determinism, lifecycle, reward, and morphogenesis reviews in this directory
 cover surfaces I did not assess, and where rev 3 cites them as jointly closing a finding I
 verified only the statistical half.
+
+---
+
+# Round 3 (rev 4) — verification pass
+
+**Target:** spec @ `6b9f496` · **Prior:** rev 3 @ `244accb`
+**Scope:** verdict round-2 dispositions only; new findings only where a rev-4 edit is
+actively wrong. Plus two judgment calls requested: the diverged-arm constant, and the
+new fixed-epoch null.
+
+## Headline
+
+**8 of 9 dispositions closed · 1 regressed (R2-6) · 1 overstated claim on the new
+fixed-epoch arm.** This is a clean pass. Two items to act on, both spec edits.
+
+| Item | Verdict |
+|---|---|
+| R2-1 deployment rule | **CLOSED** |
+| R2-2 permutation test | **CLOSED** — verified by simulation |
+| R2-3 diverged-arm 0.10 | **CLOSED** — convention is sound; see judgment below |
+| R2-4 refan protocol | **CLOSED** |
+| R2-5 + Part 2 ceiling | **CLOSED** — cleanest available resolution |
+| R2-6 val/test unit wall | **REGRESSED** — see R3-1 |
+| R2-7 retune logging | **CLOSED** |
+| R2-9 chosen-seed marginal | **CLOSED** |
+| F14/F16 partials | **CLOSED** (minor residuals below) |
+| *new* fixed-epoch null | **Sound construction, overstated claim** — see R3-2 |
+
+---
+
+## R3-1 · R2-6 regressed: test units now feed the retune loop · **MEDIUM**
+
+**Evidence.** The unit rule reads: *"every reported argmax, ceiling, probe target, and
+agreement number is computed in **test** units."* Gates 2b and 4 now specify test-argmax, and
+gate 3 test units. Meanwhile: *"Failing gates retunes the sampler and re-runs pre-flight,"* and
+gates 1, 2b, and 4 each carry *"Remedy: sampler."*
+
+**Mechanism.** Round 2 recommended the opposite — val units for all gates and tuning, test only
+in `--report` after freeze. Rev 4 inverted it, so the pathology sampler is now iteratively
+retuned until gate statistics computed **on the test 5k** pass. The test set is the *same 5k
+images in every episode and every namespace*, so its sampling idiosyncrasies are a **fixed
+common offset per (arm, pathology)** that no amount of averaging over episodes removes.
+Retuning until the contingency matches the design map fits that offset — and the headline money
+chart is then confirmed on the same 5k. Namespace separation protects the *episodes*; it does
+not protect the *image set*.
+
+**The internal inconsistency is the cleanest evidence, and avoids arguing about magnitude.**
+Rev 4 already understands this principle: gate 5's remedy is stated as *"τ, λ, seed LR —
+**never the sampler**."* Rev 4 knows that a gate's remedy determines what may legitimately be
+tuned against it. Gates 1, 2b, and 4 have `Remedy: sampler` **and** read test units. Same
+principle, applied inconsistently within one section.
+
+**Fix** — `grouped-splits-and-leakage.md`. Split the rule by whether a gate gates a retune loop:
+- Gates whose remedy is **the sampler** (1, 2b, 4) → **val units**.
+- Gates with no retune remedy, and every eval-time reported number → **test units**, unchanged.
+
+The divergence check already exists: rev 4 reports `P(val-argmax = test-argmax)` beside fan
+density. **This is a three-line spec edit, not a redesign.**
+
+**Effort** — Minutes. **Confidence** — High that the inversion occurred (quoted text);
+Medium on magnitude, which depends on the retune count that R2-7 now logs — so it is
+*measurable after the fact*, which it was not before. **Risk if wrong** — Very low; val-unit
+gates cost nothing and the unit wall's cost is already being reported.
+
+## R3-2 · The fixed-epoch null confounds timing with restraint · **MEDIUM**
+
+*(Requested judgment. The construction is sound; the claim made of it is overstated.)*
+
+**Sound, and worth recording as such.** Same 100 seeds, same base run, same trained WHICH head,
+germination forced at a pre-registered mid-window `t*=10`. `R_noop` cancels exactly in the
+paired difference, so the contrast is doubly paired. Choosing mid-window *a priori* rather than
+the best fixed epoch correctly avoids a best-of-K selection. Carrying no pass threshold keeps
+it out of the confirmatory family, so sharing the battery inflates nothing.
+
+**The defect is in the claim, not the construction.** The spec says
+`trained_live_lift − fixed_epoch_lift` **"is" the WHEN contribution.** It is not — it is
+*timing + restraint*. Trained-live may decline to germinate entirely (lift exactly 0);
+fixed-epoch **always** germinates at `t*`. So every episode where the trained policy correctly
+abstains contributes its full avoided loss to the "WHEN contribution."
+
+**Direction matters:** the confound **inflates** the WHEN contribution precisely when restraint
+has value — which is the regime the demo is *designed to produce* (mild-handicap episodes where
+no-op wins, gate 1 enforces their existence). The arm most likely to show a positive "WHEN
+contribution" is the one where the number is least about timing.
+
+**Fix** — `paired-comparison-methods.md`. Report the contrast **restricted to episodes where
+trained-live germinated** (pure timing) alongside the unrestricted version (timing + restraint),
+and word the timing claim off the restricted one. Free — it is a subgroup of data already
+collected, and within that subset both arms still share the WHICH head and the base run, so the
+pairing holds. **Effort:** one extra reported number. **Confidence:** High — follows from
+"never-germinating scores exactly 0" plus "germination forced." **Risk if wrong:** Very low.
+
+## Requested judgment: diverged-arm `R_a = 0.10`
+
+**Statistically sound. I side with your rationale against the reward reviewer's objection.**
+The reviewer's rule — no constants as shaped terms — is a good rule that does not apply here.
+Shaping *adds a term* for intermediate progress; `0.10` **fills in the value of an existing
+end-state term**. It is not shaping by construction, it is the measured end-state of a
+destroyed classifier (always-one-class on balanced CIFAR-10 is exactly 10%). Your three
+rejections are each correct, and the first is the sharpest: last-finite-epoch would score a
+spike-then-crash arm *at its spike*, which is the precise anti-pattern this demo exists to
+expose. Pre-registering it before collection, and applying it in **both objectives and every
+argmax**, closes both surfaces R2-3 raised.
+
+**One sensitivity note, not a defect.** `0.10` sits ~0.55 below the host's operating range, so
+divergence rate couples hard into seed selection:
+
+| divergence rate | expected-`R` penalty | as a multiple of fan density (~0.02) |
+|---|---|---|
+| 1% | 0.0055 | 0.28× |
+| 2% | 0.0110 | 0.55× |
+| 5% | 0.0275 | **1.38×** |
+| 10% | 0.0550 | **2.75×** |
+
+At ~5% divergence the penalty **exceeds the entire diagnostic signal**, and the WHICH head
+would be selecting mainly on divergence-avoidance. That is decision-theoretically *correct*
+behavior, but it would make the money chart's diagonal a divergence map rather than a
+diagnosis map — and the demo's central claim is diagnosis. **Recommend:** report seed choice
+with diverged fans excluded, as a sensitivity check beside the money chart. Per-seed failure
+rates are already reported, so the input exists. Cheap, and it tells a reader which mechanism
+is driving the diagonal.
+
+## Residuals *(thin; no finding blocks)*
+
+- **Money chart:** report the raw count matrix. The chosen-seed marginal gives column totals
+  but not per-cell `n`; with ~25 episodes per pathology the cells are small and free to print.
+- **Agreement's `n`:** the spec does not say how many `(episode_seed, fan_epoch)` grid points
+  exist per eval episode. If >1, agreement rows exceed independent episodes and any CI —
+  including the falsifier's *"collapses to within the null's CI"* — is too tight. One sentence
+  fixes it: state the count, and cluster CIs on episode if >1.
+
+## Verified sound
+
+Checked by simulation or arithmetic rather than assumed:
+
+- **The permutation test is the right call, and my round-2 symmetry worry does not hold.**
+  Sign-flipping is invariant on exact zeros, so type-I stays nominal under zero-inflation:
+  **0.048 / 0.053 / 0.045** at 0%/40%/70% restraint. Under skew with true mean 0 it came back
+  **conservative (0.035)**, not inflated. The estimand is the unconditional lift actually
+  claimed. Strictly better than Wilcoxon here.
+- **The `p > 0.5` deployment threshold is calibration-free.** `J_now = R_noop + p·A` is linear
+  in `p`, so the entropy-regularized optimum is `p = σ(A/β_now)` and `p > 0.5 ⟺ A > 0` for any
+  `β_now > 0`. The rule is exactly "act at the earliest epoch with positive estimated
+  advantage" — rev 4's characterization is precisely right, and the threshold does not inherit
+  β_now's calibration error.
+- **β_now calibration checks out:** `σ(2.2) = 0.9002` against the spec's claimed `p ≈ 0.9` at
+  one fan density.
+- **The derangement falsifier is a real fix:** unrestricted swaps preserve pathology **25%** of
+  the time with four balanced classes (leaving signal intact); a cross-class derangement drives
+  that to 0%.
+- **Measurement is robust to policy miscalibration.** Thresholding at `Â > 0` means acting on a
+  noisy point estimate, so the policy suffers a decision-level winner's curse. This does *not*
+  touch validity: lift is **measured** against a real matched `R_noop`, not predicted. Worth
+  knowing the eval design has this immunity.
+- **Two structural fixes I did not ask for and that close real risks:** gate statistics use the
+  first scheduled fan only (rev 4's "exactly 2 fans per episode" would otherwise have created
+  fresh within-episode pseudo-replication), and the train/tune split is **by episode**, so the
+  80/20 checkpoint-selection split carries no sibling leakage.
+
+## Verdict, confidence, caveats
+
+**The design is statistically sound for its stated claims once R3-1 and R3-2 are edited.**
+Neither is a redesign: R3-1 is three gate lines, R3-2 is one additional reported number.
+Nothing in rev 4 threatens the headline's validity.
+
+**Confidence — High for this pass**, higher than rounds 1–2: R2-2, the diverged-arm coupling,
+the β_now calibration, and the falsifier arithmetic were checked by simulation or closed form
+rather than inferred, and one round-2 caveat was **withdrawn** on that evidence. Verdicts on
+the nine dispositions are direct text comparisons. **Risk:** R3-1's fix costs nothing and is
+safe in direction; R3-2's added number cannot mislead. Both are near-zero-risk.
+
+**Caveats unchanged and still load-bearing: no code, no fan store, no results.** Every
+magnitude here — divergence rate, fan density, retune count, realized germination rate — is
+assumed for illustration, not measured; the coupling table above is a sensitivity analysis over
+plausible values, not a prediction. Re-audit against a pilot store. I audited the statistics
+only; where rev 4 cites a finding as jointly closed with the determinism, lifecycle, reward, or
+morphogenesis reviews, I verified the statistical half.

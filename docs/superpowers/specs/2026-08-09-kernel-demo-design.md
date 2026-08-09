@@ -1,11 +1,13 @@
 # Kernel Demo — "Simic in 20 minutes"
 
-**Date:** 2026-08-09 · **Status:** rev 4 (post-panel round 2), awaiting final verification
+**Date:** 2026-08-09 · **Status:** rev 5 (final; panel round 3 verified) — awaiting owner sign-off
 **Target:** `experiments/kernel_demo.py` (single file, plus optional plotting sidecar)
 **Panel:** five SME reviews, two rounds, under `docs/superpowers/reviews/2026-08-09-kernel-demo-*`.
 Round-2 verdicts: morpho 19/20 closed · lifecycle 7/9 + 1 reopened · reward 10/13 ·
-stats 13/17 · determinism 15/19, 0 not-closed. Rev 4 folds in all accepted round-2
-findings; dispositions noted inline as (R2: …).
+stats 13/17 · determinism 15/19, 0 not-closed. Round-3 (verification) verdicts:
+morpho 17/18 · lifecycle 6/6 ("design done") · reward 9/9 (+N3 conceded) ·
+stats 8/9 (+1 regression, fixed below) · determinism 6/7 (+1 compose defect,
+fixed below). Dispositions noted inline as (R2: …) / (R3: …).
 
 ## What this is — and is not
 
@@ -89,18 +91,28 @@ execution:
 - **Data partition:** train 50k; the 10k test set is split once by fixed
   seed into 5k **val** / 5k **test**. Val feeds telemetry and all
   training-time rewards; test is the only accuracy any *reported* metric
-  uses. **Unit rule (R2: reward N4, stats R2-6): every reported argmax,
-  ceiling, probe target, and agreement number is computed in test units;
-  every training label in val units. Each gate and metric states its unit
-  where defined.** `P(val-argmax = test-argmax)` is reported beside fan
-  density — it is the measured cost of the unit wall.
+  uses. **Unit rule (R2: reward N4; corrected R3: stats — the first
+  version regressed R2-6): everything *reported at eval* is computed in
+  test units; every training label in val units; and **pre-flight gates
+  whose remedy is the sampler (1, 2b, 4) compute in val units** — tuning
+  the sampler against test-unit statistics would iteratively fit the
+  report's own 5k partition. The arbitration with reward N4 (val-noise
+  inflation in the probe) is accepted as second-order: gate thresholds are
+  majority-null-based, and the inflation is bounded by
+  `P(val-argmax = test-argmax)`, which is reported beside fan density as
+  the measured cost of the unit wall.**
 - Dev runs may subset the training set behind a flag; headline runs use
   full data.
 
 ### Optimizer contract (constants now in-spec; R2: dynarch ask)
 
-SGD + Nesterov momentum, **constant LR** (no scheduler → no scheduler state
-in snapshots): host group `lr=0.05, μ=0.9, wd=5e-4`. Seed params join as a
+SGD + Nesterov momentum, **constant LR**: host group
+`lr=0.05, μ=0.9, wd=5e-4`. Constant LR is load-bearing twice over (R3:
+dynarch): no scheduler state in snapshots, and — the bigger half —
+`lr_scheduler` captures `base_lrs` positionally at construction, so a param
+group appended at germination would raise or silently mismatch LRs; constant
+LR removes that positional-state bug class structurally rather than by
+discipline. Cost (no annealing → noisier end-state) is gated by gate 3. Seed params join as a
 second param group at germination: same LR, fresh momentum buffers,
 **no-decay list: the scalar gain, all norm affines, all biases** (R2:
 dynarch R2-F2 — weight decay on a small gain is a decay-toward-zero trap).
@@ -127,7 +139,10 @@ asserts all fields finite; a non-finite field marks the run diverged at
 that epoch (status recorded) — never a silent `inf` into the normalizer.
 
 **Freeze discipline:** seeds namespaced by construction —
-`derive(run_seed, ns, i)`, `ns ∈ {dev, preflight, train, tune, eval}`. The
+`derive(run_seed, ns, i)`, `ns ∈ {dev, preflight, train, eval}`; `tune` is
+an 80/20 partition *within* the train namespace, recorded per record in
+`split_role`, not a namespace of its own (R3: morpho — the two readings
+previously coexisted and the loader assertion needs exactly one). The
 **frozen block** is enumerated exhaustively (R2: reward N8): pathology
 definitions, telemetry normalizer, entropy temperatures, exploration
 schedule, λ, τ, stage durations K/M/F, horizon, decision window, optimizer
@@ -146,9 +161,14 @@ h' = h + α · Δ( lerp(h.detach(), h, β) )        Δ = g · f(h)
 architecture-selective bootstrap deadlock: with g=0 the inner module gets
 exactly zero gradient, and `norm`'s f₀ is already the right correction
 while conv/attn f₀ are random, so arms wake at architecture-dependent
-rates):** **τ-init** — `g = τ·RMS(h)/RMS(f₀)` measured on one fixed batch
-at germination, τ one shared harness constant (default 0.05), so every arm
-enters TRAINING at the same `RMS(Δ)/RMS(h) = τ` with a live gradient path.
+rates):** **τ-init** — `g = τ·RMS(h)/RMS(f₀ + ε)` measured on one fixed
+batch at germination **under `eval()`/no-grad** (a training-mode pass would
+update host BN stats per arm and trip the cross-arm assertion; R3: morpho),
+τ one shared harness constant (default 0.05), ε a floor on the denominator
+with `g` logged at germination (R3: dynarch R3-1 — a small `RMS(f₀)` would
+present as an inflated `norm` failure rate, an init-guard bug wearing a
+result's clothes). Every arm enters TRAINING at the same
+`RMS(Δ)/RMS(h) = τ` with a live gradient path.
 Invisibility is already guaranteed by STE for any Δ; zero-init bought
 nothing. **Only the gain carries τ-init**: internal projections are
 standard-init, final BN γ=1 — no nested zeros (answers dynarch Q2).
@@ -168,7 +188,9 @@ coupling; both are harness schedules.
 
 - **TRAINING** (K=3 epochs): α=0 via STE `h + (Δ − Δ.detach())`; Δ receives
   full task gradients; trust-region term `λ·‖Δ‖²/‖h‖².detach()` (output
-  norms) added to the seed's loss. Stationary point
+  norms) added to the seed's loss. **λ = 1.0**, comfortably inside the
+  stability bound λ < 1/lr_seed ≈ 20 at the τ-init operating point (R3:
+  dynarch R3-2); gate 5 is the instrument that retunes it if needed. Stationary point
   `Δ* = −(∂L/∂Δ)·‖h‖²/(2λ)` (R2: dynarch R2-F5 — formula corrected, and
   the loss-gradient symbol no longer collides with the gain `g`).
 - **BLENDING** (M=3 epochs): α cosine, per optimizer step,
@@ -247,7 +269,10 @@ gone). The policy never gates its own data.
    **4 seed arms + twin**. The **twin arm** re-runs the no-op continuation
    and must match the base-run tail **bitwise, checked as a per-epoch
    host-state hash** — an abort names the first differing epoch, emits a
-   divergence report, and prior shards remain valid (R2: determinism N4).
+   divergence report, prior shards remain valid, and **halts all workers**,
+   not just its own: a twin divergence means deterministic mode is not
+   holding, so sibling records are equally suspect (R2: determinism N4;
+   R3: determinism LOW).
    The twin is **non-optional** (forbidden-relaxations list): it is the
    only thing standing between the base-run-as-no-op optimization and a
    silent code-path asymmetry in the headline.
@@ -257,8 +282,13 @@ gone). The policy never gates its own data.
    group-append ordering, seed-group momentum isolation, α/β machinery,
    and per-arm init RNG, which the twin (single-group) cannot.
 4. Arm seed modules init from `derive(episode_seed, arm_name)` via their
-   own generators. **`host_init_hash` recorded per episode** (R2:
-   determinism N1 — makes a seed/init mismatch loud).
+   own generators. **`host_init_hash` recorded per episode.** Its
+   justification under process workers (R3: determinism): it is the
+   **replay localiser** — the one field separating "diverged at seeding"
+   from "diverged at kernel selection" — not a threading guard; do not
+   delete it as one. **Within a worker, a fan's arms run sequentially**,
+   keeping within-fan memory pressure close to the base run's (R3:
+   determinism — this underwrites the twin and null-seed assertions).
 5. All arms of one fan on one device; parallelism across episodes.
 6. Host weights asserted bitwise identical across arms at end of TRAINING,
    **conditioned on arm finiteness** — a non-finite Δ makes `Δ − Δ.detach()`
@@ -286,9 +316,15 @@ decisions, germination epoch, `R^test`, status), `episode_seed`,
 `seed_namespace`, `split_role`, `pathology_id`, `fan_epoch`,
 `schedule_id`, `policy_checkpoint_id`, `config_hash`, `frozen_block_hash`,
 `common_future_hash`, `host_init_hash`, env block (versions, GPU,
-TF32 flags, **worker_count, device_index** — R2: determinism N2: cuDNN
-algorithm choice is workspace-pressure-dependent within a card; the twin
-passes under collection pressure while `--replay` fails without this),
+TF32 flags, worker_count, device_index — the latter two are **provenance
+only, excluded from the replay refusal key**: R3 determinism caught that
+worker_count-in-the-key plus single-worker replay composed into a deadlock
+where every real record refuses to replay. Whether memory pressure moves
+cuDNN algorithm selection at this model size is *measured*, not assumed:
+pre-flight runs the twin at 1 worker vs full count on one episode seed; if
+it diverges, Class 1 is re-scoped to "bitwise at fixed worker_count" and
+`--replay` runs at the recorded count — the contingency is pre-stated so
+the finding cannot force an unrecorded scope change),
 per-arm `{name, init_seed, status, R_val, R_test, curve}`, telemetry
 context. Append-only; failures and no-op wins kept. Non-finite → `null` +
 status in JSON, never bare NaN.
@@ -303,7 +339,11 @@ training.
 **Store:** per-worker shards, canonical merge sorted by
 `(episode_seed, fan_epoch)`; learner input is content-ordered.
 **Replay:** `--replay <fan_id>` re-derives under the recorded config,
-**single-worker** (R2: determinism N2), env-block mismatch refuses.
+single-worker by default (at the recorded worker_count if the pressure
+test re-scoped Class 1), env-block mismatch refuses. `config_hash` covers
+the host architecture definition and `derive()` itself (R3: determinism —
+both are plausible mid-development edits sitting outside the frozen
+block).
 
 ## Learning: fully offline, full information
 
@@ -312,6 +352,12 @@ acts live only at eval, under the stated deployment rule.
 
 - Loader asserts `split_role="train"` on every gradient record; refans and
   eval records never train.
+- **Loop ordering (R3: reward N10):** `J_which` trains alone as a warm-up
+  before `J_now` is enabled. A diverged arm sits ~60× fan density below
+  healthy, so early uniform π gives A ≈ −0.15 and p = σ(−33), whose
+  `p(1−p)` gradient factor is machine zero — the NOW head would start
+  frozen. Warm-up lets π learn divergence-avoidance first; pure ordering,
+  offline, replayable, no new constant.
 - **Train/tune split (R2: morpho N2):** the train namespace splits 80/20
   **by episode** into `train`/`tune`. Checkpoint selection on tune
   (`J_which + J_now` on tune fans); the learning curve is reported, so
@@ -332,15 +378,16 @@ gate names what may be retuned; gate 5's remedy is never the sampler):
    below in the three targeted pathologies. *Remedy: sampler.*
 2. **Signal at the right target** — (a) linear probe telemetry →
    pathology, GroupShuffleSplit by episode; (b) probe telemetry →
-   **test-argmax** vs majority-class null, plus realized
-   pathology × test-argmax contingency vs the design map. *Remedy:
+   **val-argmax** vs majority-class null, plus realized
+   pathology × val-argmax contingency vs the design map (val units per the
+   corrected unit rule — this gate's remedy is the sampler). *Remedy:
    sampler.*
 3. **Contrast beats noise** — fan density `mean(R_best − R_second)` and
    `mean(R_best − R_noop)` within fans (test units), vs the refan noise
    floor. *Remedy: averaging window, horizon.*
-4. **No degenerate dominance** — no seed is test-argmax in >40% of fans
-   overall, nor a majority in every pathology. *Remedy: sampler/menu
-   balance.*
+4. **No degenerate dominance** — no seed is val-argmax in >40% of fans
+   overall, nor a majority in every pathology (val units — sampler
+   remedy). *Remedy: sampler/menu balance.*
 5. **Magnitude sanity** — `RMS(Δ)/RMS(h)` at blend entry within ~2× band
    across arms. *Remedy: τ, λ, seed LR — never the sampler.*
 6. **Horizon adequacy** — fan density per scheduled epoch does not
@@ -350,6 +397,11 @@ gate names what may be retuned; gate 5's remedy is never the sampler):
    whether the earliest-profitable deployment rule leaves measurable value
    behind — informing the fixed-epoch-null interpretation, not a
    pass/fail gate.
+8. **Worker-pressure test (R3: determinism):** twin arm at 1 worker vs
+   full worker count, same episode seed. Pass → worker_count is pure
+   provenance. Fail → the pre-stated contingency: Class 1 re-scoped to
+   fixed worker_count, `--replay` at recorded count. ~20 minutes; also
+   underwrites the twin's and null-seed arm's own assertions.
 
 Then the frozen block locks (hash recorded) and collection starts.
 
@@ -360,9 +412,13 @@ Frozen battery, fixed before any eval run:
 - `N_eval = 100` eval-namespace seeds shared by every policy: **trained,
   random, schedule-only, and fixed-epoch** (R2: morpho N1 — the
   fixed-epoch null is the trained WHICH head with germination forced at
-  the pre-registered mid-window epoch t*=10, same seeds, no retraining;
-  `trained_live_lift − fixed_epoch_lift` **is** the WHEN contribution, and
-  the "better moments" claim is made only if it is positive).
+  the pre-registered mid-window epoch t*=10, same seeds, no retraining).
+  **The WHEN contrast `trained_live − fixed_epoch` is reported twice (R3:
+  stats, morpho note): unrestricted, and restricted to episodes where
+  trained-live germinated.** The unrestricted version confounds timing
+  with restraint (fixed-epoch always acts; the confound inflates exactly
+  when restraint has value); the timing claim is worded off the
+  restricted version, with the germination rate beside it.
 - **Lift:** per-episode `R_chosen^test − R_noop^test`, paired by seed.
   Never-germinating scores exactly 0. **Statistic: one-sided sign-flip
   permutation test on the mean per-episode lift** (R2: stats R2-2, morpho
@@ -370,10 +426,16 @@ Frozen battery, fixed before any eval run:
   conditional-on-acting; the permutation test keeps zeros in and the
   estimand is the unconditional lift actually claimed). Realized
   germination rate printed beside every p-value.
-- **Agreement & money chart:** frozen `(episode_seed, fan_epoch)` grid,
-  teacher-forced queries, ground truth = **test-argmax**. Nulls:
-  majority-class rate and schedule-only. The policy's chosen-seed marginal
-  is reported next to the money chart (R2: stats R2-9).
+- **Agreement & money chart:** frozen `(episode_seed, fan_epoch)` grid —
+  **fan epochs drawn from the same distribution as the exploration
+  schedule** (from the eval seeds), so teacher-forced agreement is
+  measured on the training state distribution (R3: morpho N16, the one
+  open round-2 item). Teacher-forced queries, ground truth =
+  **test-argmax**. Nulls: majority-class rate and schedule-only. Reported
+  next to the money chart: the policy's chosen-seed marginal (R2: stats
+  R2-9) and a companion chart with diverged fans excluded (R3: stats —
+  shows whether the diagonal is driven by diagnosis or by
+  divergence-avoidance).
 - **Restraint quality:** regret vs fan-optimal-with-no-op, **reported at
   the last grid point** where "wait" and "never" coincide; per-point
   regret shown separately, labeled as containing option value (R2: reward
@@ -411,10 +473,14 @@ Frozen battery, fixed before any eval run:
 
 Lift table (trained / random / schedule-only / fixed-epoch) with
 germination rates; agreement vs nulls (+ ceiling as labeled context);
-money chart + falsifier twin + chosen-seed marginal; per-pathology arm
-curves incl. ≥1 spike-then-crash; α/β trajectories; `RMS(Δ)/RMS(h)` at
-blend entry; fan density + `P(val-argmax = test-argmax)`; per-seed arm
-failure rates; restraint regret (last-grid-point + labeled per-point);
+money chart + falsifier twin + chosen-seed marginal + diverged-excluded
+companion; per-pathology arm curves incl. ≥1 spike-then-crash; α/β
+trajectories; `RMS(Δ)/RMS(h)` at blend entry + `g` at germination;
+fan density + `P(val-argmax = test-argmax)`; per-seed arm failure rates
+**with observed end-state accuracy of diverged arms printed beside the
+0.10 convention** (R3: reward — the convention is a measurement claim, so
+the measurement is shown); restraint regret (last-grid-point + labeled
+per-point);
 realized p split by sign(A); tune learning curve; entropy temperatures in
 force; deterministic-mode cost. Refuses mixed namespaces.
 

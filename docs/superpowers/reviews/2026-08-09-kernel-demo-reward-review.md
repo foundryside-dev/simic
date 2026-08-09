@@ -1116,3 +1116,180 @@ most important fact in this round.
   `yzmir-counterfactual-statistics`.
 - The trust-region term λ as a *lifecycle* choice (it is dynarch F1's fix); N8
   addresses only its status as an unfrozen constant that moves `R_a`.
+
+---
+---
+
+# Round 3 (rev 4)
+
+**Reviewed:** spec at `6b9f496` ("rev 4 — panel round 2 folded in").
+**Scope:** verification of round-2 dispositions only. No new hunting; one new
+item (N10) is raised because it is a direct interaction between two rev-4
+edits, and one hardening is suggested on N3.
+
+**All nine round-2 findings Closed — three exceeded.** Rev 4 also settles the
+one item where I was wrong.
+
+---
+
+## Part 1 — Disposition of round-2 findings
+
+| # | Round-2 finding | Verdict | Verification |
+|---|---|---|---|
+| **N1** | `J_now` linear in *p*, deployed as a stopping rule | **Closed** | All three legs land. **(a)** Claim scoped to "at profitable moments" (line 25) with the strong "*best* moment" claim explicitly gated on the WHEN-isolation null. **(b)** Schedule draws **exactly 2 ordered fan epochs** — "1–2 is gone" — and gate 7 reports `P(A(t_late) > A(t_early))` plus the mean gap. **(c)** Not adopted, with a stated reason and a substitute measurement. Crucially, the §Action space **deployment rule** now states the mechanism in the spec itself — "`J_now` is linear in p, so it learns a per-epoch threshold on sign(A), not a stopping rule; nothing compares t to t′" — so the limitation is documented at the point of use, not just in a review. This is the standard I asked for: an unmeasured bias converted to a measured one. |
+| **N2** | Restraint regret penalizes correct waiting | **Closed** | Reported at the last grid point where "wait" and "never" coincide (the unbiased form); per-point regret retained but **labeled as containing option value**. Both halves of the fix, and the labeling is better than dropping the per-point number. |
+| **N3** | Diverged-arm `R_a` undefined in the objectives | **Closed — and the owner's reasoning is better than mine.** See Part 2. | §fan step 8: `0.10` in both objectives and every argmax, `status="diverged"`, curves kept, rationale and all four rejected alternatives recorded in the spec. |
+| **N4** | val/test units mismatch in the ceiling | **Closed, exceeded** | Rev 4 generalizes a ceiling fix into a **global unit rule**: "every reported argmax, ceiling, probe target, and agreement number is computed in test units; every training label in val units," with each gate stating its unit. `P(val-argmax = test-argmax)` is reported beside fan density and named "the measured cost of the unit wall." Gates 2b, 3 and 4 all moved to test-argmax. Beyond what I asked: the oracle ceiling is demoted out of every pass threshold on Σp²-understates-the-ceiling grounds — correct, and it removes the anti-conservative denominator I would otherwise have had to flag next round. |
+| **N5** | One fraction regularizes both heads differently | **Closed** | `β_now = fan_density/2.2` by target confidence, `β_which = 0.2 × fan_density`, both frozen, realized `p` split by `sign(A)` in the report. **Arithmetic verified:** at `A` = one fan density, `p = σ(2.2) = 0.9002` — the stated target is exact. `β_which = 0.2×fd` leaves the reward term ahead of entropy by ~2.6× at `π_max = 0.7`, a non-degenerate equilibrium. The entropy diagnostic is corrected in the intended direction. |
+| **N6** | `J_now` back-propagates into π | **Closed** | `sg[π]` inside `J_now`, with the total loss written out explicitly — `J_which + J_now + β_which·H(π) + β_now·H(p)` — and the consequence stated ("WHICH trains at 1× regardless of p and the frozen entropy calibration cannot drift"). The recommended default, taken. |
+| **N7** | Eval germination outside the trained window | **Closed** | Queried **only inside epochs 5–15**, and the previously-unstated sample-vs-threshold question is resolved: "germinates at the first epoch where `p > 0.5`, deterministically." Note the resulting invariance — `σ(A/β) > 0.5 ⟺ A > 0` for any `β > 0`, so the deployment rule cannot be perturbed by N5's temperature calibration. Worth keeping. |
+| **N8** | Frozen block omits constants that move `R_a` | **Closed, exceeded** | Enumerated "exhaustively": pathologies, normalizer, entropy temperatures, schedule, **λ, τ, K/M/F, horizon, decision window, optimizer constants, diverged-arm convention, all pass thresholds.** Wider than requested. The addition that pre-flight retune iterations are themselves logged with a counter makes the tuning a recorded selection process — that closes a hole I had not named. |
+| **N9** | Gate 1 binomial uses fans as the unit | **Closed** | Unit of analysis is the episode, implemented as "where an episode has two fans, gate statistics use the first scheduled fan only" — clean, and it composes correctly with N1(b)'s now-guaranteed second fan. |
+
+---
+
+## Part 2 — N3: conceded
+
+**I was wrong to forbid `0.10`, and the spec's rationale is the correct
+reading.** Round 2 said "Forbidden: `0.0`, or any fixed penalty constant."
+That lumped two different things together, and the distinction is the whole
+argument:
+
+- **`0.0` is below the floor of the measurement scale.** No 10-class
+  classifier scores 0.0; it is a fictional value, which is exactly what made
+  the predecessor's `None → 0` coercion so destructive.
+- **`0.10` *is* the floor.** It is what a destroyed 10-class classifier scores
+  on a balanced partition. Calling it measurement rather than penalty is
+  right, and it is on the same scale as every other `R_a`.
+
+The owner's rejections of my two alternatives are also better reasoned than my
+proposal of them:
+
+- **last-finite-epoch** scores the spike-then-crash arm *at its spike*. I
+  raised this as a caveat and left the choice open; rev 4 correctly weights it
+  as disqualifying, because §Success criteria requires a spike-then-crash plot
+  as a headline artifact. An imputation that rewards the exact anti-pattern
+  the demo exists to expose is not a viable option, and I should have said so.
+- **`R_noop`** hides catastrophe — the same objection I raised against
+  drop-and-renormalize, applied consistently. Correct.
+
+The finding stands as *closed by decision*, and the decision is recorded in
+the spec with its alternatives, which is the durable form.
+
+**One hardening, cheap:** `0.10` is a claim about a measurement, so measure it
+rather than only assert it. A diverged arm can still be evaluated at the
+horizon (argmax over non-finite logits returns a fixed index, giving the
+class-0 base rate ≈ 0.10 on a balanced 5k). Have `--report` print the
+**observed** end-state accuracy of diverged arms next to the convention. If
+they land at 0.10, the convention is confirmed at no cost; if partial
+divergence — one stage non-finite, the model still predicting — lands them at
+0.03 or 0.15, the constant is visibly off and the pre-registration can be
+defended or revised on evidence rather than on argument. This is a report
+line, not a change to the convention or to any objective.
+
+---
+
+## Part 3 — N10: the diverged-arm convention can saturate the NOW head early · **Medium**
+
+Raised because it is a direct interaction between two constants that are both
+new in rev 4 — `0.10` (§fan step 8) and `β_now = fan_density/2.2`
+(§Total training loss) — and it is invisible from either one alone.
+
+A diverged arm sits ≈ 0.60 below a healthy arm, which at a plausible fan
+density of 10⁻² is **~60× the entire discrimination signal.** Early in
+offline training, before `π` has learned to avoid it, `π` is near-uniform, so
+for any fan containing one diverged arm:
+
+```
+A = Σ_a π(a|s)·R_a − R_noop  ≈  (0.25·0.10 + 0.75·0.70) − 0.70  =  −0.15
+p = σ(A / β_now) = σ(−33) ≈ 4.7×10⁻¹⁵
+```
+
+and the NOW head's gradient carries a `p(1−p)` factor — **4.7×10⁻¹⁵, i.e.
+machine zero.** The head is not merely pushed toward "never act" on those
+states; it is driven into a region with no gradient to return on. As `π`
+sharpens and `π_diverged → 0`, `A` recovers to positive — but `p` must climb
+back out of a fully saturated sigmoid, and it has no gradient with which to do
+it.
+
+This is **not** the round-1 starvation loop: the store is fixed and the data
+supply is unaffected, so the pathology is confined to the NOW head's
+optimization, not to the corpus. Severity therefore scales with the observed
+divergence rate — negligible if divergence is rare, material if one seed type
+diverges in ~10–15% of its arms under a targeted pathology (which is exactly
+the asymmetric-failure case §fan step 8 exists to preserve).
+
+`sg[π]` already prevents the worst version — without it, the diverged arm's
+60×-scale gradient would also flow into `π` through `J_now`, amplified by `p`
+— so N6's fix is doing more work here than it was asked to do.
+
+**Fix — either, both free, neither adds a constant outside the frozen block:**
+
+- **Order the offline training:** train `J_which` alone for a warm-up before
+  enabling `J_now`. The design is fully offline and replayable, so this is a
+  loop-ordering choice, not new data or new machinery. By the time `p` is
+  trained, `π` already avoids the diverged arm and `A` is in its true range.
+- **Anneal `β_now`** from a high starting value to its calibrated target. High
+  temperature keeps `p` in a gradient-bearing region while `π` sharpens; the
+  frozen target value is unchanged, so N5's calibration and N7's
+  threshold-invariance both survive.
+
+**Diagnostic, if neither is adopted:** the report already prints realized `p`
+split by `sign(A)` (N5's fix). Add the divergence rate per seed type beside it
+— already collected — so a reader can see whether `p`'s zero mass coincides
+with fans containing a diverged arm.
+
+---
+
+## Confidence Assessment — Round 3
+
+**Overall Confidence:** High. This was a verification pass against explicit
+spec text, and every disposition cites the clause that closes it.
+
+| Item | Confidence | Basis |
+|---|---|---|
+| Part 1 dispositions (N1–N9) | **High** | Each verified against quoted rev-4 text; N5's calibration checked numerically (`σ(2.2) = 0.9002`, matching the stated p≈0.9 target exactly). |
+| N3 concession | **High** | The floor-vs-below-floor distinction is decisive and I had it wrong; the spike-at-its-spike objection is checkable against §Success criteria. |
+| N10 mechanism | **High** | Arithmetic computed, not estimated: `p = 4.7×10⁻¹⁵`, gradient factor identical. Follows from two stated constants. |
+| N10 materiality | **Low–Moderate** | Depends entirely on the observed per-seed divergence rate, which is unmeasured. If divergence is rare this is latent. |
+
+---
+
+## Risk Assessment — Round 3
+
+**Implementation Risk:** **Low.** No round-2 finding remains open, and no
+round-3 item blocks collection or invalidates a store.
+**Reversibility:** **Easy** — N10's fixes are training-loop ordering or a
+schedule on an already-frozen constant.
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| NOW head saturates to never-act on fans containing a diverged arm and cannot recover | **Medium** | N10 — warm-up `J_which` first, or anneal `β_now`. Detect via realized-`p`-by-sign(A) against per-seed divergence rate. |
+| The `0.10` convention is defended on argument when the arms in fact score elsewhere | **Low** | Part 2 hardening — print observed diverged-arm accuracy beside the convention. |
+
+---
+
+## Information Gaps — Round 3
+
+1. [ ] **Per-seed divergence rate** — sets N10's materiality and validates the
+       `0.10` convention. Available from the first pre-flight run.
+2. [ ] **Measured fan density** — still the unit behind both temperatures,
+       N10's 60× ratio, and N4's `P(val-argmax = test-argmax)`. Gate 3
+       produces it.
+
+---
+
+## Caveats — Round 3
+
+**Assumptions:** healthy end-state accuracy ≈ 0.70 and fan density ≈ 10⁻²;
+N10's 60× ratio and saturation arithmetic scale with both. A destroyed
+classifier scoring the class-0 base rate assumes a balanced 5k test partition,
+which the fixed-seed split makes true in expectation but not exactly — a
+second reason to print the observed number.
+
+**Not analyzed:** rev 4's responses to the determinism, lifecycle,
+morphogenesis and statistics reviews, except where they touch the reward
+(the unit rule, the frozen block, the fixed-epoch null, the gate unit, and
+the permutation test replacing Wilcoxon — the last of which is correctly
+motivated by Wilcoxon's zero-drop changing the estimand, and is the statistics
+reviewer's call, not mine).
