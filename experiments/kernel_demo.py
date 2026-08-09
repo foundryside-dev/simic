@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import enum
 import hashlib
 import inspect
+import math
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import torch
 from torch import nn
@@ -519,11 +521,6 @@ DESIGNED_WINNER = semantic_const(
     },
 )
 
-if TYPE_CHECKING:
-
-    class Slot:  # placeholder forward reference only; Task 6 defines the real Slot(nn.Module)
-        def __call__(self, h: torch.Tensor) -> torch.Tensor: ...
-
 
 @semantic
 class Host(nn.Module):
@@ -755,6 +752,133 @@ def split_decay_groups(
         else:
             decay.append((name, param))
     return decay, no_decay
+
+
+# section 6 — SLOT LIFECYCLE
+@semantic
+class Stage(enum.Enum):
+    DORMANT = "dormant"
+    GERMINATED = "germinated"  # zero-duration (D12): germinate() sets TRAINING directly
+    TRAINING = "training"
+    BLENDING = "blending"
+    FOSSILIZING = "fossilizing"
+    FOSSILIZED = "fossilized"
+
+
+@semantic
+def cosine_ease(p: float) -> float:
+    p = min(1.0, max(0.0, p))
+    return 0.5 * (1.0 - math.cos(math.pi * p))
+
+
+@semantic
+class Slot(nn.Module):
+    # alpha gates forward contribution, beta gates gradient coupling; both are
+    # harness schedules (spec FSM). Transitions happen once per epoch
+    # (epoch_tick); the per-step ramps advance in step_tick.
+    def __init__(self) -> None:
+        super().__init__()
+        self.stage = Stage.DORMANT
+        self.seed: SeedDelta | None = None
+        self.alpha = 0.0
+        self.beta = 0.0
+        self.last_delta: torch.Tensor | None = None
+        self.last_h: torch.Tensor | None = None
+        # Appended once per epoch_tick (epoch-end values); the data source for
+        # the report's alpha/beta trajectory plot (carried into ArmResult).
+        self.alpha_beta_log: list[tuple[float, float]] = []
+        self._blend_step = 0
+        self._fossil_step = 0
+        self._epochs_in_stage = 0
+
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        if self.stage in (Stage.DORMANT, Stage.GERMINATED) or self.seed is None:
+            return h
+        # hin is VALUE-equal to h for every beta, but bitwise-equal only at
+        # beta in {0, 1}; FOSSILIZING's fractional beta is a numerically-close,
+        # non-bitwise blend by design (post-TRAINING, outside every bitwise
+        # assertion window).
+        hin = h.detach() * (1.0 - self.beta) + h * self.beta
+        delta = cast(torch.Tensor, self.seed(hin))
+        self.last_delta = delta
+        self.last_h = h
+        if self.stage is Stage.TRAINING:
+            return h + (delta - delta.detach())  # STE: forward value == h
+        return h + self.alpha * delta
+
+    def trust_region_loss(self, cfg: Config) -> torch.Tensor:
+        # lam = 1.0 sits inside the stability bound lam < 1/seed_lr ~= 20;
+        # stationary point Delta* = -(dL/dDelta) * ||h||^2 / (2 lam).
+        if self.stage is not Stage.TRAINING or self.last_delta is None or self.last_h is None:
+            return torch.zeros(())
+        return cfg.lam * self.last_delta.pow(2).mean() / self.last_h.detach().pow(2).mean().clamp_min(1e-12)
+
+    def rms_ratio(self) -> float:
+        # The named owner of ArmResult.rms_ratio_blend_entry, read by the fan
+        # executor at the first BLENDING step (gate 5's only input).
+        if self.last_delta is None or self.last_h is None:
+            raise RuntimeError("rms_ratio before any armed forward")
+        rms_d = self.last_delta.detach().pow(2).mean().sqrt()
+        rms_h = self.last_h.detach().pow(2).mean().sqrt().clamp_min(1e-12)
+        return float(rms_d / rms_h)
+
+    def step_tick(self, cfg: Config, steps_per_epoch: int) -> None:
+        # Called once per optimizer step, after opt.step().
+        if self.seed is None:
+            return
+        if self.stage is Stage.BLENDING:
+            total = cfg.stage_m * steps_per_epoch
+            self.alpha = cosine_ease((self._blend_step + 1) / total)
+            self._blend_step += 1
+        elif self.stage is Stage.FOSSILIZING:
+            total = cfg.stage_f * steps_per_epoch
+            self.beta = cosine_ease((self._fossil_step + 1) / total)
+            self._fossil_step += 1
+
+    def epoch_tick(self, cfg: Config) -> None:
+        if self.stage is Stage.DORMANT or self.seed is None:
+            return
+        self._epochs_in_stage += 1
+        if self.stage is Stage.TRAINING and self._epochs_in_stage >= cfg.stage_k:
+            self.stage = Stage.BLENDING
+            self._epochs_in_stage = 0
+            self._blend_step = 0
+        elif self.stage is Stage.BLENDING and self._epochs_in_stage >= cfg.stage_m:
+            self.stage = Stage.FOSSILIZING
+            self._epochs_in_stage = 0
+            self._fossil_step = 0
+            self.alpha = 1.0
+        elif self.stage is Stage.FOSSILIZING and self._epochs_in_stage >= cfg.stage_f:
+            self.stage = Stage.FOSSILIZED
+            self.alpha = 1.0
+            self.beta = 1.0
+        self.alpha_beta_log.append((self.alpha, self.beta))
+
+
+@semantic
+def build_optimizer(host: Host, cfg: Config) -> torch.optim.SGD:
+    # Constant LR is load-bearing twice: no scheduler state in snapshots, and
+    # lr_scheduler captures base_lrs positionally at construction so a group
+    # appended at germination would mismatch — constant LR removes the class
+    # structurally.
+    decay, no_decay = split_decay_groups(host)
+    return torch.optim.SGD(
+        [
+            {"params": [p for _, p in decay], "weight_decay": cfg.wd},
+            {"params": [p for _, p in no_decay], "weight_decay": 0.0},
+        ],
+        lr=cfg.lr,
+        momentum=cfg.momentum,
+        nesterov=True,
+    )
+
+
+@semantic
+def append_seed_group(opt: torch.optim.SGD, seed: SeedDelta, cfg: Config) -> None:
+    # Two groups (decay/no-decay) at cfg.seed_lr, fresh momentum.
+    decay, no_decay = split_decay_groups(seed)
+    opt.add_param_group({"params": [p for _, p in decay], "lr": cfg.seed_lr, "weight_decay": cfg.wd})
+    opt.add_param_group({"params": [p for _, p in no_decay], "lr": cfg.seed_lr, "weight_decay": 0.0})
 
 
 def main(argv: list[str] | None = None) -> None:
