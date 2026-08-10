@@ -1,6 +1,23 @@
 # Vision — Simic (Counterfactual Generative Morphogenesis)
 
 ## Purpose
+
+> **Positioning (PDR-0039, owner sign-off 2026-08-11): Simic is a novel
+> engineering programme, not a confirmatory research study.** Its deliverable is
+> a working instrument — a system that measures the causal effect of a
+> structural intervention on the trajectory that actually received it — plus
+> demonstrations that it works and a retained corpus of what it measured. The
+> reason is the feasibility argument, owner-stated: *"the lack of novelty
+> doesn't make this less interesting, it makes it more like something that we
+> can credibly build."* Most components are established or one hop from it, and
+> the speculative risk is concentrated in the counterfactual screen, where it is
+> legible and falsifiable early (`docs/design/00-related-work.md`). The
+> confirmatory apparatus (K = 1.5 / n = 32) is mothballed with its costings
+> intact and is re-commissionable (ADR-0016). **Read the paragraph below through
+> this**: "prove or cleanly disprove" is now the *optional-study* ambition, and
+> the gating question is the acceptance class of
+> `docs/design/01-claim.md#28-success-criteria`, headed by criterion 18.
+
 Simic exists to prove — or cleanly disprove — that useful neural structure can be
 **generated from the live state of a host network** and **causally screened against
 doing nothing**, rather than selected from a fixed menu of human-authored blueprints.
@@ -33,6 +50,16 @@ over-provisioning.
 - **Secondary (eventual):** the morphogenetic-AI research community, on
   publication — served by the evidence chain and complete history; a clean
   negative result is publishable (§28). *(owner-confirmed 2026-08-08.)*
+  **Stakes qualified 2026-08-11 (PDR-0039), owner-stated:** *"any research claim
+  I did make would have just been 'hey check this out' rather than an attempt at
+  a career."* The publication motive is not career-bearing. Weigh
+  publication-shaped work by this constraint, **not by generic academic
+  incentives** — a future session must not re-inflate the cost of demoting a
+  confirmatory claim. "Check this out" describes a runnable, pointable
+  artifact, which is what the engineering positioning optimises for and what
+  PDR-0029 already made the kernel demo. This does **not** license asserting a
+  novelty claim the search has not earned (`docs/design/00-related-work.md`
+  limits).
 - **Explicitly not:** production ML teams wanting a turnkey AutoML/NAS service, or
   a general training-framework competitor. The value is the causally-screened
   grown-during-training mechanism and its evidence chain, not model delivery.

@@ -1,12 +1,25 @@
 # PDR-0036 — Kernel demo spec rev 6.2: record the per-arm trajectory, its cost and its horizon influence (pre-data amendment)
 
-Date: 2026-08-10   Status: **proposed** — owner accepted the recommendation;
-the amendment text has not been read back. PR #13 open, not merged.
-Author: Claude (session 15)
-Owner sign-off: PARTIAL — "I'll take your recommendations on that, particularly
-about the per arm telemetry" is assent to the substance. It is not sign-off on
-the rev 6.2 wording, which is why the spec header says PROPOSED and the PR is
-unmerged.
+Date: 2026-08-10   Status: **accepted** 2026-08-11 (was: proposed)
+Author: Claude (session 15; status resolved session 16)
+Owner sign-off: **RECEIVED 2026-08-11.** Recorded precisely, because this
+record exists to prevent an unearned approval claim: the amendment's "The call"
+paragraph was read back to the owner verbatim in session 16, and the owner then
+directed the merge of PR #13 ("ok, lets merge 13"). PR #13 merged 2026-08-11 as
+a merge commit — not squashed, so b9ae1af's retraction of b5c10db's over-claim
+survives in history.
+
+This is sign-off *by directed merge after read-back*, which is what the Q1 gate
+asked for. It is **not** a claim that the owner reviewed the full rev 6.2 diff
+line by line, and the spec header should not be upgraded beyond what this
+sentence supports. The PDR's stated failure mode — unconfirmed before Phase A ⇒
+amendment dropped, campaign runs on rev 6.1 — did not fire; the campaign runs on
+**rev 6.2**.
+
+Prior status, retained for the record: PARTIAL — "I'll take your
+recommendations on that, particularly about the per arm telemetry" was assent to
+the substance but not to the wording, which is why the spec header said PROPOSED
+and the PR was held unmerged.
 Related: PDR-0029 (proof-of-concept purpose), PDR-0032 (the rev 6.1 pre-data
 precedent this follows), PDR-0033 (implementation accepted),
 spec `docs/superpowers/specs/2026-08-09-kernel-demo-design.md`,
