@@ -45,3 +45,5 @@ prompts/
 # Architecture-analysis scratch: per-explorer partials, superseded by the
 # merged catalog. The analysis output is the numbered documents.
 docs/arch-analysis-*/temp/
+# Run artifacts: CIFAR downloads, record stores, policies, plots.
+runs/

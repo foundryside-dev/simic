@@ -3346,6 +3346,25 @@ def run_train(cfg: Config, store_root: str) -> dict[str, object]:
     records = load_for_training(store)
     normalizer = Normalizer.from_json(json.dumps(manifest["normalizer"]))
     frozen_density = cast(dict[str, float], manifest["fan_density"])
+    # Calibration (normalizer, fan_density, betas) is read from frozen.json;
+    # the records are read from the append-only shard store. Those are two
+    # independent reads of a mutable file and an immutable log, and nothing
+    # upstream ties them together: the manifest check above compares the
+    # manifest to the LIVE cfg/source, and load_for_training filters on
+    # split_role/kind only. freeze_manifest overwrites frozen.json in place,
+    # so a re-freeze silently re-points calibration at a new generation while
+    # the records keep their old stamp. Refuse rather than train a policy
+    # under one generation's feature scaling on another generation's data.
+    manifest_gen = cast(str, manifest["manifest_hash"])
+    # None is included deliberately: a pre-freeze record reaching the training
+    # split is the same defect wearing a different value, and must not sort
+    # itself out of the refusal.
+    stale = sorted({str(r.manifest_hash) for r in records if r.manifest_hash != manifest_gen})
+    if stale:
+        raise RuntimeError(
+            f"train refused: records carry superseded manifest generations {stale} but frozen.json is "
+            f"{manifest_gen[:12]} — re-collect under the current manifest, or restore the matching frozen.json"
+        )
     # Betas come from the MANIFEST density; the collection recomputation is a
     # printed diagnostic only — asserted unused by construction (train_policy
     # receives frozen_density, never `records`-derived density).
@@ -3391,13 +3410,20 @@ def _query_dicts(policy: Policy, normalizer: Normalizer, tele: list[dict[str, ob
     policy.eval()
     with torch.no_grad():
         p_logit, seed_logits = policy(tokens, torch.tensor([tokens.shape[1]]))
-        p = float(torch.sigmoid(p_logit[0]))
-        pi = torch.softmax(seed_logits[0], dim=-1)
     policy.train(prior)
-    if not (math.isfinite(p) and bool(torch.isfinite(pi).all())):
-        # NaN > 0.5 is False: a non-finite checkpoint would silently read as
-        # restraint (lift exactly 0) on every query. Loud, never that.
-        raise RuntimeError("_query_dicts: policy produced non-finite output")
+    # Check the LOGITS, exactly as decide_live does at its own forward — never
+    # the squashed outputs. sigmoid(±inf) is 0.0/1.0 and softmax over a row
+    # whose only non-finite entry is -inf is finite, so the old post-squash
+    # check passed the one corruption it most needed to catch: an isolated
+    # ±inf on now_head reads as confident restraint (p=0.0, lift exactly 0) or
+    # confident germination on EVERY episode. NaN, and inf in the shared trunk
+    # or on seed_head, do surface as NaN after squashing — but relying on that
+    # left the now_head hole open, which is the silent-default class this
+    # project exists to make unrepresentable.
+    if not (torch.isfinite(p_logit).all() and torch.isfinite(seed_logits).all()):
+        raise RuntimeError("_query_dicts: policy produced non-finite logits")
+    p = float(torch.sigmoid(p_logit[0]))
+    pi = torch.softmax(seed_logits[0], dim=-1)
     return p, {name: float(pi[i]) for i, name in enumerate(SEED_NAMES)}
 
 
@@ -3508,8 +3534,17 @@ def run_eval(
         es = derive(cfg.run_seed, "eval", i)
         needed = [c for c in EVAL_COMPARATORS if fan_identity(es, None, "policy_run", None, comp_ckpt[c], None) not in existing]
         r_noop_test: float | None = None
+        noop_init: str | None = None
         if needed:
             noop_ctx = make_episode(cfg, data, device, es, read_test=True)
+            # lift = r_test - r_noop_test is only a counterfactual if both arms
+            # started from the SAME host. The fan path gets that structurally
+            # (run_fan hands every arm one snap object) and audits it with the
+            # twin; the lift path reconstructs two hosts from one seed and, up
+            # to now, only assumed they matched. build_host's scoped generator
+            # makes the assumption true today — so check it rather than trust
+            # it, and find out the epoch it stops being true.
+            noop_init = state_hash(noop_ctx.host)
             try:
                 for e in range(cfg.horizon):
                     train_one_epoch(noop_ctx, e)
@@ -3540,6 +3575,21 @@ def run_eval(
                 continue
             assert r_noop_test is not None
             ctx = make_episode(cfg, data, device, es, read_test=True)
+            # Capture host identity HERE, mirroring run_collection_episode's
+            # `host_init = state_hash(ctx.host)` immediately after make_episode.
+            # It cannot be taken at the append site below: by then ctx.host has
+            # run cfg.horizon epochs and may carry a germinated seed, so the
+            # hash would name the final state, not the start the lift is
+            # measured from.
+            host_init = state_hash(ctx.host)
+            if noop_init is not None and host_init != noop_init:
+                # RuntimeError, not assert: -O must not be able to disable the
+                # one check standing between a mismatched pair and a lift
+                # number that looks perfectly ordinary.
+                raise RuntimeError(
+                    f"eval refused: comparator {comp!r} episode {es} started from a different host than its "
+                    f"no-op baseline ({host_init[:12]} vs {noop_init[:12]}) — lift would not be a counterfactual"
+                )
             decisions: list[dict[str, object]] = []
             germination_epoch: int | None = None
             chosen: str | None = None
@@ -3603,7 +3653,7 @@ def run_eval(
                     frozen_block_hash=frozen_block_hash(cfg),
                     manifest_hash=manifest_hash,
                     common_future_hash=ctx.future.hash,
-                    host_init_hash="",
+                    host_init_hash=host_init,
                     env=env_block(device, 1),
                     arms=[{"name": chosen or "noop", "status": status, "r_val": r_val, "r_test": r_test}],
                     telemetry=[dataclasses.asdict(t) for t in ctx.telemetry],
