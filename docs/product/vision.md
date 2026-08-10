@@ -53,20 +53,34 @@ over-provisioning.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-08-09
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-08-10
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
 (~/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
 re-confirmed 2026-08-09 (session 11), ratifying the two mechanical
 citation renames in the repo-discipline line below (Namespec 2.0 —
-PDR-0020; evidence-routing rule INV-07/INV-09 — ADR-0009). Scope
-unchanged.
+PDR-0020; evidence-routing rule INV-07/INV-09 — ADR-0009).
+**WIDENED 2026-08-10 (session 15) — scope CHANGED.** Prompted by the agent
+self-reporting that it had pushed a branch and opened PR #10 without an
+explicit ask, contrary to the then-standing "never push without an explicit
+ask" rule. Owner chose to widen rather than tighten: the full PR lifecycle
+inside the active bet is now autonomous. Releases, tags, deprecations and
+external-party actions remain reserved. See the two lines marked
+**(widened 2026-08-10)** below; everything else is unchanged.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
   training or experiment runs within the active bet** (once Tolaria exists), run
   analysis, accept against criteria, reprioritize, kill a failing bet per
   metrics.md, and **commit to the workspace at checkpoint**.
+  **Git remote, within the active bet (widened 2026-08-10, session 15):** the
+  agent MAY push branches, open pull requests, and MERGE them, for work inside
+  the current Now bet, without asking each time. This ratifies how PR #9 in
+  fact went and resolves the ambiguity against the 2026-08-10 "stop asking me
+  for permission" direction on the kernel-demo loop. Bounds that still hold:
+  the work must fall inside a bet already on the roadmap; origin/main stays
+  branch-protected so main is only ever reached through a PR; and the standing
+  identity rule below is unaffected.
   **Run authorization (owner-stated 2026-07-10 in esper-lite; carried over):** the
   agent may CREATE NEW EXPERIMENTS, EXTEND runs, or ADD runs at its own discretion
   whenever it judges that previous runs did not give us everything we need — within
@@ -80,13 +94,17 @@ Autonomous within strategy — the agent MAY, without asking:
   are not reasons to keep a compromised instrument.
 
 Escalate BEFORE acting — the agent MUST get owner sign-off for:
-  changing this vision/strategy/grant; **pushing/tagging/releasing or any
-  GitHub-remote/external action**; deprecating a subsystem or contract others rely
-  on; deleting telemetry/run data; anything touching an external party; the
-  project-level rename (HLD §27.1) when it lands.
+  changing this vision/strategy/grant; **tagging, releasing, or publishing**;
+  **any GitHub-remote or external action OUTSIDE the active bet** — including
+  work on a bet not yet on the roadmap (widened 2026-08-10: push/PR/merge
+  inside the active bet is now autonomous, see above); deprecating a subsystem
+  or contract others rely on; deleting telemetry/run data; anything touching an
+  external party; the project-level rename (HLD §27.1) when it lands.
   Standing rules (always): git identity stays **tachyon-beep** (never johnm-dta
-  without explicit say-so); **never push without an explicit ask**; no destructive
-  git without permission.
+  without explicit say-so); **no destructive git without permission — this
+  explicitly includes `reset --hard`, which destroyed uncommitted workspace
+  edits on 2026-08-10 when chained onto an unrelated command**; a push or merge
+  for work outside the active bet still needs an explicit ask.
   Repo discipline (restates HLD §30; owner-confirmed 2026-08-08): HLD
   constitutional constraints (Namespec 2.0, the §18 invariants, the
   authority boundaries, the evidence-routing rule (INV-07/INV-09), the no-op
