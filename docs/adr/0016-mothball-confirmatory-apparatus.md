@@ -1,10 +1,15 @@
 # ADR-0016 — Mothball the confirmatory apparatus: K/N and the eight-cell fleet become a costed option, not a gate
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-11 · Status: accepted
 Deciders: John (owner sign-off 2026-08-11, "PDR-0039 is endorsed") ·
 Tracker: — (arises from `docs/concept/reviews/2026-08-11-morphogenesis-concept-panel.md`)
-Amends: ADR-0014 (which remains **accepted** — its arithmetic stands; its
-*gating status* is what changes)
+
+Amends: ADR-0014
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

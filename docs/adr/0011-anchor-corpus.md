@@ -1,9 +1,16 @@
 # ADR-0011 — The anchor corpus: per-decision counterfactual fan-out on a declared seed set (INV-39 amended)
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner-proposed and confirmed, session 11; adversarial
 challenge requested and resolved — see tracker comments) ·
 Tracker: simic-954f457e50
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

@@ -1,9 +1,20 @@
 # ADR-0014 — Adopt the worked compute cost model (HER accounting, K/N fixed, restructure trigger armed)
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted · **amended by ADR-0016 (2026-08-11)**
 Deciders: John (owner: D1 negative-result scope and D2 endpoint family
 decided in session; remainder delegated to the cost model per metrics.md) ·
 Tracker: simic-642c2c1823
+
+Amends: —
+Amended-by: ADR-0016
+Supersedes: —
+Superseded-by: —
+
+Notes:
+- 2026-08-11 (ADR-0016): D1, D2 and K = 1.5 / n = 32 cease to gate; the
+  apparatus is mothballed as a costed option. Arithmetic unchanged.
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

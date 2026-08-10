@@ -1,9 +1,16 @@
 # ADR-0013 — Scope Academy exactness to a declared execution-stack identity (INV-05 amended)
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner concern raised session 11: bitwise precision is
 "either inspired or going to footgun us in 6 months"; scoping confirmed) ·
 Tracker: simic-d1bdc7173f
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

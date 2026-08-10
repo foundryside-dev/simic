@@ -1,4 +1,5 @@
 # ADR-0006 — Ban silent-defaulting telemetry access; hallucinated-interface patterns fail closed
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-08 · Status: accepted
 Deciders: John (owner-directed rule and rationale, in-session 2026-08-08) ·
@@ -7,6 +8,12 @@ Deciders: John (owner-directed rule and rationale, in-session 2026-08-08) ·
 > Namespec 1.0 names; read it through the concordance in
 > [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
 Tracker: simic-108cdb52bc
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

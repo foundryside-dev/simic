@@ -1,4 +1,5 @@
 # ADR-0001 — Decompose the HLD monolith into constitution-spine + domain + programme chapters
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-08 · Status: accepted
 Deciders: john (structure selected from four proposals in-session) · Tracker: simic-573b5b1c35, simic-80cc39ccfc
@@ -6,6 +7,12 @@ Deciders: john (structure selected from four proposals in-session) · Tracker: s
 > **Namespec note (ADR-0008):** this record predates Namespec 2.0 and uses
 > Namespec 1.0 names; read it through the concordance in
 > [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

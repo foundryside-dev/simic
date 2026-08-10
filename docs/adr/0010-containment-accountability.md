@@ -1,9 +1,16 @@
 # ADR-0010 — Name the owner of emergency containment: rollbacks are Isperia's accountability
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (wave:1 resume, product session 11) · Tracker: simic-d6ea02f9a9
 Source: peer review §24
 (`../concept/reviews/2026-08-08-esper-pivot-peer-review.md`)
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

@@ -1,7 +1,14 @@
 # ADR-0009 — Demote the newsroom analogy to a single appendix rendering
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner-directed, product session 11) · Tracker: simic-7e2683f3cd
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

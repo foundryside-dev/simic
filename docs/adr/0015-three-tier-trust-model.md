@@ -1,9 +1,16 @@
 # ADR-0015 — Adopt the three-tier trust model and layered import doctrine (elspeth lineage)
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-10 · Status: accepted
 Deciders: John (owner-directed adoption, in-session 2026-08-10) ·
 Tracker: none yet — enforcement wiring is Phase A work (see Consequences);
 wardline enhancement tracked upstream in the Weft suite
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

@@ -1,7 +1,14 @@
 # ADR-0008 — Adopt Namespec 2.0: the Phyrexian industrial compleation constitution
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner; directive of 2026-08-09, prompts/namespec.md) · Tracker: simic-d8369760b9
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

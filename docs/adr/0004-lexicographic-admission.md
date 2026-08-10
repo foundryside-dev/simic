@@ -1,4 +1,5 @@
 # ADR-0004 — Make admission lexicographic: tail-risk veto before utility comparison
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-08 · Status: accepted
 Deciders: John (gate adjudication PDR-0007; peer review §22 accepted into the
@@ -7,6 +8,12 @@ Deciders: John (gate adjudication PDR-0007; peer review §22 accepted into the
 > Namespec 1.0 names; read it through the concordance in
 > [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
 wave programme) · Tracker: simic-ae3caf44f1
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

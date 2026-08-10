@@ -1,4 +1,5 @@
 # ADR-0007 — The wiki is a projection: staged ADRs, generated registries, subordinate architecture model
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner-directed, in-session 2026-08-09) ·
@@ -7,6 +8,12 @@ Deciders: John (owner-directed, in-session 2026-08-09) ·
 > Namespec 1.0 names; read it through the concordance in
 > [`0008-namespec-2.0.md`](0008-namespec-2.0.md).
 Tracker: simic-dd5a578332
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

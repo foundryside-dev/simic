@@ -1,8 +1,15 @@
 # ADR-0012 — Curriculum posture: tight, loose, free
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: 2026-08-09 · Status: accepted
 Deciders: John (owner-directed, session 11; playback confirmed) ·
 Tracker: simic-eb0cf50deb
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 

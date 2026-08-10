@@ -1,7 +1,24 @@
 # ADR-NNNN — Title (imperative, specific)
+<!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
 Date: YYYY-MM-DD · Status: proposed | accepted | superseded by ADR-MMMM
 Deciders: <owner / session> · Tracker: <issue-id(s)>
+
+Amends: —
+Amended-by: —
+Supersedes: —
+Superseded-by: —
+
+<!-- Notes are OPTIONAL and added only when something happens. Every line names
+     the record that caused it — an annotation with no causing record is
+     prohibited (ADR-0017 rule 3). Delete this comment and the Notes block if
+     unused.
+Notes:
+- YYYY-MM-DD (ADR-nnnn | PDR-nnnn): one line on what changed about this
+  record's STANDING. Never restate or reinterpret the decision itself —
+  if it needs a second sentence, write a new ADR (ADR-0017 rule 4).
+-->
+<!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context
 
