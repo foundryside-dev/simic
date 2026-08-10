@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-10 (session 13; PDR-0031 — kernel demo moves to Now, execution owner-authorized)
+# Roadmap — Simic            Updated: 2026-08-10 (session 14; PDR-0033 — kernel demo implementation accepted and merged, bet continues as the run)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -20,12 +20,13 @@
 - **Kernel demo — the proof of concept** ("Simic in 20 minutes",
   `experiments/kernel_demo.py`) — why: the pointable answer to "how do you
   know it works" (PDR-0029: maths proved, risk is engineering). Moved to
-  Now by PDR-0031: spec locked rev 6 (98083fd), implementation plan rev
-  3.3 panel-green (86f25d8), owner authorized execution with full
-  autonomy (stop-points: BLOCKED/load-bearing, GPU-checkpoint phases) ·
-  tracker: simic-4a44ed57c9 (in_progress, subagent-driven) · metric: none
-  of its own — never citable as §28 evidence; guarded by the burn-down
-  staying on pace (PDR-0031 reversal trigger)
+  Now by PDR-0031. **Implementation is done and merged** (PDR-0033, PR #9);
+  the bet now stands on the RUN — certify, freeze, collect, train, the
+  one-shot eval, report. Pre-registration of record is spec rev 6.1
+  (PDR-0032, pre-data amendment) · tracker: simic-4a44ed57c9 (closed) →
+  simic-7c42fc9c0b (Phases A–F; B and E need the owner present) · metric:
+  none of its own — never citable as §28 evidence; guarded by the
+  burn-down staying on pace (PDR-0031/0033 reversal triggers)
 - **Information-management regime (ADR-0002)** — why: data management was the
   owner-named second esper bugbear (definition drift, no sign-or-lock,
   lost lineage, silent mutation); Phase A binds code to contracts, so the
