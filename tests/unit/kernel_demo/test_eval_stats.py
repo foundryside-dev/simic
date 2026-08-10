@@ -94,6 +94,9 @@ def test_eval_incomplete_collection_refusal(tmp_path):
                 "config_hash": config_hash(),
                 "manifest_hash": "m",
                 "normalizer": {"medians": [0.0] * 20, "iqrs": [1.0] * 20},
+                # freeze_manifest always writes n_train — see the note in
+                # test_collect._write_frozen. Explicit null, never absent.
+                "n_train": None,
             }
         )
     )

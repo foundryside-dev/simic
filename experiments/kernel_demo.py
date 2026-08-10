@@ -3153,7 +3153,15 @@ def run_preflight(
     }
     if freeze:
         certified_path = Path(store_root) / "certified.json"
-        certified = json.loads(certified_path.read_text(encoding="utf-8")) if certified_path.exists() else {}
+        # Tier-1 read (ADR-0015): certified.json is our own artefact. freeze_manifest
+        # refuses without it, so an absent file is a caller error and a MISSING KEY is
+        # corruption — both must be loud. An explicit null value is a recorded absence
+        # (CPU run, no measurement) and is legitimate; that distinction is the whole
+        # point of ADR-0002 P2, and `.get()` erased it.
+        if not certified_path.exists():
+            raise RuntimeError("freeze refused: no certified.json (run selftest --certify first)")
+        certified = json.loads(certified_path.read_text(encoding="utf-8"))
+        det_cost_recorded = certified["det_mode_cost"]
         g8 = gate_dicts["gate8_pressure"]
         concurrency = cast(dict[str, object], g8["detail"]).get("concurrency_factor")
         result["manifest"] = freeze_manifest(
@@ -3162,7 +3170,7 @@ def run_preflight(
             gate_dicts,
             normalizer,
             density,
-            cast("dict[str, float] | None", certified.get("det_mode_cost")),
+            cast("dict[str, float] | None", det_cost_recorded),
             cast("float | None", concurrency),
             g8,
             n_train=int(data.train_x.shape[0]),
@@ -3225,7 +3233,10 @@ def worker_main(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "a", encoding="utf-8") as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
         data = data_loader(cfg, device, None)  # load once, resident per process
-        manifest_n = json.loads((Path(store_root) / "frozen.json").read_text(encoding="utf-8")).get("n_train")
+        # Tier-1 read (ADR-0015): a MISSING key is a corrupt manifest and must be
+        # loud — `.get()` here made an absent key satisfy the very guard below.
+        # An explicit null still means "not calibrated against a specific n".
+        manifest_n = json.loads((Path(store_root) / "frozen.json").read_text(encoding="utf-8"))["n_train"]
         if manifest_n not in (None, int(data.train_x.shape[0])):
             # The manifest's gates/normalizer/density were calibrated on a
             # different data size (--subset preflight?) — collecting against
@@ -3629,7 +3640,9 @@ def run_eval(
     manifest = json.loads((root / "frozen.json").read_text(encoding="utf-8"))
     if manifest["frozen_block_hash"] != frozen_block_hash(cfg) or manifest["config_hash"] != config_hash():
         raise RuntimeError("eval refused: manifest mismatch (live Config/source differ from frozen.json)")
-    if manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+    if manifest["n_train"] not in (None, int(data.train_x.shape[0])):
+        # Tier-1 read (ADR-0015): a missing key is corruption, and this guard
+        # protects the ONE-SHOT eval — `.get()` let an absent key wave it through.
         # A --subset eval against a full-data manifest (or vice versa) would
         # burn the one-shot on the wrong data — refuse before anything runs.
         raise RuntimeError(f"eval refused: n_train mismatch (manifest {manifest.get('n_train')}, live {int(data.train_x.shape[0])})")
@@ -4160,9 +4173,14 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # manifest's gate-8 contingency fired (worker pressure changed the twin).
     worker_count = 1
     if manifest is not None:
-        g8 = cast(dict[str, object], (manifest.get("gate8_outcome") or {}))
-        if g8 and not g8.get("ok", True):
-            wc = rec.env.get("worker_count")
+        # Tier-1 reads (ADR-0015): frozen.json is optional for replay, but if it
+        # EXISTS its keys are not. `.get("gate8_outcome") or {}` plus
+        # `.get("ok", True)` meant a corrupt manifest silently replayed
+        # single-worker — i.e. exactly the contingency path the gate-8 finding
+        # exists to honour would have been skipped without a word.
+        g8 = cast(dict[str, object], manifest["gate8_outcome"] or {})
+        if g8 and not g8["ok"]:
+            wc = rec.env["worker_count"]  # provenance the record always carries
             worker_count = wc if isinstance(wc, int) else 1
     live_env = env_block(device, worker_count)
     bad_env = [k for k in REPLAY_REFUSAL_KEYS if rec.env.get(k) != live_env.get(k)]
@@ -4175,9 +4193,9 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # divergence below (config drift misattributed as GPU nondeterminism).
     if rec.frozen_block_hash != frozen_block_hash(cfg):
         raise RuntimeError("replay refused: frozen_block_hash mismatch (live Config differs from the record)")
-    if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest.get("manifest_hash"):
+    if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest["manifest_hash"]:
         raise RuntimeError("replay refused: manifest_hash mismatch")
-    if manifest is not None and manifest.get("data_split_id") not in (None, data_split_id(cfg)):
+    if manifest is not None and manifest["data_split_id"] not in (None, data_split_id(cfg)):
         raise RuntimeError("replay refused: data_split_id mismatch (live run_seed/split differs from the manifest)")
     if rec.kind != "fan" or rec.fan_epoch is None:
         raise RuntimeError(f"replay supports kind='fan' records, got {rec.kind!r}")
@@ -4186,7 +4204,7 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # the original run never executed is a record/replay path asymmetry.
     read_test = any(a.get("r_test") is not None for a in rec.arms)
     data = load_data(cfg, device)
-    if manifest is not None and manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+    if manifest is not None and manifest["n_train"] not in (None, int(data.train_x.shape[0])):
         raise RuntimeError("replay refused: n_train mismatch (record was collected against a different data size)")
     ctx = make_episode(cfg, data, device, rec.episode_seed, read_test=read_test)
     # Localisation anchors the record already carries: check the re-derived
