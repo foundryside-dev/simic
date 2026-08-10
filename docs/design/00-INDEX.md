@@ -16,6 +16,7 @@ load the chapters your task names; do not load the rest.
 
 | File | Contents |
 |---|---|
+| `00-related-work.md` | Prior art and novelty position — per-component grading (established / adapted / speculative) and where the contribution actually sits |
 | `01-claim.md` | The scientific claim and its falsifiers (exec summary, problem, goals, non-goals, success criteria, final statement) |
 | `02-constitution.md` | **Always load.** Naming constitution, the 45 constitutional invariants (INV-01..INV-45), one-line namespec invariants |
 | `03-principles.md` | Design principles and the architectural smell catalogue |
@@ -45,6 +46,7 @@ load the chapters your task names; do not load the rest.
 - **Contract / schema work:** `02` + `05-leyline-contracts.md` + `04-architecture.md` (flow).
 - **Experiment / curriculum design:** `02` + `01-claim.md` + `programme/*`.
 - **New here:** `01` → `04` → `02`; if the codenames aren't carrying the authority model for you, `appendices/newsroom.md` retells it as a newsroom.
+- **Positioning / write-up / "is this novel":** `00-related-work.md` + `01-claim.md` + `programme/cost-model.md` (the amortisation bar).
 
 ## Citation convention
 
