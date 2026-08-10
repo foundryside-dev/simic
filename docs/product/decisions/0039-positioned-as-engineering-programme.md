@@ -93,6 +93,31 @@ instrument.
 
 ## Rationale
 
+**The primary reason, owner-stated 2026-08-11: the lack of novelty is not a
+consolation, it is the feasibility argument.** A programme whose fifteen
+generation-side components are all speculative is not schedulable by one person
+on a spare-time cadence — it has fifteen open-ended debugging tails and no
+estimable path. The novelty map says this programme is not that. Ten of its
+components are established or one hop from established, with settled failure
+modes and multiple independent implementations to copy from; **the speculative
+risk is concentrated in one place — the screen — where it is legible and can be
+attacked first.** That is the profile of something credibly buildable, and it is
+the positive case for the reframe.
+
+Read the two framings side by side. Under a research framing, "most of this is
+already published" is an objection to be defended against. Under an engineering
+framing it is the reason to believe the thing will exist: the parts that are
+commodity are cheap and predictable, and the one part that is not has a
+falsifiable acceptance test available at Phase D for roughly 30 HER
+(criterion 18). **The same fact reads as a weakness in one frame and a strength
+in the other, and the second reading is the accurate one for this programme's
+actual constraints** — where wall-clock and owner attention bind, not compute.
+
+This is recorded deliberately and in the owner's own terms, because a future
+reader comparing this record against ADR-0014's mothballed fleet could
+reasonably suspect the reframe was cost-driven retreat. It was not. The cost
+arithmetic below is corroborating, not causal.
+
 Three independent judges scoring the panel's fifteen proposals on evidential
 strength, solo feasibility and strategic optionality converged on
 engineering-shaped work without being asked to — the headroom probe, the
