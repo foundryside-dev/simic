@@ -67,6 +67,11 @@ def _write_frozen(tmp_path: Path, cfg: Config) -> None:
                 "config_hash": config_hash(),
                 "gate_results": {"all": {"ok": True}},
                 "manifest_hash": "m",
+                # freeze_manifest ALWAYS writes n_train; a fixture without it is a
+                # manifest that could not exist, and the Tier-1 guard now says so
+                # (ADR-0015 — absence is corruption, explicit null is a recorded
+                # "not calibrated against a specific n").
+                "n_train": None,
             }
         )
     )

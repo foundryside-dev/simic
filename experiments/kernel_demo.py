@@ -5,7 +5,7 @@ exactly what Simic proper rejects (generation from live host state). This
 demo proves the substrate loop and the counterfactual-fan supervision
 economics, not generative morphogenesis.
 
-Spec (LOCKED, rev 6): docs/superpowers/specs/2026-08-09-kernel-demo-design.md
+Spec (LOCKED, rev 6.2): docs/superpowers/specs/2026-08-09-kernel-demo-design.md
 
 Narrative order (one file, read top to bottom):
   1  identity & config   — semantic surface, config_hash, frozen block, derive/rng
@@ -43,6 +43,7 @@ import json
 import math
 import os
 import platform
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +53,9 @@ import torch
 from torch import nn
 
 # section 1 — IDENTITY AND CONFIG
-SCHEMA_VERSION = 1
+# 2 (spec rev 6.2, pre-data): per-arm telemetry, cost and horizon-influence
+# fields added to the arm payload. Additive, and no store existed at the bump.
+SCHEMA_VERSION = 2
 
 _SEMANTIC_SURFACE: list[Callable[..., object]] = []
 
@@ -1219,6 +1222,33 @@ class ArmResult:
     hash_after_training: str | None  # host hash at the end of the STE TRAINING stage (every arm)
     host_hashes: list[str] | None  # noop/nullseed arms only
     alpha_beta_log: list[tuple[float, float]] | None
+    # --- spec rev 6.2 (pre-data, additive). Nothing in the frozen battery
+    # reads any of these: no gate arithmetic and no verdict boolean moves.
+    #
+    # The POST-decision 20-dim trajectory of this arm — the host observed
+    # while the graft integrates. curve_val already carries one scalar per
+    # epoch; this carries the other nineteen (grad-norm mean/var, saturation,
+    # weight norms, per-class spread, confusion entropy), which is what any
+    # decision ABOUT AN ALREADY-GRAFTED HOST needs, and what makes divergence
+    # diagnosable rather than merely counted.
+    #
+    # HARD RULE: the learner never reads this. fan_to_example consumes
+    # FanRecord.telemetry (the PRE-decision base history) and arm scalars
+    # only; arm telemetry on the training path is a time-travel channel that
+    # would silently invalidate the headline. Enforced by --selftest's
+    # learner_ignores_arm_telemetry step and by test_arm_recording.py.
+    telemetry: list[dict[str, object]] | None
+    # Cost accounting — the denominator the "supervision economics" claim
+    # otherwise lacks. Provenance only: never a replay comparand (wall-clock
+    # differs between record and replay by construction), never learner input.
+    wall_s: float | None
+    peak_mem_bytes: int | None  # CUDA only; None on CPU — absent, not zero
+    # Influence at the horizon, beside rms_ratio_blend_entry's single sample
+    # at BLENDING entry: does an embodied graft's influence grow, hold or
+    # decay under joint training? Measured on the last forward of the run —
+    # an eval-mode val/test batch, where blend entry samples a training batch.
+    g_at_horizon: float | None
+    rms_ratio_horizon: float | None
 
 
 @semantic
@@ -1292,6 +1322,7 @@ def run_arm(
     snap: Snapshot,
     arm_name: str,
     read_test: bool,
+    delta_dir: Path | None = None,
 ) -> ArmResult:
     # Arm-local materialization: everything is built fresh from snapshot
     # values; nothing is restored in place, so no state leaks between arms.
@@ -1336,7 +1367,13 @@ def run_arm(
         g_at_init = 0.0
     elif arm_name != "noop":
         raise ValueError(f"unknown arm: {arm_name}")
+    dev = torch.device(device)
+    if dev.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(dev)  # arms run SEQUENTIALLY within a fan, so the peak is this arm's
+    t0 = time.perf_counter()
     hashes, status, _, hash_after_training = _run_span(ctx, snap.epoch, hash_capture_epoch=snap.epoch + cfg.stage_k - 1)
+    wall_s = time.perf_counter() - t0
+    peak_mem = int(torch.cuda.max_memory_allocated(dev)) if dev.type == "cuda" else None
     if status == "ok":
         r_val = end_state_R(ctx.curves_val)
         r_test = end_state_R(ctx.curves_test) if ctx.curves_test is not None else None
@@ -1344,6 +1381,25 @@ def run_arm(
         r_val = cfg.diverged_r
         r_test = cfg.diverged_r if read_test else None
     keep_hashes = arm_name in ("noop", "nullseed")
+    # Horizon influence: last_delta/last_h are set by every armed forward, so
+    # after the run they hold the final eval-mode batch. Guarded rather than
+    # assumed — an arm with no seed owes no measurement.
+    g_at_horizon: float | None = None
+    rms_ratio_horizon: float | None = None
+    if slot.seed is not None:
+        g_at_horizon = float(slot.seed.gain.detach())
+        if slot.last_delta is not None and slot.last_h is not None:
+            rms_ratio_horizon = slot.rms_ratio()
+        # The trained Delta module: the only artefact of this campaign that is
+        # an actual generated structure, and the corpus early Momir needs.
+        # Written to a fan_id-keyed SIDECAR, never into the JSONL — so
+        # Store.merge()'s decode/sort/duplicate path is untouched.
+        if delta_dir is not None:
+            delta_dir.mkdir(parents=True, exist_ok=True)
+            path = delta_dir / f"{arm_name}.pt"
+            tmp = path.with_suffix(".pt.tmp")
+            torch.save({k: v.detach().cpu() for k, v in slot.seed.state_dict().items()}, tmp)
+            os.replace(tmp, path)  # atomic
     return ArmResult(
         name=arm_name,
         status=status,
@@ -1360,6 +1416,11 @@ def run_arm(
         hash_after_training=hash_after_training,
         host_hashes=hashes if keep_hashes else None,
         alpha_beta_log=slot.alpha_beta_log if slot.seed is not None else None,
+        telemetry=[dataclasses.asdict(t) for t in ctx.telemetry],
+        wall_s=wall_s,
+        peak_mem_bytes=peak_mem,
+        g_at_horizon=g_at_horizon,
+        rms_ratio_horizon=rms_ratio_horizon,
     )
 
 
@@ -1375,6 +1436,7 @@ def run_fan(
     base: BaseTrace,
     read_test: bool,
     include_nullseed: bool = False,
+    delta_dir: Path | None = None,
 ) -> tuple[list[ArmResult], dict[str, object]]:
     # Twin FIRST: it is the harness-integrity check; a broken twin fails the
     # fan before any seed arm spends compute.
@@ -1389,7 +1451,7 @@ def run_fan(
     meta: dict[str, object] = {"twin_ok": True}
     arms: list[ArmResult] = [twin]
     for name in SEED_NAMES:
-        arms.append(run_arm(cfg, data, device, episode_seed, pathology, future, snap, name, read_test))
+        arms.append(run_arm(cfg, data, device, episode_seed, pathology, future, snap, name, read_test, delta_dir=delta_dir))
     # Cross-arm value-exactness: through the STE TRAINING stage every finite
     # arm's host is bitwise-identical to the twin's (non-finite delta shows up
     # as arm divergence, not a harness abort).
@@ -2049,6 +2111,26 @@ def _tiny_bundle_for_selftest(device: str) -> DataBundle:
     return DataBundle(tx, ty, vx, vy, ex, ey)
 
 
+def _selftest_telemetry_stub(epoch: int, poison: bool = False) -> TelemetryRecord:
+    # Two well-separated synthetic records for the learner-blindness check;
+    # `poison` makes every field wildly different so any leak is visible.
+    v = 9.0 if poison else 1.0
+    return build_record(
+        epoch=epoch,
+        train_loss=v,
+        val_loss=v,
+        val_acc=0.9 if poison else 0.1,
+        train_loss_delta=v,
+        val_loss_delta=v,
+        grad_norm_mean=(v, v, v),
+        grad_norm_var=(v, v, v),
+        act_saturation=(v, v, v),
+        weight_norm=(v, v, v),
+        per_class_val_acc_std=v,
+        confusion_entropy=v,
+    )
+
+
 def _section_source(number: int) -> str:
     src = Path(__file__).read_text(encoding="utf-8")
     marker = f"# section {number} "
@@ -2281,6 +2363,52 @@ def run_selftest(cfg: Config, device: str, certify: bool = False, store_root: st
 
     record("det_mode_cost", det_cost, gpu_only=True)
 
+    # 11. Learner blindness to POST-decision arm telemetry (rev 6.2). The
+    # arm trajectory exists in the store for offline study only; if it ever
+    # reached fan_to_example the policy would be reading the future of the
+    # decision it is being trained to make. Poison it and require the
+    # learner's input to be bit-identical.
+    def learner_ignores_arm_telemetry() -> dict[str, object]:
+        base_tele = [dataclasses.asdict(t) for t in [_selftest_telemetry_stub(e) for e in range(3)]]
+        arms: list[dict[str, object]] = [
+            {"name": n, "status": "ok", "r_val": 0.5, "r_test": None, "telemetry": base_tele} for n in ("noop", *SEED_NAMES)
+        ]
+        rec = make_fan_record(
+            kind="fan",
+            episode_seed=1,
+            seed_namespace="dev",
+            split_role="train",
+            pathology_id="mild",
+            fan_epoch=3,
+            refan_k=None,
+            schedule_id="selftest",
+            policy_checkpoint_id=None,
+            iteration=None,
+            config_hash="selftest",
+            frozen_block_hash="selftest",
+            manifest_hash=None,
+            common_future_hash="selftest",
+            host_init_hash="selftest",
+            env={},
+            arms=arms,
+            telemetry=base_tele,
+            decisions=None,
+            gate_results=None,
+        )
+        nz = Normalizer.identity()
+        clean = fan_to_example(rec, nz)
+        poisoned_tele = [dataclasses.asdict(t) for t in [_selftest_telemetry_stub(e, poison=True) for e in range(3)]]
+        for a in rec.arms:
+            a["telemetry"] = poisoned_tele
+        dirty = fan_to_example(rec, nz)
+        if not torch.equal(cast(torch.Tensor, clean["tokens"]), cast(torch.Tensor, dirty["tokens"])):
+            raise RuntimeError("learner input moved when ARM telemetry changed — post-decision leakage into training")
+        if not torch.equal(cast(torch.Tensor, clean["r"]), cast(torch.Tensor, dirty["r"])):
+            raise RuntimeError("learner rewards moved when ARM telemetry changed")
+        return {"checked": ["tokens", "r"]}
+
+    record("learner_ignores_arm_telemetry", learner_ignores_arm_telemetry)
+
     failed = [n for n, s in steps.items() if s["status"] == "fail"]
     skipped = [n for n, s in steps.items() if s["status"] == "skipped"]
     ok = not failed
@@ -2351,8 +2479,21 @@ def run_collection_episode(
         snap = trace.snapshots.get(fe)
         if snap is None:
             continue  # scheduled after a base divergence; recorded in the void_event below
+        # Delta-weight sidecar, keyed by the fan identity this fan will record.
+        # Recomputed here rather than threaded from make_fan_record so the
+        # weights land under the SAME id even if the fan later fails to append.
         arms, _meta = run_fan(
-            cfg, data, device, episode_seed, ctx.pathology, ctx.future, snap, trace, read_test, include_nullseed=include_nullseed
+            cfg,
+            data,
+            device,
+            episode_seed,
+            ctx.pathology,
+            ctx.future,
+            snap,
+            trace,
+            read_test,
+            include_nullseed=include_nullseed,
+            delta_dir=Path(store.root) / "deltas" / fan_identity(episode_seed, fe, "fan", None, None, None),
         )
         store.append(
             worker_id,
@@ -2874,7 +3015,7 @@ def freeze_manifest(
         "config_hash": config_hash(),
         "git_rev": head,
         "certified_rev": certified["git_rev"],
-        "spec_rev": "rev6.1 (98083fd + 2026-08-10 pre-data amendment: episode-level money null + falsifier CI)",
+        "spec_rev": "rev6.2 (rev6.1 + 2026-08-10 pre-data amendment: per-arm telemetry, cost and horizon-influence recording)",
         "normalizer": json.loads(normalizer.to_json()),
         "fan_density": fan_density,
         "beta_which": cfg.beta_which_frac * fan_density["best_minus_second"],
@@ -3012,7 +3153,15 @@ def run_preflight(
     }
     if freeze:
         certified_path = Path(store_root) / "certified.json"
-        certified = json.loads(certified_path.read_text(encoding="utf-8")) if certified_path.exists() else {}
+        # Tier-1 read (ADR-0015): certified.json is our own artefact. freeze_manifest
+        # refuses without it, so an absent file is a caller error and a MISSING KEY is
+        # corruption — both must be loud. An explicit null value is a recorded absence
+        # (CPU run, no measurement) and is legitimate; that distinction is the whole
+        # point of ADR-0002 P2, and `.get()` erased it.
+        if not certified_path.exists():
+            raise RuntimeError("freeze refused: no certified.json (run selftest --certify first)")
+        certified = json.loads(certified_path.read_text(encoding="utf-8"))
+        det_cost_recorded = certified["det_mode_cost"]
         g8 = gate_dicts["gate8_pressure"]
         concurrency = cast(dict[str, object], g8["detail"]).get("concurrency_factor")
         result["manifest"] = freeze_manifest(
@@ -3021,7 +3170,7 @@ def run_preflight(
             gate_dicts,
             normalizer,
             density,
-            cast("dict[str, float] | None", certified.get("det_mode_cost")),
+            cast("dict[str, float] | None", det_cost_recorded),
             cast("float | None", concurrency),
             g8,
             n_train=int(data.train_x.shape[0]),
@@ -3084,7 +3233,10 @@ def worker_main(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "a", encoding="utf-8") as log, contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
         data = data_loader(cfg, device, None)  # load once, resident per process
-        manifest_n = json.loads((Path(store_root) / "frozen.json").read_text(encoding="utf-8")).get("n_train")
+        # Tier-1 read (ADR-0015): a MISSING key is a corrupt manifest and must be
+        # loud — `.get()` here made an absent key satisfy the very guard below.
+        # An explicit null still means "not calibrated against a specific n".
+        manifest_n = json.loads((Path(store_root) / "frozen.json").read_text(encoding="utf-8"))["n_train"]
         if manifest_n not in (None, int(data.train_x.shape[0])):
             # The manifest's gates/normalizer/density were calibrated on a
             # different data size (--subset preflight?) — collecting against
@@ -3488,7 +3640,9 @@ def run_eval(
     manifest = json.loads((root / "frozen.json").read_text(encoding="utf-8"))
     if manifest["frozen_block_hash"] != frozen_block_hash(cfg) or manifest["config_hash"] != config_hash():
         raise RuntimeError("eval refused: manifest mismatch (live Config/source differ from frozen.json)")
-    if manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+    if manifest["n_train"] not in (None, int(data.train_x.shape[0])):
+        # Tier-1 read (ADR-0015): a missing key is corruption, and this guard
+        # protects the ONE-SHOT eval — `.get()` let an absent key wave it through.
         # A --subset eval against a full-data manifest (or vice versa) would
         # burn the one-shot on the wrong data — refuse before anything runs.
         raise RuntimeError(f"eval refused: n_train mismatch (manifest {manifest.get('n_train')}, live {int(data.train_x.shape[0])})")
@@ -3897,12 +4051,28 @@ def run_report(cfg: Config, store_root: str) -> dict[str, object]:
     seed_counts: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
     seed_failures: dict[str, int] = dict.fromkeys(SEED_NAMES, 0)
     g_values: dict[str, list[float]] = {n: [] for n in SEED_NAMES}
+    g_horizon: dict[str, list[float]] = {n: [] for n in SEED_NAMES}
+    rms_horizon: dict[str, list[float]] = {n: [] for n in SEED_NAMES}
+    arm_seconds: dict[str, list[float]] = {n: [] for n in ("noop", *SEED_NAMES)}
     val_eq_test_hits = 0
     val_eq_test_n = 0
+
+    def _num(a: dict[str, object], key: str) -> float | None:
+        v = a.get(key)
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
     for r in fans:
         for a in r.arms:
             name = str(a["name"])
+            if name in arm_seconds:
+                w = _num(a, "wall_s")
+                if w is not None:
+                    arm_seconds[name].append(w)
             if name in seed_counts:
+                for key, sink in (("g_at_horizon", g_horizon), ("rms_ratio_horizon", rms_horizon)):
+                    hv = _num(a, key)
+                    if hv is not None:
+                        sink[name].append(hv)
                 seed_counts[name] += 1
                 gv = a.get("g_at_init")
                 if isinstance(gv, (int, float)) and not isinstance(gv, bool):
@@ -3938,6 +4108,24 @@ def run_report(cfg: Config, store_root: str) -> dict[str, object]:
         "per_seed_failure_rates": {n: (seed_failures[n] / seed_counts[n] if seed_counts[n] else 0.0) for n in SEED_NAMES},
         # Spec report list: "RMS(Δ)/RMS(h) at blend entry + g at germination".
         "g_at_germination": {n: ({"mean": sum(v) / len(v), "min": min(v), "max": max(v)} if v else None) for n, v in g_values.items()},
+        # rev 6.2: does an embodied graft's influence grow, hold or decay
+        # under joint training? Beside g_at_germination, which is its birth
+        # value. Absent measurements are absent, never zero.
+        "influence_at_horizon": {
+            n: (
+                {
+                    "g_mean": (sum(g_horizon[n]) / len(g_horizon[n])) if g_horizon[n] else None,
+                    "rms_ratio_mean": (sum(rms_horizon[n]) / len(rms_horizon[n])) if rms_horizon[n] else None,
+                    "n": len(g_horizon[n]),
+                }
+                if g_horizon[n] or rms_horizon[n]
+                else None
+            )
+            for n in SEED_NAMES
+        },
+        # rev 6.2: the denominator of the supervision-economics claim — what
+        # one counterfactual arm costs against the no-op it is compared to.
+        "arm_cost_seconds": {n: ({"mean": sum(v) / len(v), "n": len(v)} if v else None) for n, v in arm_seconds.items()},
         "fan_density": manifest.get("fan_density"),
         "p_val_argmax_eq_test_argmax": (val_eq_test_hits / val_eq_test_n) if val_eq_test_n else None,
         "restraint_regret": results.get("restraint_regret"),
@@ -3985,9 +4173,14 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # manifest's gate-8 contingency fired (worker pressure changed the twin).
     worker_count = 1
     if manifest is not None:
-        g8 = cast(dict[str, object], (manifest.get("gate8_outcome") or {}))
-        if g8 and not g8.get("ok", True):
-            wc = rec.env.get("worker_count")
+        # Tier-1 reads (ADR-0015): frozen.json is optional for replay, but if it
+        # EXISTS its keys are not. `.get("gate8_outcome") or {}` plus
+        # `.get("ok", True)` meant a corrupt manifest silently replayed
+        # single-worker — i.e. exactly the contingency path the gate-8 finding
+        # exists to honour would have been skipped without a word.
+        g8 = cast(dict[str, object], manifest["gate8_outcome"] or {})
+        if g8 and not g8["ok"]:
+            wc = rec.env["worker_count"]  # provenance the record always carries
             worker_count = wc if isinstance(wc, int) else 1
     live_env = env_block(device, worker_count)
     bad_env = [k for k in REPLAY_REFUSAL_KEYS if rec.env.get(k) != live_env.get(k)]
@@ -4000,9 +4193,9 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # divergence below (config drift misattributed as GPU nondeterminism).
     if rec.frozen_block_hash != frozen_block_hash(cfg):
         raise RuntimeError("replay refused: frozen_block_hash mismatch (live Config differs from the record)")
-    if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest.get("manifest_hash"):
+    if manifest is not None and rec.manifest_hash is not None and rec.manifest_hash != manifest["manifest_hash"]:
         raise RuntimeError("replay refused: manifest_hash mismatch")
-    if manifest is not None and manifest.get("data_split_id") not in (None, data_split_id(cfg)):
+    if manifest is not None and manifest["data_split_id"] not in (None, data_split_id(cfg)):
         raise RuntimeError("replay refused: data_split_id mismatch (live run_seed/split differs from the manifest)")
     if rec.kind != "fan" or rec.fan_epoch is None:
         raise RuntimeError(f"replay supports kind='fan' records, got {rec.kind!r}")
@@ -4011,7 +4204,7 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     # the original run never executed is a record/replay path asymmetry.
     read_test = any(a.get("r_test") is not None for a in rec.arms)
     data = load_data(cfg, device)
-    if manifest is not None and manifest.get("n_train") not in (None, int(data.train_x.shape[0])):
+    if manifest is not None and manifest["n_train"] not in (None, int(data.train_x.shape[0])):
         raise RuntimeError("replay refused: n_train mismatch (record was collected against a different data size)")
     ctx = make_episode(cfg, data, device, rec.episode_seed, read_test=read_test)
     # Localisation anchors the record already carries: check the re-derived
@@ -4037,6 +4230,9 @@ def run_replay(cfg: Config, fan_id: str, store_root: str, device: str) -> dict[s
     flipped = [a.name for a in arms if a.name in recorded and a.status != recorded[a.name].get("status")]
     if flipped:
         raise RuntimeError(f"replay mismatch: arm STATUS flipped (ok<->diverged) for {flipped}")
+    # Value comparison is on r_val ONLY. The rev-6.2 provenance fields
+    # (wall_s, peak_mem_bytes) differ between record and replay by
+    # construction and are never replay comparands.
     mismatched = [
         a.name
         for a in arms

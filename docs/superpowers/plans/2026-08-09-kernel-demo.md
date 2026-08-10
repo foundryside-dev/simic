@@ -1,4 +1,4 @@
-# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.3
+# Kernel Demo ("Simic in 20 minutes") Implementation Plan — rev 3.4
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. **This document is self-contained: no task requires any prior plan revision.**
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python ≥3.14, torch 2.13.0+cu130 (installed, CUDA verified on 2× RTX 4060 Ti), torchvision 0.28.0+cu130 (added in Task 1), pytest. matplotlib (dev group) for the sidecar only.
 
-**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). rev 3.2 = re-verdict fixes: `semantic_const` registry for behavior-changing module constants (M9; tensors registered as defining float tuples — tensor `repr` is neither tamper-evident nor print-options-stable), `Callable[..., object]` bound for `@semantic` (mypy-strict-verified at module level incl. typed call sites), `GateResult` restored, Phase C runtime wording, `tau_init` on the semantic surface. rev 3.3 = convergence fixes: classify-or-fail partition test over the whole public surface (`_NON_SEMANTIC` allowlist with stated reasons; identity-matched membership; **adds a per-task obligation — every task classifies its new public symbols in the same commit**), `semantic_const` duplicate guard + registration criterion, `GateResult` serialization via `dataclasses.asdict`, probe tests exercise the public API. Reviews live under `docs/superpowers/reviews/`.
+**Provenance:** rev 3 = rev 2 (ten-reviewer panel + two external reviews) + the solution-design review + a structural self-containment audit (27 defects). rev 3.1 = green-gate verdict fixes (11-reviewer round: 2 blocking test/store defects, import-time `@semantic` registration, mypy/ruff toolchain fixes, runtime-scaling honesty, coverage residuals). rev 3.2 = re-verdict fixes: `semantic_const` registry for behavior-changing module constants (M9; tensors registered as defining float tuples — tensor `repr` is neither tamper-evident nor print-options-stable), `Callable[..., object]` bound for `@semantic` (mypy-strict-verified at module level incl. typed call sites), `GateResult` restored, Phase C runtime wording, `tau_init` on the semantic surface. rev 3.3 = convergence fixes: classify-or-fail partition test over the whole public surface (`_NON_SEMANTIC` allowlist with stated reasons; identity-matched membership; **adds a per-task obligation — every task classifies its new public symbols in the same commit**), `semantic_const` duplicate guard + registration criterion, `GateResult` serialization via `dataclasses.asdict`, probe tests exercise the public API. rev 3.4 = post-merge, pre-Phase-A: adds **Task 19** (spec rev 6.2 per-arm recording, the 13-agent specialist panel's must-fix list, and the Class-A "free today, lost after collection" items). Task 19 carries the **timing taxonomy** — "free until `--certify`" is wrong for `run_report`, whose window shuts at *collection*. Reviews live under `docs/superpowers/reviews/`.
 
 ## Global Constraints (inherited by every task)
 
@@ -1711,13 +1711,93 @@ def test_measure_fan_density_empty_is_loud():
 
 ---
 
+### Task 19: Spec rev 6.2 recording, panel fixes, and the closing-window items
+
+**Status: 19A landed; 19B–19C are the gate on Phase A.** Provenance: a cold read of
+`experiments/` produced `docs/superpowers/reviews/2026-08-10-kernel-demo-enhancement-analysis.md`
+(the Tier-1/2/3 partition); rev 6.2 implemented Tier 1; a 13-agent specialist panel
+(6 lenses × adversarial refutation + synthesis) then reviewed rev 6.2 itself.
+PDR-0036 (proposed), PDR-0037, PDR-0038.
+
+#### The timing taxonomy — read this before scheduling anything below
+
+`config_hash()` hashes `inspect.getsource` over every `@semantic` object, and four
+modes refuse on mismatch: `run_collect`, `run_train`, `run_eval`, `run_replay`.
+`freeze_manifest` refuses when `HEAD != certified_rev`. That produces **three
+different deadlines**, and flattening them into "free until certify" is wrong —
+the panel's verification pass caught three of six lenses making exactly that error.
+
+| Class | What closes, and when | Items |
+|---|---|---|
+| **A — permanent data loss** | Record shape / what is computed. Recovering post-collection needs a schema v3 against a one-shot store. | 19C.1–19C.4 |
+| **B — blocked for the whole campaign, no data lost** | `run_report` is `@semantic`; editing it moves `config_hash`, which the four modes refuse. **The window shuts at COLLECTION, not certify.** Raw fields stay correct in the JSONL and are recomputable offline forever. | 19B.1, 19B.2 |
+| **C — one-way at certify, low stakes** | `run_replay` refuses every record on `config_hash` mismatch, so a post-certify edit makes the tool useless while the fix becomes impossible. `--replay` gates nothing. | 19B.4 |
+
+#### 19A — Landed (rev 6.2 + ADR-0015 posture)
+
+- [x] Per-arm `telemetry`, `wall_s`, `peak_mem_bytes`, `g_at_horizon`, `rms_ratio_horizon`; Δ-weight sidecar; `SCHEMA_VERSION` → 2 (b5c10db, b9ae1af).
+- [x] Learner wall: `fan_to_example` reads pre-decision telemetry + arm scalars only; enforced by a `--selftest` step landing in `certified.json` plus `test_arm_recording.py`.
+- [x] Additivity verified structurally: `FROZEN_FIELDS` is a tuple of `Config` attribute names, so **no `ArmResult` field can move `frozen_block_hash`** (`4a82c72cb491b285…` byte-identical; `config_hash` moved).
+- [x] ADR-0015 Tier-1 posture: six `.get()` reads on `frozen.json`/`certified.json` made absent keys *satisfy* refusal guards; now direct-indexed, pinned by `test_trust_tier_posture.py` (2ffd651).
+- [x] Trust boundaries declared in `experiments/__init__.py` (ADR-0015 rule 2 interim form); verified inert to both hashes (ea79ad5).
+
+#### 19B — MUST FIX (gate on Phase A; land in ONE commit — one re-certify covers all)
+
+- [ ] **19B.1 (Class B) — `run_report` contaminates both new metrics.** `wall_s`, `g_at_horizon`, `rms_ratio_horizon` are appended unconditionally while the same dict's `status` is read two lines later for a different sink. `_run_span` breaks early on divergence, so a diverged arm's gain is read at an *earlier epoch*: `influence_at_horizon` averages horizon values with mid-episode blowups. No namespace filter either — preflight (1 worker), collection (6 workers, `read_test=False`) and eval-grid arms (`read_test=True`, a 10k-image test pass **per epoch** inside the timed span) are pooled, so `arm_cost_seconds` is not a cost number.
+  **HAZARD — do not filter at the `fans = [...]` comprehension.** It also feeds `per_seed_failure_rates` and `g_at_germination`, both on the spec's Report list; filtering there moves pre-registered numbers and makes the fix non-additive. Gate **inside the two new accumulators only**, stratify by `seed_namespace` (and `read_test`), emit `n` per group. Two lenses hit this hazard independently.
+- [ ] **19B.2 (Class B) — `run_report` is the only mode with no source-integrity refusal.** Every other mode compares `config_hash()`/`frozen_block_hash(cfg)` against the manifest; `run_report` checks only for mixed `manifest_hash`. It is the one artifact the owner reads and quotes. (Bounded: `verdict()` is computed in `run_eval` and only read back here, so no edit can move a verdict boolean.)
+- [ ] **19B.3 (pre-registration) — register study E6(a) is unanswerable from this store.** Once `germinate()` fires, the policy is never queried again, so no decision on an already-grafted host exists in *any* record kind, and no post-graft arm exists to score transfer against. The note added in b9ae1af ("study (a) needs the `policy_run` form") *looks* like it fixes this and does not — `policy_run` carries post-germination telemetry and zero decisions. `enhancement-analysis.md` files the same question in Tier 3 as needing new collection, so the two committed documents disagree. **Fix narrowly:** move only (a) to the successor experiment, or restate it as an observational/distributional comparison rather than a transfer-*performance* measurement. E6(b) and E6(c) are answerable and stay. Register rule 5 downgrades any post-data edit to post-hoc — confirm now or ship a pre-registration defect.
+- [ ] **19B.4 (Class C; owner may defer knowingly) — `run_replay` ignores the exact comparand already in the record.** It compares `status` then `r_val`, a 3-epoch mean quantized to 1/15000 — while `hash_after_training` sits on **every** arm and per-epoch `host_hashes` on noop/nullseed: bitwise, exact, localizing to (arm, epoch). Both predate rev 6.2 and are never compared record-vs-replay. Compare them and report the first differing (arm, epoch); keep `status`/`r_val` as the hard failure. *Panel note: hashes strictly dominate the field-by-field telemetry diff first proposed — that was refuted as trip-prone on sub-accuracy noise; demote telemetry comparison to seeded arms, which have no hashes.*
+
+#### 19C — Free today, permanently lost after (Class A) — the panel's highest-value output
+
+Owner-directed inclusion. These cost **data, not effort**, and rev 6.2 does not contain them.
+Items 1–3 were judged worth more than rev 6.2 itself.
+
+- [ ] **19C.1 — The eval no-op baseline's full trajectory is computed and discarded.** `run_eval` builds `noop_ctx`, trains it the full horizon, keeps only `r_noop_test = end_state_R(...)`; the 40 telemetry records and `curves_test` die with the local. **This is *the* paired control** — every eval lift is `r_test − r_noop_test`, shared across all four comparators, host-matched by explicit refusal. Not reconstructible: collection fans are train-namespace, val-only, and start from a mid-run snapshot. Cost ≈ 1.9 MB. *Rev 6.2's entire rationale was "we computed a trajectory and threw it away" — the eval path still does exactly that, on the control arm.* If the headline lift returns null or negative, this is the trajectory you will want and not have.
+  **Caveat:** `noop_ctx` runs only `if needed` (per-comparator), so a partial resume yields ragged records — re-derivable from the same seed, but say so in the record.
+- [ ] **19C.2 — The ablated host is never measured.** `Host.forward` already takes `slot: Slot | None` and skips it when `None`; the measurement is one line away and never taken ("ablat" appears zero times in the file and zero times in the spec). Two floats plus one eval pass buys `R_armed − R_ablated` (the graft's marginal forward contribution) vs `R_ablated − R_noop` (host co-adaptation) — the decomposition Wrenn tenancy and Emrakul decay/lysis actually need, and the domain vocabulary puts Nissa on the ablated host. *Correctly bounded: observed == ablated at every decision point here by construction, so this is a diagnostic gap, not a Nissa-contract breach.*
+- [ ] **19C.3 — No graft-side trajectory exists at all.** `Host.stage_modules()` returns stage1/2/3 only, so the 20-dim record is **host-only**; the seed contributes nothing. rev 6.2 records the host at full resolution while the graft integrates and the graft at two endpoints measured in *different regimes* (`rms_ratio_blend_entry`: train-mode, augmented 128-batch, inside `step_tick`; `rms_ratio_horizon`: final eval-mode `no_grad` pass). Real for `ConvLightSeed`/`ConvHeavySeed` (BatchNorm); `NormSeed`/`AttnSeed` are mode-invariant.
+  **If adding a per-epoch `slot_trace`, append it INSIDE the same try-scope as `build_record`** — otherwise diverged arms get `len(slot_trace) == len(telemetry) + 1`, precisely the arms E6(b) studies.
+- [ ] **19C.4 — `baseline_mem_bytes`, one line.** `reset_peak_memory_stats` sits *after* `build_host`, `build_optimizer`, the deep-copied optimizer state and `germinate`, and resets the peak to the current allocated floor — so `peak_mem_bytes` includes the co-resident `DataBundle` (~150 MB CIFAR uint8), `snap.host_state`/`snap.opt_state` clones held for the whole fan, and the base ctx. **The inline comment "arms run SEQUENTIALLY within a fan, so the peak is this arm's" is wrong** — sequencing prevents cross-arm overlap, not a shared baseline. Capture `torch.cuda.memory_allocated(dev)` immediately before the reset.
+- [ ] **19C.5 — `POST_DECISION_ARM_FIELDS` as a declared constant.** The `--selftest` poison step touches exactly one key (`a["telemetry"]`); the other four rev-6.2 fields are unpoisoned. An *accidental* tripwire exists (fixture arms lack the keys → `KeyError` → step fails → `--certify` refuses), but it is undeclared and **fails open against `.get(key, default)`** — the exact banned idiom. `g_at_init` (admissible) and `g_at_horizon` (a time-travel channel) are the same type, adjacent in the dataclass, one word apart. Declare the tuple; make the selftest iterate it.
+- [ ] **19C.6 — Δ-sidecar self-description.** `torch.save` writes a bare `state_dict` with no `schema_version`, `config_hash`, `n_train`, seed name, `episode_seed` or `fan_epoch`; provenance is the directory name plus the store it happens to sit in. The spec calls this "the corpus early Momir needs" — a cross-project artifact that loses all meaning travelling without its `frozen.json`. Add a per-fan `meta.json`. **Also:** the write is guarded only by `if slot.seed is not None`, so **diverged arms' weights are written with no in-file marker**, and "non-finite by construction" is false — divergence is raised on host-side quantities only; the seed's parameters are never checked.
+
+#### 19D — Should fix, not merge gates
+
+- [ ] `decode_record`'s error text promises additive tolerance the strict-equality gate makes unreachable. **Do not loosen the gate** — fail-closed is right; correct the wording, and state that post-collection additive fields must be typed `| None` and must *not* bump. (rev 6.2's own 1→2 bump was safe only because no store existed; it sets the wrong precedent.) `decode_record` is `@semantic` — pre-certify.
+- [ ] Register rule 6: every registered study must be reported, or explicitly marked not-run with a reason. Rules 1–5 cover addition, promotion, labelling, p-values and underpoweredness — nothing requires completeness, so selective non-reporting of a null is publication bias *inside* the pre-registration. One sentence, free pre-data.
+- [ ] `influence_at_horizon` / `arm_cost_seconds` are emitted at the top level of the primary report with no exploratory marker, while register rule 2 (same commit) requires exploratory results to be labelled in the report. Nest them or amend the Report list.
+- [ ] One caveat line forbidding a raw blend-entry→horizon RMS delta (different measurement bases; use `g_at_horizon`, which is basis-free — a scalar parameter read raw).
+- [ ] `run_eval`'s `merged0` is never released before the second `merge()`, doubling peak decode RSS on the `--void-preregistration` path. `del merged0`. Pre-existing; amplified by rev 6.2.
+- [ ] `load_for_training` returns full records with arm telemetry intact; `train_policy` holds them live across both runs and never reads them.
+- [ ] A test forcing divergence and asserting `len(arm.telemetry) < horizon - fan_epoch`. **The one item whose cost does not expire at certify** (test-only, no `config_hash` move).
+
+#### 19E — Procedural gates before Phase A
+
+- [ ] **Re-run the additivity comparison at the actual certify commit.** The branch moved four times on 2026-08-10 and none of those is the certify commit. `freeze_manifest` pins `certified_rev` with no way to revisit. Mechanical check: `frozen_block_hash` byte-identical, `config_hash` moved, all 34 `FROZEN_FIELDS` values identical.
+- [ ] **One commit for every 19B/19C code fix** — they all move `config_hash`, so a single re-certify covers them; the tree already owes one from 19A's `@semantic` edits, so the marginal cost is zero.
+- [ ] **Do not squash-merge PR #13.** b9ae1af is the explicit retraction of b5c10db's over-claim; squashing destroys the mitigation.
+- [ ] **Correct the false provenance claim** in the spec header, PDR-0036 and `current-state.md`: "every `frozen.json` inherits this provenance" is **false** — `kernel_demo.py` never reads the spec markdown, and `freeze_manifest`'s `spec_rev` is a hardcoded string carrying no approval status. The substantive reason to hold the header PROPOSED stands on its own.
+- [ ] **PDR-0036's memory fallback cannot fire where it is aimed.** `Store` is `@semantic`, so moving arm telemetry to the sidecar moves `config_hash` and is refused by collect/train/eval. Freeze happens at 60 fans; the campaign is 600 + the eval grid, and the only pre-freeze end-to-end path is `scripts/plots_smoke_run.sh` at `LIMIT=8` — "verify at eval scale before freeze" is unexecutable on its own terms. **Free-now substitute:** synthesize ~144k records, call `Store.merge()`, measure RSS. (The figure is arithmetic-checkable: 1922 B × 144000 = 276.77 MB. 277 MB resident is not a plausible threat; the trigger simply protects nothing as written.)
+
+#### Refuted by the panel — do NOT act on these
+
+- **"Extend the blindness grep over the arm payload."** Actively harmful: the forbidden-substring tuple contains `'wall'`, so iterating `ArmResult` fields against it makes `--certify` refuse on `wall_s` — the field rev 6.2 exists to record. Separately `init_seed` is an exact bijection on the arm name and predates 6.2, so a payload-wide blind was already fully defeated.
+- **"Δ-sidecar collision under re-freeze/re-collect."** `run_collect`'s resume set is manifest-blind, so an already-collected fan is skipped and `os.replace` never fires against an existing path. Preflight and the eval grid skip identically.
+- **"Timer/memory reset placement biases the cost denominator."** `germinate` is ~0.01% of an arm; the reset is to the current floor, so seed parameters are already inside the peak. The real confound is 19B.1's namespace pooling, orders of magnitude larger and in the other direction.
+- **"`--subset` preflight could contaminate a full-data collect."** `worker_main` refuses a collect whose live `n_train` differs from the manifest's.
+- **"The generative-scaling caveat is missing from the spec."** It is present verbatim in the spec and propagated word-for-word into `kernel_demo.py`'s header.
+
+---
+
 ## Spec-coverage cross-check (mechanically spot-checked, not self-certified)
 
 Forward: every spec section named in rev 6 maps to a task (§determinism→1/7/13; §data/unit-wall→2/8; §telemetry→3/11; §pathologies→4/14; §seeds/τ→5; §lifecycle→6; §fan/twin/null-seed→9; §record/store/replay→10/17; §action/deployment→11; §learning→12; §preflight/freeze→14; §collection→15; §eval/pre-registration→16; §report→17; caveat header→1/18). Reverse: the nine orphans found by review are all now owned (null-seed subsample→14/15; halt-all-workers→15; det-mode cost→13/14; config_hash→1/7; policy_run payload→10/16; preflight_iter payload→10/14; α/β data source→6/9/17; realized-p storage→16; rms_ratio owner→6/9). This table was produced by checking the review's orphan list against rev 3 line by line; it is a record of that check, not a proof of completeness.
 
 ## Operational Phases (post-code; GPU; never interleaved with code edits)
 
-- [ ] **Phase A — Certify:** full suite; `selftest --device cuda:0 --certify` (zero skips) → `certified.json`; `wardline scan . --fail-on ERROR` (exit 2 = wardline error → report per dogfooding rule); mypy/ruff; final commit; clean tree.
+- [ ] **Phase A — Certify:** **PRECONDITION — Task 19B/19C/19E must land first.** `--certify` pins HEAD and `freeze_manifest` refuses when `HEAD != certified_rev`, so anything not in the certify commit is gone for the campaign (19B.1/19B.2 shut at *collection*, not certify — see Task 19's timing taxonomy). Then: full suite; `selftest --device cuda:0 --certify` (zero skips) → `certified.json`; `wardline scan . --fail-on ERROR` (exit 2 = wardline error → report per dogfooding rule; **note the gate is currently INERT repo-wide — 0 declared trust boundaries, so a green scan checks nothing**, `simic-8db0b87ed6`); mypy/ruff; final commit; clean tree.
 - [ ] **Phase B — Preflight & freeze (user present):** dry runs (subset first); sampler tuning per remedies; gate table surfaced; `preflight --freeze` at the certified commit → `frozen.json` (incl. plan-authored constants echoed for owner sign-off).
 - [ ] **Phase C — Collect (overnight → next-day; 13–20 h planning case):** smoke `--limit 4` (idempotency makes the full run safe), then `collect --devices cuda:0,cuda:1 --workers 6` (VRAM-verified; gate 8's measured concurrency factor may adjust). Morning check: logs, heartbeats, zero divergence reports, episode count — at 13–20 h the run may still be in progress; incomplete shards at this point are expected, not a failure (idempotent resume covers an interrupted run).
 - [ ] **Phase D — Train:** tune curves inspected; pre-stated levers if bad.
