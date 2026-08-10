@@ -280,6 +280,17 @@ The first defensible claim is narrower:
 <!-- hld: source: v4.1 monolith lines 4206–4251 -->
 ## 28. Success Criteria
 
+<!-- hld: classification layer + criterion 18 added 2026-08-11 by PDR-0039 (proposed).
+     The seventeen criteria below are UNCHANGED in wording and numbering — ADR-0014,
+     docs/product/metrics.md and the concept panel all cite them by number. -->
+
+**Two classes (PDR-0039).** These criteria are not homogeneous, and treating
+them as one list is what let the programme's whole evidentiary apparatus hang
+off criterion 2. They split into **engineering acceptance** — must pass, can
+fail, gates calling the system working — and **optional study** — reportable,
+costed, not gating. The classification table follows the list; the criteria
+themselves are unchanged.
+
 The architecture is successful at the first stage when it demonstrates that:
 
 1. Tolaria trains the live Wrenn host reproducibly, passes one Academy-exact causal reference gate, and uses equivalent semantics for replay and counterfactual branches;
@@ -300,7 +311,66 @@ The architecture is successful at the first stage when it demonstrates that:
 16. the fully withdrawn operating corner is interpretable against measured single-axis and interaction controls;
 17. and the complete system lies on a better quality–cost–stability frontier than small and comparably provisioned static hosts.
 
+### 28.1 Classification (PDR-0039)
+
+| # | Subject | Class |
+|---|---|---|
+| 1 | Tolaria reproducibility, Academy-exact gate, replay/branch semantic equivalence | **Acceptance** |
+| 2 | Momir pools beat random search; lower online cost than iterative construction | *Optional study* |
+| 3 | Elesh/Urabrask transform without silent structural or semantic drift | **Acceptance** |
+| 4 | Jin-Gitaxias detects defects and certifies evidence at an acceptable accuracy–cost trade-off | **Acceptance** |
+| 5 | Isperia selects with low regret, reliable no-op, stable policy, no source bias | **Acceptance** |
+| 6 | Integration shock and harmful-intervention rate stay bounded | **Acceptance** |
+| 6 | "improves adaptation speed" | *Optional study* |
+| 7 | Aurelia learns reliable local lifecycle behaviour inside fixed envelopes | **Acceptance** |
+| 8 | Emrakul safely reclaims capacity per Isperia tenancy decisions | **Acceptance** |
+| 9 | Urborg preserves failures, blinding and split integrity | **Acceptance** |
+| 9 | "retrieval improves future design quality" | *Optional study* |
+| 10 | Ugin allocates better than uniform or heuristic | *Optional study* |
+| 11 | Tamiyo reconstructs every case without entering the control path | **Acceptance** |
+| 12 | Transfer to held-out host seeds and task variations | *Optional study* |
+| 13 | Namespec remains a reliable responsibility shorthand | **Acceptance** (process) |
+| 14 | Field-to-Academy ranking and accept/no-op agreement, calibrated, with escalation | **Acceptance** |
+| 15 | Scaffolds withdraw independently without losing declared invariants | **Acceptance** |
+| 16 | Fully withdrawn corner interpretable against single-axis and interaction controls | *Optional study* |
+| 17 | Better quality–cost–stability frontier than comparably provisioned static hosts | *Optional study* |
+| **18** | **The instrument resolves an intervention effect above branch-divergence noise** | **Acceptance** |
+
+Criteria 6 and 9 each carry a safety/integrity clause and a performance clause;
+they are split rather than assigned whole, because the first is a gate and the
+second is a finding.
+
+### 28.2 Criterion 18 — instrument acceptance (added by PDR-0039)
+
+> **18. A deliberately strong, hand-built intervention, measured against a
+> matched no-op branch (INV-15, INV-16) from a common snapshot over a common
+> future (INV-06), produces a difference that is distinguishable from
+> branch-divergence noise at a declared horizon — and a deliberately null
+> intervention does not.**
+
+Criteria 1–17 as written assume the counterfactual screen works and go on to
+ask what it shows. **None of them asserts that it works.** Criterion 1 covers
+replay determinism — that two identical runs agree — which is a different and
+weaker property than "the paired difference carries the intervention signal."
+Under the previous framing that gap was masked by criterion 2, whose failure
+would have been read as a Momir result rather than an instrument result.
+
+This criterion is falsifiable, cheap, and available at Phase D, long before
+Momir exists. Its horizon is the open question in
+`programme/risks-and-open-decisions.md#275-qa-horizon-and-evidence-floor`;
+criterion 18 is what turns that open decision into a measurement with a pass
+condition. **If criterion 18 fails, no other criterion means anything**, because
+every measurement in the programme is a difference between paired branches.
+
+### 28.3 On the negative result
+
 A negative generative result remains scientifically useful if the architecture cleanly shows that analytic construction, retrieval, bounded online optimisation or static over-provisioning dominates Momir at the tested scale.
+
+Read under PDR-0039 this sentence is about criterion 2, which is now an
+optional study — so "scientifically useful" describes a finding the programme
+may commission, not an outcome it is committed to delivering. The pre-registered
+strength of that negative (ADR-0014 D1, 80% power against an unnamed alternative;
+n ≈ 73 for K_true = 1.0) is mothballed with its costings intact.
 
 ---
 
