@@ -313,10 +313,8 @@ The architecture is successful at the first stage when it demonstrates that:
 
 ### 28.1 Classification (PDR-0039)
 
-> **STATUS: pending PDR-0039 owner sign-off.** §28.1–§28.3 are a drafted
-> proposal, not ratified design authority. If PDR-0039 is declined, revert to
-> criteria 1–17 unclassified with criterion 2 as headline. Criteria 1–17
-> themselves are unaffected either way.
+> Ratified by PDR-0039, owner sign-off 2026-08-11. Criteria 1–17 are unchanged
+> in wording and numbering; this layer classifies them and adds criterion 18.
 
 | # | Subject | Class |
 |---|---|---|

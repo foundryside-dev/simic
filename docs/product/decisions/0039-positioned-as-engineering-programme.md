@@ -1,10 +1,12 @@
 # PDR-0039 — Simic is positioned as a novel engineering programme, not a confirmatory research study
 
-Date: 2026-08-11   Status: **proposed** — owner sign-off required
+Date: 2026-08-11   Status: **accepted**
 Author: Claude (session 16)
-Owner sign-off: PENDING. This record proposes a **vision-level** change and is
-on `vision.md`'s escalate list. `vision.md` is deliberately untouched; nothing
-here is enacted until the owner rules.
+Owner sign-off: **RECEIVED 2026-08-11** — "PDR-0039 is endorsed."
+This is a vision-level change on `vision.md`'s escalate list; it is enacted on
+explicit owner ratification, never autonomously. `vision.md` and `metrics.md`
+carry the change but **cannot be edited from a `main`-based branch** without
+reverting the PDR-0035/0038 grant widening — see "Downstream" below.
 Related: PDR-0029 (extends its position, relaxes its boundary clause),
 ADR-0014 (K/N — demoted, not deleted), `docs/design/00-related-work.md`
 (the evidence), `docs/concept/reviews/2026-08-11-morphogenesis-concept-panel.md`
@@ -131,17 +133,48 @@ instrument produced, not a programme-level failure.
 
 ## What this costs — stated plainly
 
-- **The right to claim a result.** `vision.md` currently names the
-  morphogenetic-AI research community as a secondary audience and says a clean
-  negative is publishable. That audience changes: engineering framing points at
+- **The right to claim a result.** `vision.md` names the morphogenetic-AI
+  research community as a secondary audience and says a clean negative is
+  publishable. That audience changes: engineering framing points at
   systems/tooling venues and a released artifact, not a main-track claim.
+
+  **This cost is smaller than it first appears, and the reason is now standing
+  context.** Owner-stated 2026-08-11: *"any research claim I did make would
+  have just been 'hey check this out' rather than an attempt at a career."*
+  The publication motive was never career-bearing, so demoting the confirmatory
+  claim forfeits little that was actually wanted — and *"hey check this out"*
+  describes a runnable, pointable artifact, which is precisely what the
+  engineering framing optimises for and precisely PDR-0029's proof-of-concept
+  logic. **Future sessions must not re-inflate this cost.** A later reader
+  weighing publication-shaped work against engineering work should weight it
+  by this constraint, not by generic academic incentives.
 - **The related-work chapter's negative half is ~12 queries** and is absence of
   evidence. The positioning rests on it and should not be published without a
-  deeper search.
+  deeper search. Unchanged by the above — a "check this out" artifact still
+  should not assert a novelty claim it has not earned.
 - **Reduced external pressure for rigour.** A pre-registration is a commitment
   device. Removing it removes a reason to be honest that was doing real work.
-  The scar-derived invariants in the table above are what replaces it, which is
-  why none of them moves.
+  Partially discounted by the same constraint — a pre-registration aimed at
+  reviewers who were never the point was buying less than it appeared to. What
+  it *was* genuinely buying is protection against self-deception, and that is
+  replaced by the scar-derived invariants in the table above, which is why none
+  of them moves.
+
+## Downstream — what still carries this change
+
+| Artifact | Change | Status |
+|---|---|---|
+| `docs/design/01-claim.md#28-success-criteria` | Classification layer; criterion 18 | **Done** — pending banner removed on ratification |
+| `docs/product/roadmap.md` | Now/Next framing reads as engineering acceptance | **Done** |
+| ADR-0014 | Confirmatory apparatus mothballed | **Done** — superseding record, not an edit |
+| `docs/product/vision.md` | Purpose, "Who it serves", the "check this out" constraint | **BLOCKED on PR #13** |
+| `docs/product/metrics.md` | North-star row is currently K = 1.5 / n = 32 | **BLOCKED on PR #13** |
+
+The last two have moved on `kernel-demo-rev62-arm-recording` and those changes
+are not on `main`. Editing them from a `main`-based branch would conflict with,
+or silently revert, the PDR-0035/0038 grant widening. **Sequencing: merge PR #13
+first, then apply.** This is a mechanical constraint, not a deferral of the
+decision — PDR-0039 is accepted and the other three artifacts already carry it.
 
 ## Reversal triggers
 

@@ -4,6 +4,19 @@
 > /axiom-program-management. This file records bets as INTENT, not a delivery
 > schedule. Do not compute WSJF here; hand the committed bet over for sequencing.
 
+> **Framing (PDR-0039, 2026-08-11).** Simic is an engineering programme, not a
+> confirmatory research study. Bets are judged against the *acceptance* class of
+> `docs/design/01-claim.md#28-success-criteria` — criteria that can fail and
+> gate calling the system working — not against criterion 2. The confirmatory
+> apparatus ($K = 1.5$ / $n = 32$, the eight-cell fleet) is mothballed with its
+> costings intact (ADR-0016) and is re-commissionable, not deleted. The
+> feasibility argument is the point: most components are established or one hop
+> from it, and the speculative risk is concentrated in the counterfactual screen
+> — see `docs/design/00-related-work.md`. **The nearest thing to a new bet this
+> creates is criterion 18** (does the paired-branch difference resolve an
+> intervention effect above branch-divergence noise), answerable at Phase D
+> before Momir exists; it is not yet shaped and is not on this map.
+
 ## Now  (committed, in-flight)
 - **Design hardening — reconcile HLD v4.1 with the 2026-08-08 Esper-pivot peer
   review** — why: starting Phase A on an unstable contract surface would churn

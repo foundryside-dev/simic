@@ -1,9 +1,19 @@
 # ADR-0014 — Adopt the worked compute cost model (HER accounting, K/N fixed, restructure trigger armed)
 
-Date: 2026-08-09 · Status: accepted
+Date: 2026-08-09 · Status: accepted · **amended by ADR-0016 (2026-08-11)**
 Deciders: John (owner: D1 negative-result scope and D2 endpoint family
 decided in session; remainder delegated to the cost model per metrics.md) ·
 Tracker: simic-642c2c1823
+
+> **Read ADR-0016 before relying on this record.** The arithmetic below stands
+> and `programme/cost-model.md` is unchanged. What changed is *gating status*:
+> under PDR-0039 the programme is positioned as engineering rather than
+> confirmatory research, so D1 (negative-result scope), D2 (endpoint family)
+> and $K = 1.5$ / $n = 32$ no longer gate — they are a costed option the owner
+> may commission. ADR-0016 also records three defects that are prerequisites of
+> any re-commissioning: the primary endpoint has no defined success predicate,
+> the operating-characteristics table applies a constant $sd_d$ where the
+> derivation gives per-$K$ values, and no control-arm size is declared.
 
 ## Context
 
