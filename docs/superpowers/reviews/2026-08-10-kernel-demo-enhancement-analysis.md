@@ -1,7 +1,8 @@
 # Kernel demo — enhancement analysis (cold read of `experiments/`)
 
-**Date:** 2026-08-10 · **Status:** **Tier 1 IMPLEMENTED** under owner-approved
-spec rev 6.2 (2026-08-10) — see the Fan record section of the spec, and
+**Date:** 2026-08-10 · **Status:** **Tier 1 IMPLEMENTED** on a branch under
+**proposed** spec rev 6.2 (PR #13, awaiting owner confirmation of the
+amendment text) — see the Fan record section of the spec, and
 `tests/unit/kernel_demo/test_arm_recording.py`. Verified additive:
 `frozen_block_hash` is byte-identical to the pre-amendment value
 (`4a82c72cb491b285…`) while `config_hash` moved, so the change requires a

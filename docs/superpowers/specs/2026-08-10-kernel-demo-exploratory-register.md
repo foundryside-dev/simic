@@ -76,6 +76,10 @@ at the horizon (`g_at_horizon`, `rms_ratio_horizon`) predicts end-state `R`.
 *Why:* the entire post-commit half of Simic — continued tenancy, retirement,
 sequential grafts — decides about already-grafted hosts, and has no empirical
 support today.
+*Read the trajectory by record kind:* for `kind="fan"` it is the per-arm
+`telemetry` field (post-decision); for `kind="policy_run"` it is
+`FanRecord.telemetry`, which on a live eval episode is the **whole** run,
+pre- and post-germination. Study (a) needs the `policy_run` form.
 
 ### E7 — Supervision cost accounting *(enabled by rev 6.2)*
 From `wall_s` / `peak_mem_bytes`: cost per counterfactual arm, per fan, and per

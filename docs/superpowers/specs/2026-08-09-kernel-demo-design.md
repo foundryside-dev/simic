@@ -1,9 +1,13 @@
 # Kernel Demo — "Simic in 20 minutes"
 
-**Date:** 2026-08-09 · **Status:** rev 6.2 — **LOCKED** (rev 6.2, 2026-08-10,
-owner-approved **pre-data amendment**: additive per-arm recording — telemetry,
-cost, horizon influence — plus a Δ-weight sidecar; see the Fan record section.
-No frozen-block, gate or verdict change.) · rev 6.1 — (rev 6 owner-approved; panel round 3 verified; external-review patches folded. Rev 6.1, 2026-08-10, owner-approved **pre-data amendment** — no store exists, so the change is statistically free: the money-chart permutation null and the falsifier CI are computed at the **episode** level, not the grid-point level; see the pre-registered numbers section). Design: APPROVE. Implementation: GO.
+**Date:** 2026-08-09 · **Status:** rev 6.2 — **PROPOSED pre-data amendment,
+awaiting owner confirmation of this text** (PR #13). The owner accepted the
+*recommendation* on 2026-08-10; the amendment wording below has not yet been
+read back. Change this line to "owner-approved" on confirmation, and not
+before — every `frozen.json` inherits this provenance. Content: additive
+per-arm recording (telemetry, cost, horizon influence) plus a Δ-weight
+sidecar; see the Fan record section. No frozen-block, gate or verdict change.
+· rev 6.1 — (rev 6 owner-approved; panel round 3 verified; external-review patches folded. Rev 6.1, 2026-08-10, owner-approved **pre-data amendment** — no store exists, so the change is statistically free: the money-chart permutation null and the falsifier CI are computed at the **episode** level, not the grid-point level; see the pre-registered numbers section). Design: APPROVE. Implementation: GO.
 **Target:** `experiments/kernel_demo.py` (single file, plus optional plotting sidecar)
 **Panel:** five SME reviews, two rounds, under `docs/superpowers/reviews/2026-08-09-kernel-demo-*`.
 Round-2 verdicts: morpho 19/20 closed · lifecycle 7/9 + 1 reopened · reward 10/13 ·
@@ -343,7 +347,8 @@ per-arm `{name, init_seed, status, R_val, R_test, curve}`, telemetry
 context. Append-only; failures and no-op wins kept. Non-finite → `null` +
 status in JSON, never bare NaN.
 
-**Rev 6.2 (pre-data amendment, 2026-08-10, owner-approved).** The per-arm
+**Rev 6.2 (pre-data amendment, 2026-08-10, PROPOSED — see the status line).**
+The per-arm
 payload gains five recorded fields, `schema_version` bumps to 2, and a
 `fan_id`-keyed weight sidecar is added. **Additive only: no `FROZEN_FIELDS`
 entry moves, no gate arithmetic changes, no verdict boolean changes, and
@@ -372,6 +377,18 @@ because `config_hash` covers the whole semantic surface. The five fields:
 (294 KB/fan measured, ~235 MB campaign-wide), for `kind="fan"` only —
 outside the JSONL so `Store.merge()`'s decode/sort/duplicate path is
 untouched. Refans are excluded; they never train a policy.
+
+**Where the LIVE post-graft trajectory lives (documented asymmetry, not a
+gap).** `policy_run` records are written directly, not from `ArmResult`, so
+their single arm entry carries no rev-6.2 field. It does not need to: a live
+eval episode runs one context from 0 to the horizon with germination in the
+middle, so its **`FanRecord.telemetry` is the whole trajectory, pre- *and*
+post-germination**. `FanRecord.telemetry` therefore means two different things
+by kind — the pre-decision base prefix for `kind="fan"`, the complete episode
+for `kind="policy_run"` — and any offline study must read it by kind. The
+learner wall is unaffected and doubly held: `load_for_training` admits only
+`kind="fan"`, and `_assert_trainable` refuses any non-`fan` kind and any
+`eval` split-role on the training path.
 
 **Hard rule, enforced.** The learner never reads arm-level telemetry.
 `fan_to_example` consumes the **pre-decision** base history and arm scalars
