@@ -67,6 +67,11 @@ ask" rule. Owner chose to widen rather than tighten: the full PR lifecycle
 inside the active bet is now autonomous. Releases, tags, deprecations and
 external-party actions remain reserved. See the two lines marked
 **(widened 2026-08-10)** below; everything else is unchanged.
+**RATIFIED 2026-08-10 (PDR-0038)** after an explicit side-by-side against the
+parent grant. Note for anyone comparing the two files: Simic's remote clause
+now **deliberately diverges** from `~/esper-lite/docs/product/vision.md`, which
+still escalates every GitHub-remote action. That divergence is an owner
+decision, not drift — do not "reconcile" it back.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
