@@ -4,7 +4,12 @@
 awaiting owner confirmation of this text** (PR #13). The owner accepted the
 *recommendation* on 2026-08-10; the amendment wording below has not yet been
 read back. Change this line to "owner-approved" on confirmation, and not
-before — every `frozen.json` inherits this provenance. Content: additive
+before. (**Corrected 2026-08-10:** an earlier draft of this line claimed "every
+`frozen.json` inherits this provenance." That is false — `kernel_demo.py` never
+reads this file, and `freeze_manifest`'s `spec_rev` is a hardcoded string
+carrying no approval status. The reason to hold it PROPOSED is simply that
+writing an unearned human-approval claim into a locked spec is not something to
+do; it needs no mechanism to justify it.) Content: additive
 per-arm recording (telemetry, cost, horizon influence) plus a Δ-weight
 sidecar; see the Fan record section. No frozen-block, gate or verdict change.
 · rev 6.1 — (rev 6 owner-approved; panel round 3 verified; external-review patches folded. Rev 6.1, 2026-08-10, owner-approved **pre-data amendment** — no store exists, so the change is statistically free: the money-chart permutation null and the falsifier CI are computed at the **episode** level, not the grid-point level; see the pre-registered numbers section). Design: APPROVE. Implementation: GO.

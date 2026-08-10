@@ -27,11 +27,13 @@ closed, still zero closures this session. (3) **ADR-0002 regime**
 - simic-b67434134e: cryptography bump still blocked upstream (PDR-0023).
 
 ## Open questions / blocked-on-owner
-1. **Confirm the rev 6.2 amendment text** (PR #13). The recommendation was
-   accepted; the wording was not read back, and that header propagates into
-   every `frozen.json`. PDR-0036 pre-commits the failure mode: unconfirmed
-   before Phase A ⇒ the amendment is **dropped**, campaign runs on rev 6.1.
-   Never defaulted in.
+1. **Confirm the rev 6.2 amendment text** (PR #13), and decide **Task 19** —
+   the panel's must-fix list (19B) and the Class-A "free today, lost after
+   collection" items (19C), both now in the plan. PDR-0036 pre-commits the
+   failure mode: unconfirmed before Phase A ⇒ the amendment is **dropped**,
+   campaign runs on rev 6.1. Never defaulted in. *(Corrected: the earlier
+   claim that the header "propagates into every `frozen.json`" is false —
+   `spec_rev` is a hardcoded string. The posture stands anyway.)*
 2. **Ratify the widened authority grant** (PDR-0035). Push/PR/**merge** inside
    the active bet is now autonomous, decided immediately after an incident in
    which autonomy was exceeded. That is a defensible call and exactly the shape

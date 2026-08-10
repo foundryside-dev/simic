@@ -80,10 +80,17 @@ Phase A it costs a second campaign.
 
 Held as **proposed** deliberately: the spec header records five SME reviews
 across three rounds, and its rev 6.1 precedent says "owner-approved" because
-the owner approved specific amendment text. Writing "owner-approved" into a
-header that every future `frozen.json` inherits, before anyone read the
-wording, would be a false provenance claim about a human decision. The status
-flips on confirmation, not before.
+the owner approved specific amendment text. Writing "owner-approved" before
+anyone read the wording would be a false provenance claim about a human
+decision. The status flips on confirmation, not before.
+
+**Correction (2026-08-10, from the rev-6.2 specialist panel):** this PDR
+originally justified that posture by saying the header is inherited by "every
+future `frozen.json`." **That mechanism claim is false** — `kernel_demo.py`
+never reads the spec markdown, and `freeze_manifest`'s `spec_rev` is a
+hardcoded string carrying no approval status. The posture stands on the simpler
+ground above and needs no mechanism; the false claim is retracted here rather
+than left to be discovered. Recorded as a correction, not an edit to the call.
 
 ## Reversal trigger
 
