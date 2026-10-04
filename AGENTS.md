@@ -110,16 +110,22 @@ boundaries) comes first**; MVP scope is in `programme/phases.md`; the first
 repository milestones are in `ops/repo-structure.md`. Python is the working
 language.
 
-## Current state (2026-08-08)
+## Current state (2026-10-04)
 
-Phase A bootstrap. The Python scaffold is in place (pyproject with uv,
-`src/simic/`, `tests/`, pre-commit) but carries no functional code yet —
-substantive content is the HLD and the Weft tooling below. First engineering
-work is Phase A (Namespec, Leyline contracts, dependency boundaries).
-Licensed Apache-2.0. The project name was locked as Simic on 2026-08-08
-(`programme/risks-and-open-decisions.md`); subsystem boundaries are locked
-too. Design-review findings and
-open design decisions are tracked in filigree under the `hld-review` label.
+The production package under `src/simic/` remains a scaffold. Functional
+experimental code lives in `experiments/kernel_demo.py`: the August reboot
+reached a real preflight smoke, but did not freeze or proceed to collection,
+policy training or outer evaluation. Saved result-shaped synthetic charts are
+layout previews, not evidence.
+
+John authorized a bounded reboot using the retained kernel substrate
+([ADR-0018](docs/adr/0018-bounded-structural-comparison.md)). The immediate
+experimental entry point is [the bounded comparison](docs/bounded-comparison.md):
+one host and seed, no growth versus static extra capacity versus scheduled graft,
+with separate terminal evaluation. This scope takes precedence over the older
+Phase A sequence for the experiment; it does not implement the full HLD or
+establish learned structural adaptation. Keep existing history, design and old
+campaign artifacts intact. Licensed Apache-2.0.
 
 <!-- filigree:instructions:v3.1.0:c1c023c3 -->
 <!-- filigree:last-writer:filigree install -->

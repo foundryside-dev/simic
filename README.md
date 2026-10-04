@@ -6,14 +6,14 @@ fixed menu of human-authored blueprints — then conformed, compiled, QA-tested
 in matched counterfactual branches, adjudicated against doing nothing,
 embodied reversibly under warrant, and eventually retired.
 
-> **Status: pre-implementation bootstrap.** The design is complete — the
-> HLD (v4.1, Namespec 2.0 — locked, ADR-0008) is decomposed into standalone chapters
-> under [`docs/design/`](docs/design/00-INDEX.md) (ADR-0001) — and the
-> Python scaffold is in place, but no functional code exists yet. First
-> engineering work is Phase A (Namespec,
-> Leyline contracts, dependency boundaries). The project name and the
-> subsystem boundaries are locked
-> ([open decisions](docs/design/programme/risks-and-open-decisions.md)).
+> **Status: bounded experimental implementation (2026-10-04).** The runnable
+> kernel demo implements a fixed-menu training/graft substrate. The new
+> [bounded comparison](docs/bounded-comparison.md) compares one fixed host and
+> seed with no growth, static added capacity, and scheduled grafting, with
+> outer evaluation in a separate command. The original kernel campaign is
+> retained. No learned-controller result or growth-superiority result is
+> established. The full HLD under [`docs/design/`](docs/design/00-INDEX.md)
+> remains a design, and `src/simic/` remains a package scaffold.
 
 ## The idea
 
