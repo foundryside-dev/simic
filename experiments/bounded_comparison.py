@@ -13,6 +13,7 @@ import argparse
 import copy
 import dataclasses
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
@@ -21,12 +22,14 @@ import subprocess
 import time
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 import torch
+import weft_markers
 from torch import nn
+from weft_markers import external_boundary, trust_boundary, trusted
 
-from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, load_outer, tensor_hash
+from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, load_outer, tensor_hash, validated_spec
 from experiments.kernel_demo import (
     CommonFuture,
     Slot,
@@ -46,6 +49,10 @@ from experiments.kernel_demo import (
 ARMS = ("no_growth", "static", "scheduled")
 SCHEMA = 1
 REPO = Path(__file__).resolve().parent.parent
+MARKER_PACKAGE = Path("/home/john/wardline/packages/weft-markers")
+MARKER_SOURCE_REV = "28deffbeb856b0359083b7df3e3f2b1e98e57584"
+MARKER_MODULE_SHA256 = "a0328373a738a3841225b81ff64a6c25403ec9cb33156cb4996c1f0a25646d27"
+MARKER_METADATA_SHA256 = "b82c16fa91d0842a28497661c07ad6b42a0f34cd81dee2271356f020c552510f"
 
 
 def strict_json(value: Any) -> str:
@@ -65,8 +72,15 @@ def _bad_constant(value: str) -> Any:
     raise ValueError(f"non-finite JSON value: {value}")
 
 
+@external_boundary
+def _read_json_text(path: Path) -> str:
+    return path.read_text()
+
+
+@trust_boundary(to_level="GUARDED")
 def read_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(), object_pairs_hook=_pairs, parse_constant=_bad_constant)
+    """Guard JSON syntax/object/finiteness; semantic assurance is verify_run."""
+    value = json.loads(_read_json_text(path), object_pairs_hook=_pairs, parse_constant=_bad_constant)
     if not isinstance(value, dict):
         raise ValueError(f"expected an object in {path.name}")
     strict_json(value)  # Also rejects overflowing 1e999 parsed as infinity.
@@ -281,6 +295,7 @@ def runtime(threads: int) -> dict[str, Any]:
         "python": platform.python_version(),
         "torch": torch.__version__,
         "torchvision": torchvision.__version__,
+        "weft_markers": importlib.metadata.version("weft-markers"),
         "platform": platform.platform(),
         "machine": platform.machine(),
         "processor": platform.processor(),
@@ -314,7 +329,23 @@ def source_identity() -> dict[str, Any]:
         "pyproject.toml",
         "uv.lock",
     )
-    return {name: file_hash(REPO / name) for name in paths}
+    identity: dict[str, Any] = {name: file_hash(REPO / name) for name in paths}
+    if weft_markers.__file__ is None:
+        raise RuntimeError("installed marker module has no source identity")
+    installed = file_hash(Path(weft_markers.__file__))
+    metadata = file_hash(MARKER_PACKAGE / "pyproject.toml")
+    source = file_hash(MARKER_PACKAGE / "src/weft_markers/__init__.py")
+    if installed != MARKER_MODULE_SHA256 or source != MARKER_MODULE_SHA256 or metadata != MARKER_METADATA_SHA256:
+        raise RuntimeError("official marker dependency source drift")
+    identity["weft_markers_dependency"] = {
+        "upstream": "https://github.com/foundryside-dev/wardline",
+        "revision": MARKER_SOURCE_REV,
+        "installed_module_sha256": installed,
+        "source_module_sha256": source,
+        "package_metadata_sha256": metadata,
+        "local_package": str(MARKER_PACKAGE),
+    }
+    return identity
 
 
 def git_identity() -> dict[str, Any]:
@@ -694,7 +725,14 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
     return completion
 
 
+@external_boundary
+def _read_training_lines(path: Path) -> list[str]:
+    return path.read_text().splitlines(keepends=True)
+
+
+@trust_boundary(to_level="ASSURED")
 def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
+    """Assure the declared consumer contract, not arbitrary metadata semantics."""
     complete = read_json(root / "complete.json")
     require_keys(complete, ("schema_version", "status", "record_count", "artifacts", "summaries"), "completion")
     if type(complete["schema_version"]) is not int or complete["schema_version"] != SCHEMA or complete["status"] != "complete":
@@ -738,7 +776,7 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         raise ValueError("manifest schema/arms/source mismatch")
     if not isinstance(manifest["spec"], dict) or set(manifest["spec"]) != {field.name for field in dataclasses.fields(RunSpec)}:
         raise ValueError("incomplete specification")
-    spec = RunSpec(**manifest["spec"])
+    spec = validated_spec(manifest["spec"])
     configure_cpu(spec)
     if manifest["runtime"] != runtime(spec.threads):
         raise ValueError("execution runtime mismatch")
@@ -756,7 +794,7 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         raise ValueError("missing required evidence: summary arm set")
     for arm in ARMS:
         validate_summary(complete["summaries"][arm], spec, arm)
-    lines = (root / "training.jsonl").read_text().splitlines(keepends=True)
+    lines = _read_training_lines(root / "training.jsonl")
     if (
         len(lines) != complete["record_count"]
         or len(lines) != len(ARMS) * (spec.epochs + 1)
@@ -771,10 +809,16 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     return manifest, complete, spec
 
 
+@external_boundary
+def _read_checkpoint(path: Path) -> Any:
+    return torch.load(path, map_location="cpu", weights_only=True)
+
+
+@trust_boundary(to_level="ASSURED")
 def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) -> tuple[Any, Slot]:
     if arm not in ARMS:
         raise ValueError("unknown arm")
-    checkpoint = torch.load(root / f"{arm}.pt", map_location="cpu", weights_only=True)
+    checkpoint = _read_checkpoint(root / f"{arm}.pt")
     if checkpoint["schema_version"] != SCHEMA or checkpoint["arm"] != arm or checkpoint["manifest_sha256"] != manifest_hash:
         raise ValueError("checkpoint identity mismatch")
     host = build_host("mild", derive(spec.seed, "host-init"))
@@ -799,17 +843,59 @@ def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) 
 def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
     if (root / "outer_evaluation.json").exists():
         raise FileExistsError("outer results already exist; evaluation is final and cannot be overwritten")
-    manifest, complete, spec = verify_run(root)
+    verified = verify_run(root)
+    manifest, complete, spec = verified
     # All checkpoints validated/materialized before opening outer data.
     models = {arm: restore_checkpoint(root, arm, complete["artifacts"]["manifest.json"], spec) for arm in ARMS}
     x, y, outer_identity = load_outer(spec, data_root, manifest["data"])
     started = time.perf_counter()
     untrained = score(build_host("mild", derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
     scores = {arm: score(host, slot, x, y, spec.batch_size) for arm, (host, slot) in models.items()}
-    result = {
+    result = evaluation_record(
+        verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")
+    )
+    # Official marker factories preserve callables but currently erase typing.
+    return cast(dict[str, Any], publish_evaluation(root, result))
+
+
+@trust_boundary(to_level="ASSURED")
+def evaluation_record(
+    verified: tuple[dict[str, Any], dict[str, Any], RunSpec],
+    outer_identity: dict[str, Any],
+    scores: dict[str, Any],
+    untrained: dict[str, Any],
+    wall_s: float,
+    completion_hash: str,
+) -> dict[str, Any]:
+    """Validate measured evidence before it reaches the publication consumer.
+
+    Assurance covers score counts/ranges, identities and finite timing. It
+    does not establish scientific superiority or arbitrary metadata meaning.
+    """
+    _, complete, spec = verified
+    spec = validated_spec(dataclasses.asdict(spec))
+    artifacts = require_keys(complete, ("artifacts",), "evaluation completion")["artifacts"]
+    artifacts = require_keys(artifacts, ("manifest.json",), "evaluation artifacts")
+    validate_hash(artifacts["manifest.json"], "evaluation manifest")
+    validate_hash(completion_hash, "evaluation completion")
+    outer_identity = require_keys(outer_identity, ("outer_sha256", "outer_source_files", "size"), "outer identity")
+    validate_hash(outer_identity["outer_sha256"], "outer tensors")
+    if type(outer_identity["size"]) is not int or outer_identity["size"] != spec.outer_size:
+        raise ValueError("outer evidence sample count mismatch")
+    if not isinstance(outer_identity["outer_source_files"], dict):
+        raise ValueError("invalid outer source identities")
+    for sha in outer_identity["outer_source_files"].values():
+        validate_hash(sha, "outer source file")
+    if not isinstance(scores, dict) or set(scores) != set(ARMS):
+        raise ValueError("incomplete outer score arm set")
+    for arm in ARMS:
+        validate_metrics(scores[arm], spec.outer_size, arm + " outer score")
+    validate_metrics(untrained, spec.outer_size, "untrained outer score")
+    require_number(wall_s, "outer wall time")
+    return {
         "schema_version": SCHEMA,
         "manifest_sha256": complete["artifacts"]["manifest.json"],
-        "completion_sha256": file_hash(root / "complete.json"),
+        "completion_sha256": completion_hash,
         "source": source_identity(),
         "runtime": runtime(spec.threads),
         "data": outer_identity,
@@ -830,17 +916,23 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
             "ce": scores["scheduled"]["ce"] - scores["static"]["ce"],
             "accuracy": scores["scheduled"]["accuracy"] - scores["static"]["accuracy"],
         },
-        "wall_s": time.perf_counter() - started,
-        "outer_forward_examples": {arm: {"host": len(y), "seed": 0 if arm == "no_growth" else len(y)} for arm in ARMS},
-        "untrained_reference_forward_examples": len(y),
+        "wall_s": wall_s,
+        "outer_forward_examples": {arm: {"host": spec.outer_size, "seed": 0 if arm == "no_growth" else spec.outer_size} for arm in ARMS},
+        "untrained_reference_forward_examples": spec.outer_size,
         "independent_trajectories": 1,
         "superiority_established": False,
     }
-    write_json(root / "outer_evaluation.json", result)
-    return result
 
 
-def main(argv: list[str] | None = None) -> None:
+@trusted(level="ASSURED")
+def publish_evaluation(root: Path, record: dict[str, Any]) -> dict[str, Any]:
+    """Consume the validated evaluation record; retain exclusive-write refusal."""
+    write_json(root / "outer_evaluation.json", record)
+    return record
+
+
+@external_boundary
+def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
     training = sub.add_parser("train")
@@ -855,9 +947,13 @@ def main(argv: list[str] | None = None) -> None:
     evaluation = sub.add_parser("evaluate")
     evaluation.add_argument("--run", type=Path, required=True)
     evaluation.add_argument("--data-root", type=Path)
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_arguments(argv)
     if args.mode == "train":
-        spec = RunSpec(**{field.name: getattr(args, field.name) for field in dataclasses.fields(RunSpec)})
+        spec = validated_spec({field.name: getattr(args, field.name) for field in dataclasses.fields(RunSpec)})
         result = train(spec, args.output, args.data_root)
         print(strict_json({"status": result["status"], "run": str(args.output), "summaries": result["summaries"]}))
     else:

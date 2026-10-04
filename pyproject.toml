@@ -15,6 +15,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "torch>=2.13.0",
     "torchvision>=0.28.0",
+    "weft-markers",
 ]
 
 [build-system]
@@ -63,3 +64,6 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["src", "."]
 addopts = ["--strict-markers", "--strict-config"]
+
+[tool.uv.sources]
+weft-markers = { path = "/home/john/wardline/packages/weft-markers" }

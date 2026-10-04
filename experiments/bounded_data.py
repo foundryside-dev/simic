@@ -10,9 +10,10 @@ import dataclasses
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
+from weft_markers import external_boundary, trust_boundary
 
 from experiments.kernel_demo import Config, derive, make_generator
 
@@ -75,6 +76,14 @@ class RunSpec:
         )
 
 
+@trust_boundary(to_level="ASSURED")
+def validated_spec(values: dict[str, Any]) -> RunSpec:
+    """Return a specification only after the existing complete range checks."""
+    spec = RunSpec(**values)
+    spec.validate()
+    return spec
+
+
 def file_hash(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -97,6 +106,13 @@ def validate_data(x: torch.Tensor, y: torch.Tensor, n: int) -> None:
         raise ValueError("invalid image/label shape or dtype")
     if bool(((y < 0) | (y >= 10)).any()):
         raise ValueError("labels must be in [0, 10)")
+
+
+@trust_boundary(to_level="ASSURED")
+def validated_data(x: torch.Tensor, y: torch.Tensor, n: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """Assure only image/label dtype, shape, count and ten-class label range."""
+    validate_data(x, y, n)
+    return x, y
 
 
 def smoke_split(spec: RunSpec, split: str) -> tuple[torch.Tensor, torch.Tensor]:
@@ -137,7 +153,8 @@ def cifar_source_hashes(root: Path) -> dict[str, str]:
     return {name: file_hash(folder / name) for name in [*(name for name, _ in meta["train_files"]), meta["meta"]["filename"]]}
 
 
-def _cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
+@external_boundary
+def _read_cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
     from torchvision.datasets import CIFAR10
     from torchvision.datasets.utils import check_integrity
 
@@ -153,11 +170,18 @@ def _cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
     dataset = FitOnlyCIFAR10(str(root), train=True, download=False) if train else CIFAR10(str(root), train=False, download=False)
     x = torch.from_numpy(dataset.data).permute(0, 3, 1, 2).contiguous()
     y = torch.tensor(dataset.targets, dtype=torch.int64)
-    validate_data(x, y, 50000 if train else 10000)
     return x, y
 
 
+def _cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
+    x, y = _read_cifar(root, train=train)
+    # Official marker factories currently erase typing, but preserve callables.
+    return cast(tuple[torch.Tensor, torch.Tensor], validated_data(x, y, 50000 if train else 10000))
+
+
+@trust_boundary(to_level="ASSURED")
 def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
+    spec = validated_spec(dataclasses.asdict(spec))
     if spec.data == "smoke":
         tx, ty = smoke_split(spec, "fit")
         dx, dy = smoke_split(spec, "dev")
@@ -196,7 +220,9 @@ def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.
     return tx, ty, dx, dy, provenance
 
 
+@trust_boundary(to_level="ASSURED")
 def load_outer(spec: RunSpec, root: Path | None, provenance: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+    spec = validated_spec(dataclasses.asdict(spec))
     if spec.data == "smoke":
         expected = {"rule": "smoke-data-v1", "seed": derive(spec.data_seed, "smoke-data-v1", "outer"), "size": spec.outer_size}
         if provenance["outer_identity"] != expected:

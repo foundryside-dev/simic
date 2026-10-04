@@ -136,7 +136,55 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=.:src \
   -q -p no:cacheprovider -o addopts='' --basetemp=/tmp/simic-contract-tests
 ```
 
-Ingress boundaries are declared in the new module docstrings and validated in
-code. Wardline and Warpline are unavailable in the current execution
-environment; no passing gate is claimed for either. The full HLD contract
-registry is unseeded. This experiment does not claim HLD conformance.
+## Local Wardline contract
+
+The new modules use the official `weft-markers` 0.1.0 no-op decorators. Raw
+sources are CLI arguments, persisted JSON/JSONL, checkpoint bytes and local
+CIFAR tensors. Returning boundaries validate RunSpec ranges, tensor
+dtype/shape/count/labels, run completeness and artifact identities, checkpoint
+state, and measured evaluation records. JSON parsing alone is only `GUARDED`;
+it does not confer semantic assurance. `publish_evaluation` consumes the
+validated record and retains the existing exclusive-write refusal. These
+markers declare those specific contracts, not arbitrary metadata or scientific
+validity. They do not replace runtime checks.
+
+The Nyx-local dependency declares the absolute official source directory
+`/home/john/wardline/packages/weft-markers`, from Wardline commit
+`28deffbeb856b0359083b7df3e3f2b1e98e57584`. This checkout is required to reproduce
+the local environment. UV normalizes the lock's directory against the project
+location, so the lock must be generated and checked for `/home/john/simic`
+before installation there; it is not a portable or immutable package pin.
+Every run separately verifies and records installed marker-module SHA256,
+official source-module SHA256 and package-metadata SHA256 against explicit
+pins. Evaluation refuses changed dependency bytes along with source drift.
+Installing this marker package does not install the scanner or refresh Torch.
+
+Run the unsuppressed local gate from the repository root:
+
+```bash
+/home/john/wardline/.venv/bin/wardline scan . --fail-on ERROR \
+  --fail-on-inert --fail-on-unanalyzed --local-only --format jsonl \
+  --output /tmp/simic-wardline.jsonl --cache-dir /tmp/simic-wardline-cache
+
+WARDLINE_BIN=/home/john/wardline/.venv/bin/wardline \
+PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES='' \
+OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=.:src \
+/home/john/simic/.venv/bin/python -B -m pytest tests/unit/test_bounded_wardline.py \
+  -q -p no:cacheprovider -o addopts='' --basetemp=/tmp/simic-wardline-tests
+```
+
+The integration tests scan temporary copies of these actual modules, require
+the recognized function inventory, remove the actual data-validation rejection
+and bypass the actual evaluator verification path with raw persisted text.
+The intact path passes; both broken paths must produce specific ERROR findings.
+No training or dataset access is needed by those tests. Scanner witness tests
+skip when `WARDLINE_BIN` or a PATH scanner is unavailable, so a skipped test is
+not a passing gate.
+
+This is coverage of the new bounded seams, not a retrofit of the old kernel or
+full HLD. External/native calls (including Torch and torchvision) remain
+unresolved static-analysis facts; runtime integrity checks and contract tests
+cover behavior that the analyzer cannot prove. No baseline, waiver or blanket
+trust declaration is used. Warpline remains unavailable and no passing gate is
+claimed for it. The full HLD contract registry is unseeded; this experiment does
+not claim HLD conformance.
