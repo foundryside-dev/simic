@@ -80,10 +80,10 @@ over-provisioning.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-08-10
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-08
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
-(~/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
+(/mnt/data/archive/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
 re-confirmed 2026-08-09 (session 11), ratifying the two mechanical
 citation renames in the repo-discipline line below (Namespec 2.0 —
 PDR-0020; evidence-routing rule INV-07/INV-09 — ADR-0009).
@@ -96,9 +96,18 @@ external-party actions remain reserved. See the two lines marked
 **(widened 2026-08-10)** below; everything else is unchanged.
 **RATIFIED 2026-08-10 (PDR-0038)** after an explicit side-by-side against the
 parent grant. Note for anyone comparing the two files: Simic's remote clause
-now **deliberately diverges** from `~/esper-lite/docs/product/vision.md`, which
+now **deliberately diverges** from `/mnt/data/archive/esper-lite/docs/product/vision.md`, which
 still escalates every GitHub-remote action. That divergence is an owner
 decision, not drift — do not "reconcile" it back.
+**OWNERSHIP HANDED OVER 2026-10-08 (PDR-0040).** Owner, in session: *"you're
+taking over the project, merge it into main, and update all your findings -
+you have carriage to bring simic to green."* Claude is the standing owner and
+implementer. It MAY, without asking, take any action that brings the repository
+to the green state defined in `metrics.md`: merge reviewed work to `main`
+through a PR, repair tests and documentation, reconcile the tracker, and remove
+configuration for tools that no longer exist. Everything under "Escalate
+BEFORE acting" below still applies unchanged. GPU or paid campaigns and opening
+outer/test data are also reserved to the owner.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill

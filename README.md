@@ -6,14 +6,16 @@ fixed menu of human-authored blueprints — then conformed, compiled, QA-tested
 in matched counterfactual branches, adjudicated against doing nothing,
 embodied reversibly under warrant, and eventually retired.
 
-> **Status: bounded experimental implementation (2026-10-04).** The runnable
-> kernel demo implements a fixed-menu training/graft substrate. The new
-> [bounded comparison](docs/bounded-comparison.md) compares one fixed host and
-> seed with no growth, static added capacity, and scheduled grafting, with
-> outer evaluation in a separate command. The original kernel campaign is
-> retained. No learned-controller result or growth-superiority result is
-> established. The full HLD under [`docs/design/`](docs/design/00-INDEX.md)
-> remains a design, and `src/simic/` remains a package scaffold.
+> **Status (2026-10-08): bounded experimental implementation.** The runnable
+> [bounded comparison](docs/bounded-comparison.md) trains one fixed host three
+> ways: no growth, static added capacity, and a scheduled graft. Outer
+> evaluation is a separate command. In a CPU pilot on CIFAR-10 development data,
+> all three arms learn; one seed cannot separate them
+> ([result](docs/results/2026-10-08-bounded-cpu-pilot.md)). No growth-superiority
+> or learned-controller result exists. The full HLD under
+> [`docs/design/`](docs/design/00-INDEX.md) remains a design, `src/simic/` is a
+> package scaffold, and the August kernel-demo campaign is parked with its code
+> intact.
 
 ## The idea
 
@@ -87,6 +89,9 @@ defines 45 blocking invariants, cited as INV-nn. The spine:
 docs/design/                     Canonical HLD chapter set; entry point 00-INDEX.md
 docs/adr/                        Architecture decision records
 docs/product/                    Product workspace (vision, roadmap, decisions)
+docs/bounded-comparison.md       How to run the current experiment, and its contract
+docs/results/                    Dated result notes with archived run evidence
+experiments/                     Runnable code: bounded comparison, kernel demo
 docs/concept/archive/            Archived v4.1 monolith and superseded v2.0 — historical only
 ARCHITECTURE.md                  One-page digest of the system shape (start here)
 AGENTS.md / CLAUDE.md            Orientation digest for coding agents
@@ -111,6 +116,13 @@ screened* against doing nothing, under separated authorities.
 
 Work is tracked in filigree (dashboard at `http://localhost:9328` when
 running; `filigree session-context` at session start); design-review findings carry the
-`hld-review` label. The repo also uses the Weft tooling suite — loomweave
-(code map), wardline (trust-boundary gate), warpline (change impact), and
-legis (governance) — see `AGENTS.md` for agent-facing instructions.
+`hld-review` label. The repo also uses loomweave (code map) and plainweave
+(definition lifecycle) from the Weft tooling suite; see `AGENTS.md` for
+agent-facing instructions. Wardline, Warpline and Legis were retired from this
+repo on 2026-10-08 (PDR-0042).
+
+Run the test suite from the repository root (CPU only):
+
+```bash
+PYTHONPATH=.:src .venv/bin/python -m pytest tests -q
+```

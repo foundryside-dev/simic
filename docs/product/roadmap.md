@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-08-10 (session 14; PDR-0033 — kernel demo implementation accepted and merged, bet continues as the run)
+# Roadmap — Simic            Updated: 2026-10-08 (session 17; PDR-0043 — re-based on the bounded reboot)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -6,67 +6,75 @@
 
 > **Framing (PDR-0039, 2026-08-11).** Simic is an engineering programme, not a
 > confirmatory research study. Bets are judged against the *acceptance* class of
-> `docs/design/01-claim.md#28-success-criteria` — criteria that can fail and
-> gate calling the system working — not against criterion 2. The confirmatory
-> apparatus ($K = 1.5$ / $n = 32$, the eight-cell fleet) is mothballed with its
-> costings intact (ADR-0016) and is re-commissionable, not deleted. The
-> feasibility argument is the point: most components are established or one hop
-> from it, and the speculative risk is concentrated in the counterfactual screen
-> — see `docs/design/00-related-work.md`. **The nearest thing to a new bet this
-> creates is criterion 18** (does the paired-branch difference resolve an
-> intervention effect above branch-divergence noise), answerable at Phase D
-> before Momir exists; it is not yet shaped and is not on this map.
+> `docs/design/01-claim.md#28-success-criteria`, headed by criterion 18: does
+> the paired-branch difference resolve an intervention effect above
+> branch-divergence noise? The confirmatory apparatus is mothballed with its
+> costings intact (ADR-0016).
+>
+> **Re-based 2026-10-08 (PDR-0043).** ADR-0018's bounded reboot is the one Now
+> bet. It is the smallest experiment that can answer a criterion-18-shaped
+> question with the code that already exists. The HLD programme is paused
+> behind it, not cancelled: its resumption is gated on what the bounded screen
+> shows.
 
 ## Now  (committed, in-flight)
-- **Design hardening — reconcile HLD v4.1 with the 2026-08-08 Esper-pivot peer
-  review** — why: starting Phase A on an unstable contract surface would churn
-  every downstream package. The decision gate is adjudicated and closed
-  (PDR-0007); the HLD is decomposed into docs/design/ chapters (PDR-0009,
-  ADR-0001); remaining work runs as six region-based waves stamped as
-  `wave:*` labels (PDR-0008) · tracker: wave:0 cleared and the wave:1
-  Isperia pair landed (ADR-0004, ADR-0005); dependency-critical path now
-  simic-0bf2c40dec → simic-38a07fad39, six wave:1 items remain ·
-  metric: design-debt burn-down (metrics.md). The three-tier trust model
-  is now adopted doctrine (ADR-0015, PDR-0030) — wave:4-leyline contract
-  shapes record a tier per record class; enforcement wiring is
-  simic-8db0b87ed6 (Phase A)
-- **Kernel demo — the proof of concept** ("Simic in 20 minutes",
-  `experiments/kernel_demo.py`) — why: the pointable answer to "how do you
-  know it works" (PDR-0029: maths proved, risk is engineering). Moved to
-  Now by PDR-0031. **Implementation is done and merged** (PDR-0033, PR #9);
-  the bet now stands on the RUN — certify, freeze, collect, train, the
-  one-shot eval, report. Pre-registration of record is spec rev 6.1
-  (PDR-0032, pre-data amendment) · tracker: simic-4a44ed57c9 (closed) →
-  simic-7c42fc9c0b (Phases A–F; B and E need the owner present) · metric:
-  none of its own — never citable as §28 evidence; guarded by the
-  burn-down staying on pace (PDR-0031/0033 reversal triggers)
-- **Information-management regime (ADR-0002)** — why: data management was the
-  owner-named second esper bugbear (definition drift, no sign-or-lock,
-  lost lineage, silent mutation); Phase A binds code to contracts, so the
-  lock machinery must exist first. Named-definition lifecycle in plainweave,
-  runtime data policy P1–P7; runs alongside the waves, does not displace the
-  critical path (PDR-0010) · tracker: simic-357c92664c · metric: none of its
-  own — guarded by the design-debt burn-down staying on pace
+- **Bounded structural comparison** (`experiments/bounded_comparison.py`,
+  [guide](../bounded-comparison.md), ADR-0018). One host, the `conv_light`
+  seed, three arms: no growth, static extra capacity from step zero, and a
+  scheduled graft. Training and outer evaluation run as separate commands.
+  - Why: esper-lite showed the technique works but could never measure it
+    cleanly. This bet asks first whether a structural intervention earns its
+    cost against *both* controls, before any controller exists.
+  - State: implementation merged; CPU pilot read 2026-10-08 (PDR-0041). All
+    three arms learn on CIFAR development data; one seed cannot separate them.
+  - Next step: propose the multi-seed development screen with a budget
+    (`simic-7486bc6929`).
+  - Tracker: `simic-dda0d0188c`.
+  - Metric: the bounded-comparison rows in `metrics.md`.
+  - Kill / reopen: ADR-0018's trigger. If static capacity wins at the declared
+    cost, or measurement noise prevents a credible comparison, reopen the
+    design. Do not respond by enlarging the controller.
 
 ## Next (shaped, decreasing certainty)
-- **Phase A — Namespec, Leyline contracts, dependency boundaries** (HLD §25.A;
-  §30 milestones 1–3) — namespec ADR (Namespec 2.0 — done, ADR-0008), package skeleton with
-  forbidden-import checks, core contracts, lifecycle/warrant rules, budgets,
-  import-lint and authority tests. (not yet sequenced)
-- **Phase B — Tolaria host-training baseline and Academy profile** (HLD §25.B) —
-  ordinary host execution behind one deterministic engine; Academy-exact runtime
-  profile; deterministic mainline traces. (not yet sequenced)
+- **Resume the HLD programme: design hardening, then Phase A.** Paused by
+  ADR-0018, not dropped.
+  - Design-debt burn-down: 31 open / 23 closed `hld-review` items, unchanged
+    since 2026-08-10. Its 2026-09-30 date fired. PDR-0034 pre-committed that
+    the date does not move a second time, so it is **un-dated** rather than
+    re-dated (PDR-0043).
+  - Phase A gate: when the bounded screen reports (tracker gate
+    `simic-6f4f111ec8`; 35 paused items depend on it). If paired differences are
+    resolvable at bounded scale, resume Phase A with the ~10 contract-blocking
+    items named in the 2026-08-10 decision queue (`simic-0bf2c40dec` first).
+    If they are not, the HLD's central instrument needs redesign before any
+    contract is drafted.
+  - Phase A also needs the Wardline trust gate re-wired once the tool returns
+    (`simic-8db0b87ed6`, `simic-2035316005`).
+- **Information-management regime (ADR-0002)** (`simic-357c92664c`): the
+  plainweave seeding still wants the owner present. Rides with Phase A.
 
 ## Later (directional bets, no order, no dates)
-- **Phases C–K toward the §24 Minimum Viable System** — growth mechanics, replay
-  and branching, Jin-Gitaxias QA, Isperia adjudication and controls, Urborg/Momir
-  bootstrap curriculum, Nissa/Aurelia routing, Emrakul maintenance, Ugin
-  allocation, Tamiyo and scale.
-- **Esper-derived controls** — the working blueprint selector and the
-  degenerate-architecture fixtures (~10%→~40% headroom) as sharp, cheap baselines
-  for the generation hypothesis · adjudicated at the gate (PDR-0007): accepted
-  as a permanent blinded control; the spec task simic-1d3aa47ff1 is wave:2 work
-  inside the Now bet, the running control itself lands with the QA-pool phases.
+- **Kernel demo campaign** (`experiments/kernel_demo.py`, spec rev 6.1/6.2) —
+  **parked, not killed.**
+  - The August preflight ran 60 fans and 12 refans, failed gates 1–5, and
+    never froze.
+  - ADR-0018 retained the code and campaign unchanged. The bounded comparison
+    reuses its training primitives.
+  - Resuming it needs its own DECIDE: the preflight failures first, then the
+    Task 19B/19C items (`simic-e3ad55344f`, `simic-0fd4fcb933`) and the
+    Phases A–F run (`simic-7c42fc9c0b`).
+- **Learned structural timing** (random → heuristic → learned). Per ADR-0018
+  this follows only if the bounded comparison shows the intervention earns its
+  cost. The esper-lite "Tamiyo" ambition, telemetry-conditioned and
+  cross-model, stays visible here and nowhere nearer.
+- **Phases C–K toward the §24 Minimum Viable System**: growth mechanics, replay
+  and branching, Jin-Gitaxias QA, Isperia adjudication and controls,
+  Urborg/Momir bootstrap curriculum, Nissa/Aurelia routing, Emrakul
+  maintenance, Ugin allocation, Tamiyo and scale.
+- **Esper-derived controls**: the working blueprint selector and the
+  degenerate-architecture fixtures (~10%→~40% headroom) as sharp, cheap
+  baselines for the generation hypothesis. Adjudicated as a permanent blinded
+  control (PDR-0007); the spec task is `simic-1d3aa47ff1`.
 - **Project-level rename decision** (HLD §27.1) — **decided** (ADR-0003,
   owner commit b42250c): Simic through publication, predecessors behind a
   clean seam. Off the map; only an external naming constraint at the

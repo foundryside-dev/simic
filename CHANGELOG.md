@@ -8,7 +8,10 @@ once implementation begins.
 
 ## [Unreleased]
 
-Pre-implementation bootstrap. No source code yet — the canonical HLD chapter
-set lives under [`docs/design/`](docs/design/00-INDEX.md); design changes are
-tracked there and in [`docs/adr/`](docs/adr/), not in this changelog. Entries
+Pre-release. The production package `src/simic/` is still a scaffold. The
+runnable code is experimental and lives under `experiments/`: the bounded
+comparison and the parked kernel demo. Its decisions and results are recorded
+in [`docs/adr/`](docs/adr/), [`docs/product/decisions/`](docs/product/decisions/)
+and [`docs/results/`](docs/results/). The canonical HLD chapter set lives
+under [`docs/design/`](docs/design/00-INDEX.md). Entries in this changelog
 begin with the first Phase A code milestone.
