@@ -1,7 +1,7 @@
 # Simic — Counterfactual Generative Morphogenesis
 
-Simic is the third incarnation of ESPER (`~/esper`) and ESPER LITE
-(`~/esper-lite`), redesigned around discoveries from those systems. It is a
+Simic is the third incarnation of ESPER and ESPER LITE (both archived under
+`/mnt/data/archive/`), redesigned around discoveries from those systems. It is a
 lifecycle-driven neural training system in which new computational structure is
 **generated from the live state of a host network** — not selected from a fixed
 menu of human-authored blueprints — then conformed, compiled, QA-tested in
@@ -110,16 +110,30 @@ boundaries) comes first**; MVP scope is in `programme/phases.md`; the first
 repository milestones are in `ops/repo-structure.md`. Python is the working
 language.
 
-## Current state (2026-08-08)
+## Current state (2026-10-08)
 
-Phase A bootstrap. The Python scaffold is in place (pyproject with uv,
-`src/simic/`, `tests/`, pre-commit) but carries no functional code yet —
-substantive content is the HLD and the Weft tooling below. First engineering
-work is Phase A (Namespec, Leyline contracts, dependency boundaries).
-Licensed Apache-2.0. The project name was locked as Simic on 2026-08-08
-(`programme/risks-and-open-decisions.md`); subsystem boundaries are locked
-too. Design-review findings and
-open design decisions are tracked in filigree under the `hld-review` label.
+Claude owns the project as of 2026-10-08
+([PDR-0040](docs/product/decisions/0040-ownership-handover-to-claude.md)). The
+resume brief is [`docs/product/current-state.md`](docs/product/current-state.md):
+read it first.
+
+The one active experiment is the [bounded comparison](docs/bounded-comparison.md)
+([ADR-0018](docs/adr/0018-bounded-structural-comparison.md)). It trains one
+fixed host and seed three ways: no growth, static extra capacity, and a
+scheduled graft. Outer evaluation is a separate command. The October 8 CPU
+pilot showed all three arms learning on CIFAR development data, but one seed
+cannot separate them ([result](docs/results/2026-10-08-bounded-cpu-pilot.md)).
+The next step is a predeclared multi-seed screen, which has to be proposed with
+a budget before it runs.
+
+The production package under `src/simic/` remains a scaffold. The kernel demo
+(`experiments/kernel_demo.py`) is parked: its August preflight failed gates
+1–5 and never froze. Saved result-shaped synthetic charts are layout previews,
+not evidence. The HLD programme (design hardening, Phase A) is paused behind
+the bounded comparison, un-dated, and gated on the screen's result
+([PDR-0043](docs/product/decisions/0043-roadmap-rebased-on-bounded-reboot.md)).
+Keep existing history, design and old campaign artifacts intact. Licensed
+Apache-2.0.
 
 <!-- filigree:instructions:v3.1.0:c1c023c3 -->
 <!-- filigree:last-writer:filigree install -->
@@ -159,11 +173,6 @@ does Y".
 Full reference: `loomweave-workflow` skill, `loomweave --help`, MCP schemas.
 <!-- /loomweave:instructions -->
 
-<!-- wardline:instructions:v1:bcd19330 -->
-<!-- wardline:last-writer:wardline install -->
-This project uses **wardline** as its trust-boundary gate. Before handing back code that touches external input, run `wardline scan . --fail-on ERROR` (exit 0 = clean, 1 = gate tripped, 2 = wardline error) and fix findings at the boundary, not the sink. The full scan -> explain -> fix -> rescan loop and the baseline-vs-waiver discipline live in the `wardline-gate` skill.
-<!-- /wardline:instructions -->
-
 ## Plainweave (definitional lifecycle — ADR-0002)
 
 Named definitional units (Leyline contract shapes, invariants, telemetry
@@ -176,34 +185,11 @@ recorded event, never a silent edit. The store is initialized but seeding is
 pending (simic-357c92664c) — absence of a baseline means "not yet seeded",
 not "unmanaged".
 
-<!-- warpline:instructions:v1.3.0 -->
-## Warpline (temporal change-impact)
+## Retired tools
 
-`warpline` answers "if I touch X, what breaks, and what must I re-verify?".
-Prefer the MCP tools (`mcp__warpline__*`); fall back to the `warpline` CLI.
-
-Call `warpline_change_list` (shim: `changed`) for a rev range first, then follow
-its `next_actions` into `reverify` / `blast_radius`. A `completeness` of
-`NO_SNAPSHOT` means warpline cannot see, NOT that nothing is affected.
-
-Enrich-only, local-only, advisory: warpline never gates. The `warpline-workflow`
-skill carries the full tool set, the closed vocabularies, and the loop.
-<!-- /warpline:instructions -->
-
-<!-- legis:instructions:v1.5.0:37065fbc -->
-## Legis (git/CI + governance)
-
-Legis is the git/CI and governance layer of the Weft suite: graded policy
-enforcement over branch/commit/PR/check context, recorded in an append-only
-audit trail keyed to stable code identity (SEI), so it survives rename/move.
-
-Reach for it when a policy fires at the CI/git boundary, when a change needs a
-recordable override or human sign-off, or when you need git/CI context.
-
-- Prefer the `mcp__legis__*` MCP tools; fall back to the `legis` CLI.
-- Clear a fired policy through `override_submit` (MCP-only), which grades it
-  (self-clear / judged / escalated) and records it — routing around it leaves
-  no trail.
-
-Full reference: the `legis-workflow` skill, `legis --help`, MCP schemas.
-<!-- /legis:instructions -->
+Legis (governance), Wardline (trust-boundary gate) and Warpline (change
+impact) were removed from this repository on 2026-10-08 ([PDR-0042](docs/product/decisions/0042-retire-unavailable-weft-tools.md)).
+Their binaries no longer exist on this host, and Wardline is being rebuilt
+upstream. Do not run their gates or cite a result from them. Older ADRs, PDRs
+and reviews that mention them are historical. Re-adding any of them is a new
+decision, not a revert.

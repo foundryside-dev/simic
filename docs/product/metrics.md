@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-08-10 (session 15)
+# Metrics — Simic             Last read: 2026-10-08 (session 17)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -24,11 +24,18 @@ constant 0.292, which puts P(abandon | K=1.0) at 0.153 where the correct value
 is 0.458, and 80% power needs n ≈ 73); and declare per-arm candidate counts with
 arm-size matching. See ADR-0016.
 
+## Bounded comparison (the Now bet — ADR-0018, PDR-0043)
+| Metric | Target (falsifiable) | Current | Read on |
+|--------|----------------------|---------|---------|
+| Every arm learns on development data at the approved pilot budget | Pass if final dev CE < initial dev CE for all three arms (pre-committed 2026-10-04) | **PASS.** No growth 2.306→1.691; static 2.306→1.605; scheduled 2.306→1.722. One paired seed, 1,024 fit / 256 dev, 10 epochs, CPU (`docs/results/2026-10-08-bounded-cpu-pilot.md`, PDR-0041) | 2026-10-08 (session 17) |
+| Arms are separable: the paired dev-CE difference between arms exceeds run-to-run noise | The endpoint, seed count and reading are to be declared before the screen runs (`simic-7486bc6929`). ADR-0018 reopen trigger: static capacity wins at the declared cost, or noise prevents a credible comparison | **Not yet resolvable.** Final-epoch arm differences are ≤0.12 CE, while a single epoch swings by up to 0.47 CE within one arm. Two readings so far (the synthetic fixture and this pilot) both rank static capacity first; neither is evidence | 2026-10-08 (session 17) |
+| Scheduled-graft cost relative to static capacity | Reported, not targeted: optimizer parameter-steps, seed example passes, wall seconds | Pilot, as a share of no growth's 45.44 M optimizer parameter-steps: scheduled +5.0%, static +6.3%. Wall time ≈19 s per arm | 2026-10-08 (session 17) |
+
 ## Input metrics (the levers that move the north-star)
 | Metric | Target | Current | Read on |
 |--------|--------|---------|---------|
-| Design-debt burn-down: open `hld-review` tracker items | 0 by **2026-09-30** (moved from 2026-08-31, owner decision 2026-08-10 — **PDR-0034**, which pre-commits that the date is not moved a second time) | 31 open / 23 closed. The 2026-08-31 date fired and was re-planned: the kernel demo took the recent sessions, the owner accepted it displaced this bet, and the date moved a month. **Context for anyone reading this cold: the project is two days old** (started 2026-08-08) and this is a spare-time moonshot — 23 items closed in two days is the actual signal, and a displaced bet is a choice being made, not a slip. The date exists so the choice stays visible (PDR-0005), not as pressure. Note 2026-09-30 shares a month with the Phase-A target below | 2026-08-10 (session 15) |
-| Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete by 2026-09-30 (provisional — revise by PDR if the gate reshapes §9 materially) | 0 of 11. (No longer "pre-code" as of 2026-08-10: `experiments/kernel_demo.py` is on main — but the demo is deliberately outside the HLD phase ladder and closes no phase, PDR-0029) | 2026-08-10 (session 14) |
+| Design-debt burn-down: open `hld-review` tracker items | 0, **un-dated**: gated on the bounded screen (PDR-0043). The 2026-09-30 date (PDR-0034) fired on 2026-10-01 and was not moved a second time, as pre-committed | **2026-10-08: 31 open / 23 closed, unchanged since 2026-08-10.** The bet was paused behind ADR-0018's bounded reboot. Earlier note, kept for context: | 31 open / 23 closed. The 2026-08-31 date fired and was re-planned: the kernel demo took the recent sessions, the owner accepted it displaced this bet, and the date moved a month. **Context for anyone reading this cold: the project is two days old** (started 2026-08-08) and this is a spare-time moonshot — 23 items closed in two days is the actual signal, and a displaced bet is a choice being made, not a slip. The date exists so the choice stays visible (PDR-0005), not as pressure. Note 2026-09-30 shares a month with the Phase-A target below | 2026-08-10 (session 15) |
+| Phase progression: HLD §25 phases with acceptance tests (§21) passing | Phase A complete, **un-dated**: gated on the bounded screen (PDR-0043). The provisional 2026-09-30 target fired at 0 of 11 | 0 of 11 (2026-10-08). (No longer "pre-code" as of 2026-08-10: `experiments/kernel_demo.py` is on main — but the demo is deliberately outside the HLD phase ladder and closes no phase, PDR-0029) | 2026-08-10 (session 14) |
 | Supervision cost per counterfactual arm (demo-scale proxy for the §28 cost model) | No target — **instrumented, not yet read.** The demo's own claim is fan supervision *economics* and until rev 6.2 the store carried no denominator | N/A — `wall_s` / `peak_mem_bytes` land with the first Phase-C collect (PDR-0036) | 2026-08-10 (session 15) |
 
 ## Optional studies (costed, commissionable, NOT gating — PDR-0039 / ADR-0016)
@@ -46,6 +53,7 @@ and re-commissioning is a decision, not a redesign.
 ## Guardrails (must NOT degrade)
 | Metric | Floor / ceiling | Current | Read on |
 |--------|-----------------|---------|---------|
+| **Repository green** (PDR-0040): `main` carries all accepted work; the full `tests/` suite passes; no configured tool, hook or MCP server points at a missing binary; `current-state.md` describes reality | Floor: all four hold at every checkpoint | See the session 17 checkpoint in `current-state.md` | 2026-10-08 (session 17) |
 | Academy exact-replay gate: identical snapshot + identical future data ⇒ bitwise-identical traces (HLD §18, invariant 5) | Floor: 100% pass, from Phase D onward | N/A — the gate itself begins at Phase D. Note (2026-08-10): the kernel demo now implements a *rehearsal* of this machinery — Class-1 determinism knobs, zero-normalized state hashes, a bitwise twin arm that halts the fleet on divergence, and a null-seed arm that must reproduce the base exactly. It is evidence the mechanism is buildable, **not** a reading of this gate | 2026-08-10 (session 14) |
 | History completeness: candidate pools, failures, rejections, no-op wins and abstentions retained in Urborg (never winners-only) | Floor: 100% of cases | N/A — pre-code | 2026-08-08 |
 | Harmful-intervention rate under admitted growth (HLD §28.6) | Ceiling: the tail-risk veto's declared operating point per assurance class — shape fixed by ADR-0004 (INV-45: veto precedes utility, non-tradeable, priced against snapshot distance); numbers land with the Phase-A adjudication-policy LLD | N/A — pre-code. Note (2026-08-10): there is still **no evidence such an operating point is findable at all**. Registered exploratory study E1 against the demo store is the first attempt to price it — divergence predictability from pre-decision telemetry, with the foregone benefit at each operating point | 2026-08-10 (session 15) |

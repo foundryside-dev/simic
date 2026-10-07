@@ -25,9 +25,11 @@ repos:
       - id: trailing-whitespace
         # Generated diagram SVGs are byte-exact mmdc output; "fixing" them here
         # would churn against every re-render (tools/diagrams/render.sh).
-        exclude: ^site/assets/diagrams/
+        # Archived run evidence under docs/results/ is checksummed by its own
+        # complete.json; a whitespace "fix" would silently break those hashes.
+        exclude: ^(site/assets/diagrams/|docs/results/.+/)
       - id: end-of-file-fixer
-        exclude: ^site/assets/diagrams/
+        exclude: ^(site/assets/diagrams/|docs/results/.+/)
       - id: check-yaml
         # mkdocs.yml uses the standard `!!python/name:` superfences tag, which
         # safe-load cannot parse; mkdocs itself validates this file (--strict).

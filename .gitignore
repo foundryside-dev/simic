@@ -1,15 +1,10 @@
-# Filigree issue tracker
+# Weft tool state (filigree, loomweave; .weft/ also holds the local state of
+# the retired legis/wardline/warpline integrations — never commit)
 .weft/
 .filigree/
 .env
-
-# Legis — local working dir / config (regenerated/local; never commit)
-.weft/legis/
-/.weft/legis/operator_session.json
-/.weft/legis/operator.age
-/.mcp.json.legis.lock
 /.mcp.json*.tmp
-# Wardline scan artifacts
+# Retired Wardline scan cache and findings output
 .wardline/
 findings.jsonl
 

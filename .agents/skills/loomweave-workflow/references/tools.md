@@ -70,9 +70,14 @@ Of those, `entity_callers_list` / `entity_neighborhood_get` /
 static blind spots the query did **not** search:
 `"attribute-receiver-calls"` (like `ctx.svc.run()`) and
 `"unresolved-static-calls"` (the project holds call sites the static resolver
-could not bind — common for cross-module/cross-crate calls). A non-empty
-`scope_excludes` means an empty/short result is **not** a guaranteed true
-negative.
+could not bind — common for cross-module/cross-crate calls), and
+`"degraded-call-resolution"` (at least one analysed file's plugin reported
+that its call resolver timed out, crashed, or was disabled — that file holds
+neither `calls` edges nor unresolved sites, so its callers are invisible at
+**every** confidence tier, `inferred` included; the caller tools also report
+`degraded_call_coverage_files`, and the next `analyze` re-dispatches the
+transient ones automatically). A non-empty `scope_excludes` means an
+empty/short result is **not** a guaranteed true negative.
 
 The recovery path that works in **every** posture: `entity_callers_list` and
 `entity_neighborhood_get` also return `unresolved_name_matches` — the count of
@@ -92,8 +97,17 @@ invisible.)
 `entity_execution_path_list` returns a compact shape: `root`, a deduplicated
 `nodes` table (id + short_name + location, each node once), and `paths` as
 arrays of node-id strings ranked longest-first. Resolve a path id against `nodes`, not by
-re-reading each path element. `truncated`/`truncation_reason` report `edge-cap`
-(traversal stopped early) or `path-cap` (ranked output trimmed for size).
+re-reading each path element. `truncated:true`/`truncation_reason` report
+`edge-cap` (traversal stopped early) or `path-cap` (ranked output trimmed for
+size); both keys are absent when nothing was cut.
+
+**List rows are slim** (X-6): every list surface's entity rows carry
+`{id, sei, kind, short_name, source_file_path (project-relative),
+source_line_start}` (+ a `collision` disclosure when one exists). The full
+projection — `name`, line span, `content_hash`, inline `tags` — rides only on
+the anchor surfaces: `entity_at`, `entity_source_get`, orientation's
+`primary_entity`, and `entity_resolve` candidates. Need tags or the hash for
+a listed id? Follow up with `entity_at`/`entity_resolve` on that id.
 
 ### Ids, SEIs, and `entity_resolve`
 
