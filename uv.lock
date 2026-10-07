@@ -2176,7 +2176,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "torch" },
     { name = "torchvision" },
-    { name = "weft-markers" },
 ]
 
 [package.dev-dependencies]
@@ -2196,7 +2195,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "torch", specifier = ">=2.13.0" },
     { name = "torchvision", specifier = ">=0.28.0" },
-    { name = "weft-markers", directory = "../wardline/packages/weft-markers" },
 ]
 
 [package.metadata.requires-dev]
@@ -2458,11 +2456,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/34/74/c6428f875774288be
 wheels = [
     { url = "https://files.pythonhosted.org/packages/96/42/3e5985a0a7e57de470b320c6d6a1a67c844f6737a587f3d44dd13d1819e7/wcwidth-0.8.2-py3-none-any.whl", hash = "sha256:d63947694a0539a1d51e01eda7caf800c291020e6cdd7e28ad7b14dd33ad4f85", size = 323166, upload-time = "2026-06-29T18:11:09.888Z" },
 ]
-
-[[package]]
-name = "weft-markers"
-version = "0.1.0"
-source = { directory = "../wardline/packages/weft-markers" }
 
 [[package]]
 name = "werkzeug"

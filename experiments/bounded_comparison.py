@@ -13,7 +13,6 @@ import argparse
 import copy
 import dataclasses
 import hashlib
-import importlib.metadata
 import json
 import math
 import os
@@ -22,12 +21,10 @@ import subprocess
 import time
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import Any, TextIO
 
 import torch
-import weft_markers
 from torch import nn
-from weft_markers import external_boundary, trust_boundary, trusted
 
 from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, load_outer, tensor_hash, validated_spec
 from experiments.kernel_demo import (
@@ -49,10 +46,6 @@ from experiments.kernel_demo import (
 ARMS = ("no_growth", "static", "scheduled")
 SCHEMA = 1
 REPO = Path(__file__).resolve().parent.parent
-MARKER_PACKAGE = Path("/home/john/wardline/packages/weft-markers")
-MARKER_SOURCE_REV = "28deffbeb856b0359083b7df3e3f2b1e98e57584"
-MARKER_MODULE_SHA256 = "a0328373a738a3841225b81ff64a6c25403ec9cb33156cb4996c1f0a25646d27"
-MARKER_METADATA_SHA256 = "b82c16fa91d0842a28497661c07ad6b42a0f34cd81dee2271356f020c552510f"
 
 
 def strict_json(value: Any) -> str:
@@ -72,12 +65,10 @@ def _bad_constant(value: str) -> Any:
     raise ValueError(f"non-finite JSON value: {value}")
 
 
-@external_boundary
 def _read_json_text(path: Path) -> str:
     return path.read_text()
 
 
-@trust_boundary(to_level="GUARDED")
 def read_json(path: Path) -> dict[str, Any]:
     """Guard JSON syntax/object/finiteness; semantic assurance is verify_run."""
     value = json.loads(_read_json_text(path), object_pairs_hook=_pairs, parse_constant=_bad_constant)
@@ -295,7 +286,6 @@ def runtime(threads: int) -> dict[str, Any]:
         "python": platform.python_version(),
         "torch": torch.__version__,
         "torchvision": torchvision.__version__,
-        "weft_markers": importlib.metadata.version("weft-markers"),
         "platform": platform.platform(),
         "machine": platform.machine(),
         "processor": platform.processor(),
@@ -330,21 +320,6 @@ def source_identity() -> dict[str, Any]:
         "uv.lock",
     )
     identity: dict[str, Any] = {name: file_hash(REPO / name) for name in paths}
-    if weft_markers.__file__ is None:
-        raise RuntimeError("installed marker module has no source identity")
-    installed = file_hash(Path(weft_markers.__file__))
-    metadata = file_hash(MARKER_PACKAGE / "pyproject.toml")
-    source = file_hash(MARKER_PACKAGE / "src/weft_markers/__init__.py")
-    if installed != MARKER_MODULE_SHA256 or source != MARKER_MODULE_SHA256 or metadata != MARKER_METADATA_SHA256:
-        raise RuntimeError("official marker dependency source drift")
-    identity["weft_markers_dependency"] = {
-        "upstream": "https://github.com/foundryside-dev/wardline",
-        "revision": MARKER_SOURCE_REV,
-        "installed_module_sha256": installed,
-        "source_module_sha256": source,
-        "package_metadata_sha256": metadata,
-        "local_package": str(MARKER_PACKAGE),
-    }
     return identity
 
 
@@ -725,12 +700,10 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
     return completion
 
 
-@external_boundary
 def _read_training_lines(path: Path) -> list[str]:
     return path.read_text().splitlines(keepends=True)
 
 
-@trust_boundary(to_level="ASSURED")
 def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     """Assure the declared consumer contract, not arbitrary metadata semantics."""
     complete = read_json(root / "complete.json")
@@ -809,12 +782,10 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     return manifest, complete, spec
 
 
-@external_boundary
 def _read_checkpoint(path: Path) -> Any:
     return torch.load(path, map_location="cpu", weights_only=True)
 
 
-@trust_boundary(to_level="ASSURED")
 def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) -> tuple[Any, Slot]:
     if arm not in ARMS:
         raise ValueError("unknown arm")
@@ -854,11 +825,9 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
     result = evaluation_record(
         verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")
     )
-    # Official marker factories preserve callables but currently erase typing.
-    return cast(dict[str, Any], publish_evaluation(root, result))
+    return publish_evaluation(root, result)
 
 
-@trust_boundary(to_level="ASSURED")
 def evaluation_record(
     verified: tuple[dict[str, Any], dict[str, Any], RunSpec],
     outer_identity: dict[str, Any],
@@ -924,14 +893,12 @@ def evaluation_record(
     }
 
 
-@trusted(level="ASSURED")
 def publish_evaluation(root: Path, record: dict[str, Any]) -> dict[str, Any]:
     """Consume the validated evaluation record; retain exclusive-write refusal."""
     write_json(root / "outer_evaluation.json", record)
     return record
 
 
-@external_boundary
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)

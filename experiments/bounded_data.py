@@ -10,10 +10,9 @@ import dataclasses
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import torch
-from weft_markers import external_boundary, trust_boundary
 
 from experiments.kernel_demo import Config, derive, make_generator
 
@@ -76,7 +75,6 @@ class RunSpec:
         )
 
 
-@trust_boundary(to_level="ASSURED")
 def validated_spec(values: dict[str, Any]) -> RunSpec:
     """Return a specification only after the existing complete range checks."""
     spec = RunSpec(**values)
@@ -108,7 +106,6 @@ def validate_data(x: torch.Tensor, y: torch.Tensor, n: int) -> None:
         raise ValueError("labels must be in [0, 10)")
 
 
-@trust_boundary(to_level="ASSURED")
 def validated_data(x: torch.Tensor, y: torch.Tensor, n: int) -> tuple[torch.Tensor, torch.Tensor]:
     """Assure only image/label dtype, shape, count and ten-class label range."""
     validate_data(x, y, n)
@@ -153,7 +150,6 @@ def cifar_source_hashes(root: Path) -> dict[str, str]:
     return {name: file_hash(folder / name) for name in [*(name for name, _ in meta["train_files"]), meta["meta"]["filename"]]}
 
 
-@external_boundary
 def _read_cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
     from torchvision.datasets import CIFAR10
     from torchvision.datasets.utils import check_integrity
@@ -175,11 +171,9 @@ def _read_cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]
 
 def _cifar(root: Path, *, train: bool) -> tuple[torch.Tensor, torch.Tensor]:
     x, y = _read_cifar(root, train=train)
-    # Official marker factories currently erase typing, but preserve callables.
-    return cast(tuple[torch.Tensor, torch.Tensor], validated_data(x, y, 50000 if train else 10000))
+    return validated_data(x, y, 50000 if train else 10000)
 
 
-@trust_boundary(to_level="ASSURED")
 def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, dict[str, Any]]:
     spec = validated_spec(dataclasses.asdict(spec))
     if spec.data == "smoke":
@@ -220,7 +214,6 @@ def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.
     return tx, ty, dx, dy, provenance
 
 
-@trust_boundary(to_level="ASSURED")
 def load_outer(spec: RunSpec, root: Path | None, provenance: dict[str, Any]) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
     spec = validated_spec(dataclasses.asdict(spec))
     if spec.data == "smoke":

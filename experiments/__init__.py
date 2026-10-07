@@ -54,17 +54,13 @@ the reset.
 
 ## Why this is not executable yet
 
-Wardline's boundary vocabulary is `@external_boundary` / `@trust_boundary` /
-`@trusted`, imported from `wardline.decorators` — a runtime import. Two things
-block adopting it here today:
-
-1. `wardline` is not a dependency of this project (not importable in `.venv`).
-2. `experiments/kernel_demo.py` is pinned by its spec to **torch + torchvision
-   only**; adding a third runtime import would breach that pin.
-
-So `wardline scan` reports `0 trust boundaries recognized` and its taint gate is
-**inert repo-wide** — it passes while checking nothing. This docstring is the
-declaration ADR-0015 asks for in the meantime; making it mechanical is Phase-A
-work on `simic-8db0b87ed6`, and needs a decision on how wardline's decorators
-enter a project whose experiment file is dependency-pinned.
+Nothing enforces these declarations mechanically. Wardline, the Weft
+trust-boundary scanner, is being rebuilt upstream, and its integration was
+retired from this repository on 2026-10-08 (PDR-0042). The bounded-comparison
+modules carried Wardline's no-op marker decorators from `c40972d` until that
+retirement; re-applying them is `simic-2035316005`. Making these declarations
+mechanical for the kernel demo is Phase-A work on `simic-8db0b87ed6`, and still
+needs a decision on how markers enter `kernel_demo.py`, whose spec pins its
+runtime imports to torch and torchvision only. Until then, runtime validation
+and the contract tests are the only assurance.
 """
