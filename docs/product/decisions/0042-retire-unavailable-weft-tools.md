@@ -71,3 +71,15 @@ returns through its own decision, not through a revert of this one. For
 Wardline, `simic-2035316005` re-applies the markers against whatever
 dependency form the rebuilt package ships, which should not be an absolute
 path into a source checkout.
+
+## Correction (2026-10-08, same session)
+
+An independent review of `360b79c` found a factual error in "The call".
+`tests/unit/test_bounded_wardline.py` was **not** scanner-only. Its first four
+test functions (14 test cases) exercised runtime refusals in `validated_spec`,
+`validated_data`, `evaluation_record` and `publish_evaluation`, and no other
+test covered them. Deleting the file left those paths untested, so the claim
+that "the contract tests still exercise them" was false between `360b79c` and
+the fix. The fix restores those tests unchanged as
+`tests/unit/test_bounded_contracts.py`. Only the marker-drift test and the
+four scanner witnesses stay deleted.
