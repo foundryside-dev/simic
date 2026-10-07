@@ -105,7 +105,7 @@ or superiority claim follows from it.
 
 ## Deliverables and failure semantics
 
-`manifest.json` pins the specification, executed source/dependency hashes,
+`manifest.json` pins the specification, executed source hashes,
 Git commit and dirty status, runtime/host/thread identity, split identities,
 RNG streams and common future. `training.jsonl` retains every arm start and
 epoch, action, calibration, stage and alpha/beta values actually used, raw
@@ -136,55 +136,34 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=.:src \
   -q -p no:cacheprovider -o addopts='' --basetemp=/tmp/simic-contract-tests
 ```
 
-## Local Wardline contract
+## Trust seams
 
-The new modules use the official `weft-markers` 0.1.0 no-op decorators. Raw
-sources are CLI arguments, persisted JSON/JSONL, checkpoint bytes and local
-CIFAR tensors. Returning boundaries validate RunSpec ranges, tensor
-dtype/shape/count/labels, run completeness and artifact identities, checkpoint
-state, and measured evaluation records. JSON parsing alone is only `GUARDED`;
-it does not confer semantic assurance. `publish_evaluation` consumes the
-validated record and retains the existing exclusive-write refusal. These
-markers declare those specific contracts, not arbitrary metadata or scientific
-validity. They do not replace runtime checks.
+The raw inputs are CLI arguments, persisted JSON/JSONL, checkpoint bytes and
+local CIFAR tensors. Validation happens at the boundary where each one enters:
 
-The Nyx-local dependency declares the absolute official source directory
-`/home/john/wardline/packages/weft-markers`, from Wardline commit
-`28deffbeb856b0359083b7df3e3f2b1e98e57584`. This checkout is required to reproduce
-the local environment. UV normalizes the lock's directory against the project
-location, so the lock must be generated and checked for `/home/john/simic`
-before installation there; it is not a portable or immutable package pin.
-Every run separately verifies and records installed marker-module SHA256,
-official source-module SHA256 and package-metadata SHA256 against explicit
-pins. Evaluation refuses changed dependency bytes along with source drift.
-Installing this marker package does not install the scanner or refresh Torch.
+- `validated_spec` checks RunSpec ranges and types.
+- `validate_data` checks tensor dtype, shape, count and labels.
+- `read_json` rejects duplicate keys, non-object roots and non-finite numbers.
+  Parsing alone is only syntactic.
+- `verify_run` gives semantic assurance: completeness, artifact identities,
+  checkpoint state and source/runtime drift.
+- `publish_evaluation` consumes only a verified record and refuses to
+  overwrite an existing one.
 
-Run the unsuppressed local gate from the repository root:
+The contract tests exercise these rejection paths directly.
 
-```bash
-/home/john/wardline/.venv/bin/wardline scan . --fail-on ERROR \
-  --fail-on-inert --fail-on-unanalyzed --local-only --format jsonl \
-  --output /tmp/simic-wardline.jsonl --cache-dir /tmp/simic-wardline-cache
+Until 2026-10-08 these seams also carried no-op Wardline marker decorators, so
+the Wardline scanner could check them statically. Wardline is being rebuilt,
+and the markers were imported from an absolute path into its source checkout
+and re-hashed at every run. They were therefore removed (PDR-0042). Commit
+`c40972d` shows the full marking and its witness tests; re-applying them is
+`simic-2035316005`. Until then, no static analyzer covers these modules, and
+runtime checks plus contract tests are the only assurance. This experiment does
+not claim HLD conformance, and the full HLD contract registry is unseeded.
 
-WARDLINE_BIN=/home/john/wardline/.venv/bin/wardline \
-PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 CUDA_VISIBLE_DEVICES='' \
-OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONPATH=.:src \
-/home/john/simic/.venv/bin/python -B -m pytest tests/unit/test_bounded_wardline.py \
-  -q -p no:cacheprovider -o addopts='' --basetemp=/tmp/simic-wardline-tests
-```
+## Recorded runs
 
-The integration tests scan temporary copies of these actual modules, require
-the recognized function inventory, remove the actual data-validation rejection
-and bypass the actual evaluator verification path with raw persisted text.
-The intact path passes; both broken paths must produce specific ERROR findings.
-No training or dataset access is needed by those tests. Scanner witness tests
-skip when `WARDLINE_BIN` or a PATH scanner is unavailable, so a skipped test is
-not a passing gate.
-
-This is coverage of the new bounded seams, not a retrofit of the old kernel or
-full HLD. External/native calls (including Torch and torchvision) remain
-unresolved static-analysis facts; runtime integrity checks and contract tests
-cover behavior that the analyzer cannot prove. No baseline, waiver or blanket
-trust declaration is used. Warpline remains unavailable and no passing gate is
-claimed for it. The full HLD contract registry is unseeded; this experiment does
-not claim HLD conformance.
+| Date | Run | Data | Outcome |
+|---|---|---|---|
+| 2026-10-04 | Synthetic acceptance and tiny CIFAR smoke (128 fit / 64 dev / 128 outer, 7 epochs) | Synthetic fixture; CIFAR-10 | Synthetic data: all arms learn. CIFAR: accuracy rose but CE worsened in every arm (Codex task-7 report) |
+| 2026-10-08 | [CPU development pilot](results/2026-10-08-bounded-cpu-pilot.md) (1,024 fit / 256 dev, 10 epochs, seed 7) | CIFAR-10 training files only | Dev CE fell in all three arms. Final dev CE: static 1.605, no growth 1.691, scheduled 1.722, within single-epoch noise. Outer data not opened |
