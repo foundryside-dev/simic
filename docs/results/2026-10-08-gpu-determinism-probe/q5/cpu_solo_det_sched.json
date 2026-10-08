@@ -1,0 +1,223 @@
+{
+ "arm": "scheduled",
+ "birth": {
+  "body_init_sha256": "ed1dbc43e01ec1d200eae31dd3cfe2de029d72917c16148de7e7e8bc36de8987",
+  "gain_at_birth": 0.10958006427378739,
+  "seed_birth_sha256": "e9961baf69b69b555a4a417136ab71347d5380df0efa4e1ba018b23c2acb2c91"
+ },
+ "env": {
+  "cublas_workspace": ":4096:8",
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": true,
+  "deterministic": true,
+  "device": "cpu",
+  "gpu_name": "cpu",
+  "pid": 2074412,
+  "tf32_cudnn": false,
+  "tf32_matmul": false,
+  "threads": 1,
+  "torch": "2.13.0+cu130"
+ },
+ "epochs": [
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.006170873336493969,
+    "examples": 5000
+   },
+   "epoch": 0,
+   "host_parameter_sha256": "ccdd65918b4bed5104dcac2d97b655b7efd55be9421421e697dcb3591de7f66a",
+   "host_state_sha256": "b36340a67a031ba3840e37d64c8da875c5ac96b50327a89199d55fd80f1d4a4f",
+   "stage_after": "dormant",
+   "train_ce": 0.3085060677694855,
+   "training_state_sha256": "8f882c1b810c76cfb3d735a309eb2ac8d6597e626c18ecf49ddc2867635b1b69",
+   "wall_epoch_s": 9.74298917199485,
+   "wall_train_s": 6.99570341600338
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.00013770376082975418,
+    "examples": 5000
+   },
+   "epoch": 1,
+   "host_parameter_sha256": "82f21968c36ca53a3bda003ec0b4a6ca41a632ae64b4559c378ddf88bdd4016e",
+   "host_state_sha256": "90cc834867a5f900c8d8013595631e6c023ddc81e28606e5360a61cd539158a6",
+   "stage_after": "dormant",
+   "train_ce": 0.06868112279551042,
+   "training_state_sha256": "e29d9727604e2decc6000d3a4be86cb6632c7527a585cf63d6fc83d7906c3349",
+   "wall_epoch_s": 9.792516050976701,
+   "wall_train_s": 7.032226299983449
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.00012959774597547948,
+    "examples": 5000
+   },
+   "epoch": 2,
+   "host_parameter_sha256": "db25bdd98fa90805ce4e832e5c252326cae598f2696c10b7a8a6dc4aef00c6b9",
+   "host_state_sha256": "5936ddadcb55bbe8d1e3595cf6cc374034292b35fde2e252be0ed2ffdcb35573",
+   "stage_after": "blending",
+   "train_ce": 0.05829756420905596,
+   "training_state_sha256": "b5329237a510a72c5af11785c5ce2dec3721434b445778f06289707ba3fe53d2",
+   "wall_epoch_s": 10.287625303026289,
+   "wall_train_s": 7.3715321340132505
+  },
+  {
+   "alpha_after": 0.49999999999999994,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.00012859375120606272,
+    "examples": 5000
+   },
+   "epoch": 3,
+   "host_parameter_sha256": "e50ad186cb3c6015124baca6a83de2f6d34103a7175aea8fd4e8486a3cf292c8",
+   "host_state_sha256": "718e4674ca4037e118dc3b5723339d67a029eeed8b333b0c3a03d1fd260d2139",
+   "stage_after": "blending",
+   "train_ce": 0.022943561286183467,
+   "training_state_sha256": "9dbd65f67302d66261eab695d041b79ca1f8279e9077b2ed1fde4cd65db20536",
+   "wall_epoch_s": 10.413162062992342,
+   "wall_train_s": 7.4765504649840295
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.0014462696114555002,
+    "examples": 5000
+   },
+   "epoch": 4,
+   "host_parameter_sha256": "c005bda88912a923868e70d0cb4b41a69a4f4a7745b3546a435d3a5e0be493d0",
+   "host_state_sha256": "3ef131fe459697f668493490c7f02e6d2ebdb697be7025a66ee7b719806bb8e4",
+   "stage_after": "fossilizing",
+   "train_ce": 0.10841805106940683,
+   "training_state_sha256": "84fb92610712b7d4fba4cedf2ff9d4eff270fb691ddeb7cd0058356081a5cc4b",
+   "wall_epoch_s": 10.477234126010444,
+   "wall_train_s": 7.514554032997694
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.0007572643601393793,
+    "examples": 5000
+   },
+   "epoch": 5,
+   "host_parameter_sha256": "a71738be45615a445f7373acd865c14a45053b677bc8792b18a6f99da588b2fe",
+   "host_state_sha256": "1792c2dd418745a176d240ae5f9173a5042986e4830d74b1c6bc1b99b0f3887b",
+   "stage_after": "fossilized",
+   "train_ce": 0.06101130442766589,
+   "training_state_sha256": "573a4151bbcb09ef52adb112636021ab81a60eea470faa566cd75366807f42cd",
+   "wall_epoch_s": 10.427233899012208,
+   "wall_train_s": 7.4471482879598625
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 9.851016835309566e-05,
+    "examples": 5000
+   },
+   "epoch": 6,
+   "host_parameter_sha256": "bbf77deae80852a659cc59c2864e1fb869775442c5a2714405772001027d1cbd",
+   "host_state_sha256": "a7e4c233fabb60fc0b4191888f6781600f593ea028f68424de92caab9fa5d0e6",
+   "stage_after": "fossilized",
+   "train_ce": 0.03795103460137739,
+   "training_state_sha256": "c058cb8f0f5a53fbd892b2067b9a0e7a991fcffc392f3bf3883ee843c7aa664f",
+   "wall_epoch_s": 10.525213578017429,
+   "wall_train_s": 7.5070711220032535
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.0001289363099844195,
+    "examples": 5000
+   },
+   "epoch": 7,
+   "host_parameter_sha256": "b2251d755b8df29b5391ecf3803d5a23876f923bc82da12e23338d8eddc4b329",
+   "host_state_sha256": "97f61e7e0fa5b729f80825fd329a78704c47bba41b8c5f67929ecfc84dfd4935",
+   "stage_after": "fossilized",
+   "train_ce": 0.027992866615136336,
+   "training_state_sha256": "93da1671237d7779b742a11879664e6009cf3684a929b2b1b3aa96a271e90722",
+   "wall_epoch_s": 10.833085807971656,
+   "wall_train_s": 7.804224185994826
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 0.00012091536205261946,
+    "examples": 5000
+   },
+   "epoch": 8,
+   "host_parameter_sha256": "aa28cb4c7ef0c62b0cda1370b69a1f931fa74887de8b9c8b00c1265c45bc9c17",
+   "host_state_sha256": "68f1134aa17d4c4b456199a11e08ddc1bb3387831d423c23545b559b068d2b82",
+   "stage_after": "fossilized",
+   "train_ce": 0.08687269605508163,
+   "training_state_sha256": "de06d994bb7b3273f0d851d75b77f913b4b532c899b841cea5ae0f905e997d48",
+   "wall_epoch_s": 11.339946040010545,
+   "wall_train_s": 8.01080521097174
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 1.0,
+    "ce": 2.3823354474734513e-05,
+    "examples": 5000
+   },
+   "epoch": 9,
+   "host_parameter_sha256": "3e66e48a44f315b62c86f3676aa977c0e0683af02c7cedd7be0a8d47beb89078",
+   "host_state_sha256": "7f0bb53e1309cbe89f9e504b646bb559a1cb10de9f2880681b89f87e6a283e75",
+   "stage_after": "fossilized",
+   "train_ce": 0.022800394338275964,
+   "training_state_sha256": "f31c085f0a502d2489efa0e83c05cab44d56b860475cc91a1757cdd037cccc12",
+   "wall_epoch_s": 11.864185933023691,
+   "wall_train_s": 8.451480342017021
+  }
+ ],
+ "host_initial_parameter_sha256": "a95a1262ed2f4251c20f6b05ab1f533ff64d6992b4171d8d2bfea2071a82aed0",
+ "initial_dev": {
+  "accuracy": 0.1,
+  "ce": 2.3046936100006103,
+  "examples": 5000
+ },
+ "spec": {
+  "batch_size": 32,
+  "data": "smoke",
+  "data_seed": 20261004,
+  "dev_size": 5000,
+  "epochs": 10,
+  "graft_epoch": 2,
+  "host": "mild",
+  "lam": 1.0,
+  "lr": 0.05,
+  "outer_size": 128,
+  "seed": 2101,
+  "seed_type": "conv_light",
+  "stage_f": 1,
+  "stage_k": 1,
+  "stage_m": 2,
+  "tau": 0.05,
+  "threads": 1,
+  "train_size": 4096
+ },
+ "status": "completed",
+ "wall_s": 105.72354933194583
+}

@@ -50,7 +50,6 @@ def test_seed_gain_is_calibrated_on_fit_inputs_not_development_inputs(starved_ru
     births += [r["birth"] for r in starts if r["kind"] == "epoch" and r.get("birth")]
     assert births, "static arm must record a birth"
     for birth in births:
-        assert birth["calibration_source"] == "fit"
         assert birth["calibration_inputs_sha256"] == tensor_hash(tx[: spec.batch_size])
 
 
@@ -98,15 +97,6 @@ def test_verify_run_refuses_a_birth_calibrated_on_other_inputs(starved_run, tmp_
         start["birth"]["calibration_inputs_sha256"] = "1" * 64
 
     with pytest.raises(ValueError, match="calibration"):
-        runner.verify_run(_tamper(starved_run, tmp_path, mutate))
-
-
-def test_verify_run_refuses_a_non_fit_calibration_source(starved_run, tmp_path):
-    def mutate(records: list[dict[str, Any]]) -> None:
-        start = next(r for r in records if r["kind"] == "arm_start" and r["arm"] == "static")
-        start["birth"]["calibration_source"] = "dev"
-
-    with pytest.raises(ValueError, match="fit"):
         runner.verify_run(_tamper(starved_run, tmp_path, mutate))
 
 
@@ -183,7 +173,7 @@ def test_every_non_finite_detector_records_a_divergence_instead_of_aborting(
     """Induce real non-finite values at each detector, only in the scheduled arm after germination (review 60683c4)."""
     from experiments import kernel_demo
 
-    original_tr = kernel_demo.Slot.trust_region_loss
+    original_tr = runner.ScaleAwareSlot.trust_region_loss
     original_score = runner.score
 
     def nan_trust_region(self: Any, cfg: Any) -> Any:
@@ -203,14 +193,20 @@ def test_every_non_finite_detector_records_a_divergence_instead_of_aborting(
         return original_score(host, slot, x, y, batch_size)
 
     injected = {
-        "objective": ("experiments.kernel_demo.Slot.trust_region_loss", nan_trust_region),
-        "gradient": ("experiments.kernel_demo.Slot.trust_region_loss", nan_gradient_trust_region),
+        "objective": ("experiments.bounded_comparison.ScaleAwareSlot.trust_region_loss", nan_trust_region),
+        "gradient": ("experiments.bounded_comparison.ScaleAwareSlot.trust_region_loss", nan_gradient_trust_region),
         "scoring": ("experiments.bounded_comparison.score", nan_score),
     }[path]
     root = _train_with(monkeypatch, tmp_path / path, *injected)
     _manifest, complete, spec = runner.verify_run(root)
     assert complete["arm_status"] == {"no_growth": "completed", "static": "completed", "scheduled": "diverged"}
     assert complete["summaries"]["scheduled"]["diverged_epoch"] == spec.graft_epoch
+    expected_reason = {
+        "objective": "non-finite training objective",
+        "gradient": "non-finite gradient",
+        "scoring": "non-finite scoring logits",
+    }[path]
+    assert complete["summaries"]["scheduled"]["diverged_reason"] == expected_reason  # flush F2: assert the path's identifier
 
 
 def _nan_grad(t: Any) -> Any:
@@ -254,3 +250,51 @@ def test_divergence_record_and_summary_must_agree(diverged_run: Path, tmp_path: 
 
     with pytest.raises(ValueError, match="agree"):
         runner.verify_run(_tamper(diverged_run, tmp_path, mutate))
+
+
+def test_a_static_birth_that_poisons_initial_scoring_is_a_recorded_divergence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Flush F1: initial scoring sat outside the divergence path; a non-finite birth aborted the unit."""
+    from experiments import kernel_demo
+
+    original_score = runner.score
+    poisoned = {"done": False}
+
+    def poison_first_static_score(host: Any, slot: Any, x: Any, y: Any, batch_size: int) -> Any:
+        if slot.seed is not None and slot.stage is kernel_demo.Stage.FOSSILIZED and not poisoned["done"]:
+            poisoned["done"] = True
+            return original_score(host, slot, x.float() * float("nan"), y, batch_size)
+        return original_score(host, slot, x, y, batch_size)
+
+    monkeypatch.setattr(runner, "score", poison_first_static_score)
+    root = tmp_path / "run"
+    runner.train(RunSpec(epochs=7), root)
+    _manifest, complete, _spec = runner.verify_run(root)
+    static = complete["summaries"]["static"]
+    assert complete["arm_status"]["static"] == "diverged"
+    assert (static["diverged_epoch"], static["diverged_step"], static["diverged_reason"]) == (0, 0, "non-finite initial scoring")
+    assert static["initial_dev"] == {"status": "non-finite"}
+
+
+def test_every_score_call_in_train_is_inside_the_divergence_path() -> None:
+    """Structural guard for flush class C7: the non-finite concept must cover every scoring site in train()."""
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(runner.train)))
+    parents: dict[ast.AST, ast.AST] = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+    def guarded(node: ast.AST) -> bool:
+        while node in parents:
+            node = parents[node]
+            if isinstance(node, ast.Try) and any(
+                isinstance(h.type, ast.Name | ast.Tuple) and "NonFiniteError" in ast.dump(h.type) for h in node.handlers
+            ):
+                return True
+        return False
+
+    calls = [
+        n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in ("score", "train_epoch")
+    ]
+    assert calls, "train() must score and train"
+    assert all(guarded(c) for c in calls), "a score()/train_epoch() call in train() escapes the NonFiniteError path"

@@ -111,3 +111,10 @@ Any change to the frozen plan after launch is an amendment. The analysis
 refuses to run if the plan file's hash differs from the one recorded at
 launch. If more than 4 units fail, the verdict is instrument failure, and the
 fix is a new pre-registration, not a re-run.
+
+## Source note (2026-10-08, systemic defect flush)
+
+"5 min 50 s" is the shell's `time` for the whole exploratory timing run.
+The archived per-epoch `wall_s` values in
+`docs/results/2026-10-08-bounded-screen-exploratory-seed7/training.jsonl`
+sum to 337.5 s; scoring and setup account for the remainder.

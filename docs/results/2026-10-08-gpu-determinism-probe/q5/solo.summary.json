@@ -1,0 +1,62 @@
+[
+ {
+  "name": "gpu_solo_det_sched",
+  "wall_process_s": 10.64917621895438,
+  "wall_train_s": 8.010344100010116,
+  "epoch_s": [
+   0.79,
+   0.69,
+   0.84,
+   0.79,
+   0.88,
+   0.86,
+   0.78,
+   0.8,
+   0.78,
+   0.78
+  ],
+  "hash": "e60472a811d5ad5f",
+  "status": "completed",
+  "peak_mem_mib": 150.2685546875
+ },
+ {
+  "name": "gpu_solo_nodet_sched",
+  "wall_process_s": 9.896715269016568,
+  "wall_train_s": 6.299656342947856,
+  "epoch_s": [
+   0.64,
+   0.48,
+   0.64,
+   0.62,
+   0.58,
+   0.6,
+   0.6,
+   0.58,
+   0.59,
+   0.58
+  ],
+  "hash": "eb2e53f449bfc47c",
+  "status": "completed",
+  "peak_mem_mib": 108.6533203125
+ },
+ {
+  "name": "gpu_solo_det_nogrowth",
+  "wall_process_s": 9.217484311026055,
+  "wall_train_s": 6.609817099990323,
+  "epoch_s": [
+   0.76,
+   0.66,
+   0.66,
+   0.65,
+   0.64,
+   0.64,
+   0.64,
+   0.65,
+   0.65,
+   0.66
+  ],
+  "hash": "40d598c6e6542f1c",
+  "status": "completed",
+  "peak_mem_mib": 149.16162109375
+ }
+]

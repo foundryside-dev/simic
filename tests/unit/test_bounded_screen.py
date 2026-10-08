@@ -18,7 +18,26 @@ from experiments.bounded_data import RunSpec, file_hash
 BASE_PLAN: dict[str, Any] = {
     "study": {"id": "test-screen", "status": "confirmatory"},
     "units": {"first_seed": 1, "count": 20, "excluded_seeds": []},
-    "config": {"data_seed": 20261004, "train_size": 128, "dev_size": 64, "epochs": 7, "host": "mild", "seed_type": "conv_light"},
+    "config": {
+        "data_seed": 20261004,
+        "train_size": 128,
+        "dev_size": 64,
+        "epochs": 7,
+        "batch_size": 32,
+        "graft_epoch": 2,
+        "stage_k": 1,
+        "stage_m": 2,
+        "stage_f": 1,
+        "threads": 1,
+        "lr": 0.05,
+        "tau": 0.05,
+        "lam": 1.0,
+        "host": "mild",
+        "seed_type": "conv_light",
+        "lifecycle": "v1",
+        "trust_safety": 0.5,
+        "device": "cpu",
+    },
     "endpoint": {"late_epochs": [4, 5, 6]},
     "analysis": {
         "contrasts": {
@@ -32,6 +51,7 @@ BASE_PLAN: dict[str, Any] = {
     },
     "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "bounded-screen-v1", "diverged_arm_policy": "fail_unit"},
     "linked_plans": [],
+    "gated_by": None,
 }
 
 
@@ -60,10 +80,11 @@ def fake_screen(
         "analysis_module_sha256": screen.analysis_module_hash(),
         "git": {"commit": "x"},
         "seeds": seeds,
+        "snapshot": str(runner.REPO),  # tests analyse from the checkout they run in
     }
     (root / "launch.json").write_text(json.dumps(launch))
     (root / "launch-finished.json").write_text(json.dumps({"units": [{"seed": s, "returncode": 0} for s in seeds]}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     diverged = diverged or {}
 
     def verify(unit: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
@@ -201,10 +222,10 @@ def test_analysis_refuses_changed_plan_and_republication(tmp_path, monkeypatch):
 
 def test_launch_refuses_dirty_tree_and_exposed_test_batch(tmp_path, monkeypatch):
     plan = write_plan(tmp_path)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": " M file"})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": " M file"})
     with pytest.raises(RuntimeError, match="dirty"):
         screen.launch(tmp_path / "screen", tmp_path, 1, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     (tmp_path / "cifar-10-batches-py").mkdir()
     (tmp_path / "cifar-10-batches-py" / "test_batch").write_text("")
     with pytest.raises(RuntimeError, match="test_batch"):
@@ -234,7 +255,7 @@ def test_analysis_refuses_a_changed_analysis_module_or_dirty_tree(tmp_path, monk
         screen.analyze(root, plan)
     launch["analysis_module_sha256"] = screen.analysis_module_hash()
     (root / "launch.json").write_text(json.dumps(launch))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": " M f"})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": " M f"})
     with pytest.raises(RuntimeError, match="dirty"):
         screen.analyze(root, plan)
 
@@ -439,7 +460,8 @@ def test_launch_records_linked_plan_hashes_and_seals_runner_stdout(tmp_path, mon
     plan["units"]["count"] = 1
     plan["linked_plans"] = [str(linked)]
     path = write_plan(tmp_path, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path)
     record = json.loads((tmp_path / "screen" / "launch.json").read_text())
@@ -522,7 +544,7 @@ def test_plan_numeric_and_structural_fields_are_validated(tmp_path, mutate):
 
 
 def test_launch_validates_workers_before_creating_anything(tmp_path, monkeypatch):
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     with pytest.raises(ValueError, match="workers"):
         screen.launch(tmp_path / "screen", tmp_path, 0, write_plan(tmp_path))
     assert not (tmp_path / "screen").exists()
@@ -532,7 +554,8 @@ def test_runner_stdout_really_lands_in_the_sealed_file(tmp_path, monkeypatch):
     plan = copy.deepcopy(BASE_PLAN)
     plan["units"]["count"] = 1
     path = write_plan(tmp_path, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["echo", "scheduled-arm-secret"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path)
     assert "scheduled-arm-secret" in (tmp_path / "screen" / "seed-1.runner-stdout.sealed").read_text()
@@ -559,7 +582,8 @@ def test_gated_launch_requires_the_gate_reading_and_its_own_pinned_hash(tmp_path
     path = gated_plan(tmp_path, gate_root, gate_plan)
     (gate_root / "screen_report.json").write_text(json.dumps({"reading": reading}))
     (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(path): file_hash(path) if pinned else "0" * 64}}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     if allowed:
         screen.launch(tmp_path / "screen", tmp_path, 1, path)
@@ -613,6 +637,43 @@ def test_gate_accepts_the_pinned_plan_by_hash_whatever_path_spelling(tmp_path, m
     (gate_root / "screen_report.json").write_text(json.dumps({"reading": "control_passes"}))
     relative = Path(os.path.relpath(path))
     (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(relative): file_hash(path)}}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path.resolve())
+
+
+@pytest.mark.parametrize("missing", ["host", "seed_type", "train_size", "lr", "epochs"])
+def test_plan_config_must_state_every_run_field(tmp_path, missing):
+    """Flush F5: an omitted config key silently fell back to a RunSpec default."""
+    plan = copy.deepcopy(BASE_PLAN)
+    del plan["config"][missing]
+    with pytest.raises(ValueError, match="config"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+def test_plan_must_declare_gated_by_explicitly(tmp_path):
+    """Flush F6: an absent gated_by meant an ungated launch."""
+    plan = copy.deepcopy(BASE_PLAN)
+    del plan["gated_by"]
+    with pytest.raises(ValueError, match="gated_by"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+@pytest.mark.parametrize(
+    ("none_hw", "static_lower", "static_hw", "reading"),
+    [
+        (0.5, 0.01, 0.01, "reopen_instrument_imprecise"),  # imprecision outranks static-wins
+        (0.01, -0.1, 0.5, "reopen_static_not_credible"),
+    ],
+)
+def test_graft_capture_rule_precedence_for_imprecision_and_credibility(none_hw, static_lower, static_hw, reading):
+    """Flush F11: these branches had no test; a reordering mutant passed the suite."""
+    report = {
+        "delta_nats": 0.05,
+        "contrasts": {
+            "scheduled_minus_no_growth": {"verdict": "inconclusive", "t_interval": {"half_width": none_hw, "upper": 0.1}},
+            "scheduled_minus_static": {"verdict": "inconclusive", "t_interval": {"half_width": static_hw, "lower": static_lower}},
+        },
+    }
+    assert screen.reading_graft_capture_v1(report)[0] == reading

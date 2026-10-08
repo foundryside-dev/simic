@@ -1,0 +1,7 @@
+{
+ "device": "NVIDIA GeForce RTX 4060 Ti",
+ "torch": "2.13.0+cu130",
+ "cudnn": 92000,
+ "n_cases": 52,
+ "problems": {}
+}

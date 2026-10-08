@@ -23,7 +23,9 @@
   sequencing authority for experimental work. Each rung is one
   pre-registered, reviewed experiment with a stop condition.
   - Rung 1, the instrument resolves: **met** (PDR-0045).
-  - Rung 2, a repairable deficit: **met as a question, below the floor**.
+  - Rung 2, a repairable deficit: **detected; a benefit ≥ the 0.10 floor not
+    established** (estimate 0.119, 95% interval 0.088–0.151; conditional on 47
+    finite pairs).
     −0.119 nats on `under_normalized`/`norm` (PDR-0049).
   - Rung 3, does a graft capture the deficit: **next**. It needs the graft
     lifecycle redesign first (`simic-75be93e372`), because the current

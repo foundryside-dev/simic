@@ -1,0 +1,264 @@
+"""Out-of-tree GPU determinism probe for the bounded runner.
+
+Reuses the runner's device-agnostic primitives (build_host, Slot, build_optimizer,
+train_epoch, score, training_state_hash, parameter_hash, state_hash). Replaces
+only the two device-pinned pieces: configure_cpu (set_default_device("cpu")) and
+attach_seed (builds the seed on CPU and hands it to tau_init with device features).
+Nothing under /home/john/simic is modified.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import json
+import os
+import sys
+import time
+from typing import Any
+
+import torch
+
+from experiments.bounded_comparison import (
+    ArmDivergedError,
+    NonFiniteError,
+    optimizer_host_hash,
+    parameter_hash,
+    score,
+    train_epoch,
+    training_state_hash,
+)
+from experiments.bounded_data import RunSpec, smoke_split, tensor_hash, validated_spec
+from experiments.kernel_demo import (
+    CommonFuture,
+    Slot,
+    Stage,
+    append_seed_group,
+    build_host,
+    build_optimizer,
+    build_seed,
+    derive,
+    enable_class1,
+    make_generator,
+    normalize_u8,
+    state_hash,
+    tau_init,
+)
+
+
+def configure(device: str, spec: RunSpec, det: bool) -> dict[str, Any]:
+    """Mirror configure_cpu without pinning the default device."""
+    torch.set_num_threads(spec.threads)
+    if det:
+        enable_class1()
+    else:
+        torch.use_deterministic_algorithms(False)
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+    torch.set_default_dtype(torch.float32)
+    torch.set_rng_state(make_generator(derive(spec.seed, "process-global-cpu")).get_state())
+    is_cuda = torch.device(device).type == "cuda"
+    if is_cuda:
+        torch.cuda.manual_seed_all(derive(spec.seed, "process-global-cuda"))
+    return {
+        "device": device,
+        "gpu_name": torch.cuda.get_device_name(torch.device(device)) if is_cuda else "cpu",
+        "torch": torch.__version__,
+        "cuda": torch.version.cuda,
+        "cudnn": torch.backends.cudnn.version(),
+        "deterministic": torch.are_deterministic_algorithms_enabled(),
+        "cudnn_deterministic": torch.backends.cudnn.deterministic,
+        "cudnn_benchmark": torch.backends.cudnn.benchmark,
+        "tf32_matmul": torch.backends.cuda.matmul.allow_tf32,
+        "tf32_cudnn": torch.backends.cudnn.allow_tf32,
+        "cublas_workspace": os.environ.get("CUBLAS_WORKSPACE_CONFIG"),
+        "threads": torch.get_num_threads(),
+        "pid": os.getpid(),
+    }
+
+
+def attach_seed_dev(host, slot: Slot, opt, spec: RunSpec, fit_x: torch.Tensor, device: str, *, static: bool) -> dict[str, Any]:
+    """bounded_comparison.attach_seed with the seed moved to the device before calibration."""
+    if slot.seed is not None or slot.stage is not Stage.DORMANT:
+        raise RuntimeError("one lifetime germination attempt allowed")
+    seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init")).to(device)
+    body_before = parameter_hash(seed, body_only=True)
+    host_before, opt_before = state_hash(host), optimizer_host_hash(opt)
+    prior = host.training
+    host.eval()
+    try:
+        with torch.no_grad():
+            calibration = fit_x[: spec.batch_size]
+            features = host.forward_to_slot(normalize_u8(calibration))
+        gain = tau_init(seed, features, spec.kernel_config())
+    finally:
+        host.train(prior)
+    append_seed_group(opt, seed, spec.kernel_config())
+    if state_hash(host) != host_before or optimizer_host_hash(opt) != opt_before:
+        raise RuntimeError("germination changed host weights/buffers or optimizer history")
+    if parameter_hash(seed, body_only=True) != body_before:
+        raise RuntimeError("calibration changed seed body parameters")
+    slot.seed = seed
+    slot.stage = Stage.FOSSILIZED if static else Stage.TRAINING
+    slot.alpha = slot.beta = 1.0 if static else 0.0
+    return {"body_init_sha256": body_before, "seed_birth_sha256": state_hash(seed), "gain_at_birth": gain}
+
+
+def _snapshot(host, slot: Slot, opt, epoch: int, birth, device: str) -> dict[str, Any]:
+    cpu = lambda sd: {k: v.detach().cpu().clone() for k, v in sd.items()}
+    return {
+        "epoch": epoch,
+        "host": cpu(host.state_dict()),
+        "seed": None if slot.seed is None else cpu(slot.seed.state_dict()),
+        "opt": opt.state_dict(),
+        "slot": {
+            "stage": slot.stage.value, "alpha": slot.alpha, "beta": slot.beta, "blend_step": slot._blend_step,
+            "fossil_step": slot._fossil_step, "epochs_in_stage": slot._epochs_in_stage,
+            "alpha_beta_log": list(slot.alpha_beta_log), "rms_ratio_blend_entry": slot.rms_ratio_blend_entry,
+        },
+        "birth": birth,
+        "cpu_rng": torch.get_rng_state(),
+        "cuda_rng": torch.cuda.get_rng_state(torch.device(device)) if torch.device(device).type == "cuda" else None,
+        "training_state_sha256": training_state_hash(host, slot, opt),
+    }
+
+
+def _restore(snap: dict[str, Any], host, slot: Slot, opt, spec: RunSpec, device: str) -> None:
+    host.load_state_dict(snap["host"], strict=True)
+    if snap["seed"] is not None:
+        slot.seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init")).to(device)
+        slot.seed.load_state_dict(snap["seed"], strict=True)
+        append_seed_group(opt, slot.seed, spec.kernel_config())
+    opt.load_state_dict(snap["opt"])
+    s = snap["slot"]
+    slot.stage, slot.alpha, slot.beta = Stage(s["stage"]), s["alpha"], s["beta"]
+    slot._blend_step, slot._fossil_step, slot._epochs_in_stage = s["blend_step"], s["fossil_step"], s["epochs_in_stage"]
+    slot.alpha_beta_log, slot.rms_ratio_blend_entry = list(s["alpha_beta_log"]), s["rms_ratio_blend_entry"]
+    torch.set_rng_state(snap["cpu_rng"])
+    if snap["cuda_rng"] is not None and torch.device(device).type == "cuda":
+        torch.cuda.set_rng_state(snap["cuda_rng"], torch.device(device))
+
+
+def run_arm(spec: RunSpec, arm: str, device: str, det: bool, step_trace: int = 0, snapshot_at: int = -1, snapshot_out: str = "", resume: str = "") -> dict[str, Any]:
+    env = configure(device, spec, det)
+    tx, ty = smoke_split(spec, "fit")
+    dx, dy = smoke_split(spec, "dev")
+    tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
+    future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
+    host = build_host(spec.host, derive(spec.seed, "host-init")).to(device)
+    slot = Slot().to(device)
+    opt = build_optimizer(host, spec.kernel_config())
+    out: dict[str, Any] = {
+        "arm": arm,
+        "spec": dataclasses.asdict(spec),
+        "env": env,
+        "host_initial_parameter_sha256": parameter_hash(host),
+        "epochs": [],
+        "status": "completed",
+    }
+    start_epoch = 0
+    if resume:
+        snap = torch.load(resume, map_location="cpu", weights_only=False)
+        _restore(snap, host, slot, opt, spec, device)
+        start_epoch, birth = snap["epoch"], snap["birth"]
+        out["resumed_from"] = {"path": resume, "epoch": start_epoch, "snapshot_training_state_sha256": snap["training_state_sha256"], "restored_training_state_sha256": training_state_hash(host, slot, opt)}
+    else:
+        birth = attach_seed_dev(host, slot, opt, spec, tx, device, static=True) if arm == "static" else None
+    out["birth"] = birth
+    out["initial_dev"] = score(host, slot, dx, dy, spec.batch_size)
+    sync = (lambda: torch.cuda.synchronize(torch.device(device))) if torch.device(device).type == "cuda" else (lambda: None)
+    sync()
+    t_start = time.perf_counter()
+    if step_trace:
+        out["step_trace"] = _step_trace(host, slot, opt, spec, future, tx, ty, step_trace)
+    for epoch in range(start_epoch, spec.epochs):
+        if epoch == snapshot_at and snapshot_out:
+            torch.save(_snapshot(host, slot, opt, epoch, out["birth"], device), snapshot_out)
+            out["snapshot"] = {"epoch": epoch, "path": snapshot_out}
+        if arm == "scheduled" and epoch == spec.graft_epoch:
+            out["birth"] = attach_seed_dev(host, slot, opt, spec, tx, device, static=False)
+        t0 = time.perf_counter()
+        try:
+            metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
+            sync()
+            t_train = time.perf_counter() - t0
+            dev = score(host, slot, dx, dy, spec.batch_size)
+            sync()
+        except ArmDivergedError as stop:
+            out["status"] = "diverged"
+            out["diverged"] = {"epoch": stop.epoch, "step": stop.step, "reason": stop.reason}
+            break
+        except NonFiniteError as error:
+            out["status"] = "diverged"
+            out["diverged"] = {"epoch": epoch, "step": spec.train_size // spec.batch_size, "reason": str(error)}
+            break
+        out["epochs"].append(
+            {
+                "epoch": epoch,
+                "stage_after": metrics["stage_after"],
+                "alpha_after": metrics["alpha_after"],
+                "beta_after": metrics["beta_after"],
+                "train_ce": metrics["train_ce"],
+                "dev": dev,
+                "host_parameter_sha256": metrics["host_parameter_sha256"],
+                "host_state_sha256": metrics["host_state_sha256"],
+                "training_state_sha256": metrics["training_state_sha256"],
+                "wall_train_s": t_train,
+                "wall_epoch_s": time.perf_counter() - t0,
+            }
+        )
+    out["wall_s"] = time.perf_counter() - t_start
+    if torch.device(device).type == "cuda":
+        out["peak_mem_mib"] = torch.cuda.max_memory_allocated(torch.device(device)) / 2**20
+    return out
+
+
+def _step_trace(host, slot, opt, spec, future, x, y, n_steps: int) -> list[dict[str, Any]]:
+    """Hash forward logits, gradients, and parameters for the first n steps of epoch 0,
+    on throwaway copies so the real trajectory is untouched."""
+    import copy
+
+    from experiments.kernel_demo import augment
+
+    h2, s2 = copy.deepcopy(host), copy.deepcopy(slot)
+    o2 = build_optimizer(h2, spec.kernel_config())
+    h2.train()
+    s2.train()
+    order = future.order[0].reshape(-1, spec.batch_size)
+    rows = []
+    for step, idx in enumerate(order[:n_steps]):
+        logits = h2(augment(x[idx], future.crops[0, step], future.flips[0, step]), s2)
+        ce = torch.nn.functional.cross_entropy(logits, y[idx])
+        o2.zero_grad(set_to_none=True)
+        ce.backward()
+        grads = [p.grad for p in h2.parameters() if p.grad is not None]
+        rows.append({"step": step, "logits": tensor_hash(logits.detach()), "grads": tensor_hash(*grads), "ce": float(ce)})
+        o2.step()
+        rows[-1]["params_after"] = parameter_hash(h2)
+    return rows
+
+
+def main(argv: list[str]) -> None:
+    import argparse
+
+    p = argparse.ArgumentParser()
+    p.add_argument("--device", default="cuda:0")
+    p.add_argument("--arm", default="no_growth")
+    p.add_argument("--det", type=int, default=1)
+    p.add_argument("--step-trace", type=int, default=0)
+    p.add_argument("--out", required=True)
+    p.add_argument("--snapshot-at", type=int, default=-1)
+    p.add_argument("--snapshot-out", default="")
+    p.add_argument("--resume", default="")
+    for field in dataclasses.fields(RunSpec):
+        default = getattr(RunSpec(), field.name)
+        p.add_argument("--" + field.name.replace("_", "-"), type=type(default), default=default)
+    args = p.parse_args(argv)
+    spec = validated_spec({f.name: getattr(args, f.name) for f in dataclasses.fields(RunSpec)})
+    result = run_arm(spec, args.arm, args.device, bool(args.det), args.step_trace, args.snapshot_at, args.snapshot_out, args.resume)
+    with open(args.out, "w") as fh:
+        json.dump(result, fh, indent=1, sort_keys=True)
+    print(json.dumps({"out": args.out, "status": result["status"], "wall_s": result["wall_s"], "last_hash": (result["epochs"] or [{}])[-1].get("training_state_sha256", "")[:16]}))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

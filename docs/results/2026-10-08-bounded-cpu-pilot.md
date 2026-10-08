@@ -21,7 +21,7 @@ superiority claim. Outer (test) data was not opened.
 | Data | Local CIFAR-10 training files only, through a directory that contains no `test_batch`; 1,024 fit and 256 disjoint development examples; data seed 20261004 |
 | Arms | No growth; static `conv_light` capacity from step zero; scheduled graft germinated before epoch 2, stages K1/M2/F1 |
 | Training | Seed 7, ten epochs, batch 32, 320 optimizer steps per arm; no tuning, retry or checkpoint selection |
-| Resources | 59 s wall time for all three arms; 1.9 MB total output. The withdrawn 64 MiB cap would not have bound |
+| Resources | 59 s wall time for all three arms, from the shell's `time`; the arms' own recorded `wall_s` sums to 57.1 s. 1.9 MB total output, including checkpoints: 47.8 KB without them. The withdrawn 64 MiB cap would not have bound |
 
 Command, from the repository root:
 

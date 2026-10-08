@@ -53,3 +53,30 @@ floor's rationale has gone with it.
   horizon first, this proposal is superseded by that decision.
 - If the lifecycle redesign cannot produce a graft that is stable on this
   host, the bounded line stops at rung 2, with this deficit as its result.
+
+## Correction to the recommendation (2026-10-08, independent review)
+
+An independent review reproduced the numbers from the archived evidence:
+- 0.1194 nats, 95% interval [0.0881, 0.1507];
+- 42 of 47 finite pairs benefiting;
+- checksums matching.
+
+It corrected three claims, adopted here:
+
+- **"Below the floor" is about what was established, not the estimate.**
+  The point estimate, 0.119, *exceeds* δ_pc = 0.10. What the experiment did
+  not do is establish a benefit of at least 0.10: the interval's lower end
+  is 0.088. The reading `control_fails_below_floor` stands as frozen. Read it
+  as "a benefit ≥ 0.10 not established", never as "the benefit is below
+  0.10".
+- **More seeds would narrow the uncertainty.** The earlier statement that
+  "re-measuring will not change the deficit" overstated things. Prioritising
+  the lifecycle fix over more positive-control units is a choice about
+  effort, not a claim that more data is uninformative.
+- **The v1 → v2 shrinkage is consistent with selection, not proven to come
+  from it.** v1's −0.159 used reconstructed controls from all 48 units, not
+  only the graft survivors.
+- **The benefit is conditional on the 47 finite control pairs.** Seed 2142's
+  excluded static failure is disclosed. It is a separate mechanism (the
+  static arm bypasses the graft's trust penalty), so lifecycle v2 does not
+  address it.

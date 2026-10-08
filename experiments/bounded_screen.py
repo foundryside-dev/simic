@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import os
+import queue
 import subprocess
 import sys
 import time
@@ -86,9 +87,9 @@ def load_plan(path: Path) -> dict[str, Any]:
         if declared.get("role") != "co-primary" or declared.get("arms") != list(arms):
             raise ValueError(f"reading rule requires contrast {name} as co-primary with arms {list(arms)} in that order")
     config = plan["config"]
-    allowed = {f for f in RunSpec.__dataclass_fields__ if f not in UNIT_FIELDS}
-    if not isinstance(config, dict) or not set(config) <= allowed:
-        raise ValueError(f"plan config may only set {sorted(allowed)}")
+    required = {f for f in RunSpec.__dataclass_fields__ if f not in UNIT_FIELDS}
+    if not isinstance(config, dict) or set(config) != required:  # Flush F5: no silent RunSpec defaults.
+        raise ValueError(f"plan config must state exactly {sorted(required)}")
     validated_spec({**RunSpec().__dict__, **config, "data": "cifar"})
     late = plan["endpoint"]["late_epochs"]
     if not late or any(type(e) is not int or not 0 <= e < plan["config"]["epochs"] for e in late):
@@ -125,7 +126,9 @@ def validate_plan_fields(plan: dict[str, Any]) -> None:
     linked = plan["linked_plans"]
     if not isinstance(linked, list) or any(not Path(p).is_file() for p in linked):
         raise ValueError("linked_plans must list existing plan files")
-    gate = plan.get("gated_by")
+    if "gated_by" not in plan:  # Flush F6: absence must not mean "ungated".
+        raise ValueError("plan must declare gated_by (null for an ungated study)")
+    gate = plan["gated_by"]
     if gate is not None and (
         not isinstance(gate, dict) or set(gate) != {"root", "plan", "reading"} or not all(isinstance(v, str) for v in gate.values())
     ):
@@ -142,7 +145,7 @@ def check_gate(plan: dict[str, Any], plan_path: Path) -> None:
 
     The pin is matched by resolved path and content hash, so path spelling cannot cause a false refusal.
     """
-    gate = plan.get("gated_by")
+    gate = plan["gated_by"]
     if gate is None:
         return
     report = read_json(Path(gate["root"]) / "screen_report.json")
@@ -170,10 +173,35 @@ def train_command(plan: dict[str, Any], seed: int, output: Path, data_root: Path
     return [*command, "--seed", str(seed)]  # Last, so nothing can override the unit's seed.
 
 
+def visible_gpus() -> list[int]:
+    import torch
+
+    return list(range(torch.cuda.device_count()))
+
+
+def make_snapshot(dest: Path) -> Path:
+    """An immutable copy of HEAD's tracked files, with its identity (independent review, 2026-10-08).
+
+    Units train, and the analysis runs, from this copy, so edits to the live checkout can
+    neither change a running fleet nor fail its verification.
+    """
+    dest.mkdir(parents=False, exist_ok=False)
+    head = git_identity()["commit"]
+    archive = subprocess.run(["git", "archive", "--format=tar", head], cwd=REPO, check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(dest)], input=archive, check=True)
+    (dest / "SNAPSHOT.json").write_text(strict_json({"commit": head, "created_unix": time.time()}) + "\n")
+    return dest
+
+
 def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
     if type(workers) is not int or workers < 1:
         raise ValueError("workers must be a positive int")
+    gpus: list[int] = []
+    if plan["config"]["device"] == "cuda":
+        gpus = visible_gpus()
+        if not gpus or workers > len(gpus):
+            raise ValueError(f"one process per GPU: {workers} workers requested, {len(gpus)} GPUs visible")
     git = git_identity()
     if git["status"]:
         raise RuntimeError("refusing to launch from a dirty tree: the commit must pin the frozen procedure")
@@ -181,6 +209,9 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
     if (data_root / "cifar-10-batches-py" / "test_batch").exists():
         raise RuntimeError("data root exposes test_batch; use a training-only view")
     root.mkdir(parents=False, exist_ok=False)
+    root = root.resolve()
+    data_root = data_root.resolve()
+    snapshot = make_snapshot(root / "src")
     seeds = unit_seeds(plan)
     launch_record = {
         "study": plan["study"]["id"],
@@ -188,25 +219,35 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
         "prereg_sha256": file_hash(plan_path),
         "analysis_module_sha256": analysis_module_hash(),
         # Plans that must stay frozen while this study runs, e.g. a graft study gated on it (PDR-0046 F7).
-        "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan.get("linked_plans", [])},
+        "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan["linked_plans"]},
         "git": git,
+        "snapshot": str(snapshot),
+        "gpus": gpus,
         "seeds": seeds,
         "workers": workers,
         "started_unix": time.time(),
     }
     (root / "launch.json").write_text(strict_json(launch_record) + "\n")
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", CUDA_VISIBLE_DEVICES="", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
-    env["PYTHONPATH"] = f"{REPO}:{REPO / 'src'}"
+    base_env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    base_env["PYTHONPATH"] = f"{snapshot}:{snapshot / 'src'}"
+    free: queue.Queue[str] = queue.Queue()
+    for slot in [str(g) for g in gpus] or [""] * workers:  # "" hides every GPU from CPU units.
+        free.put(slot)
 
     def run(seed: int) -> dict[str, Any]:
         unit = root / f"seed-{seed}"
-        started = time.monotonic()
-        # The runner prints every arm's summary; the file is sealed so undeclared arms stay unread (PDR-0046 F6).
-        with (root / f"seed-{seed}.runner-stdout.sealed").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
-            code = subprocess.run(
-                train_command(plan, seed, unit, data_root), cwd=REPO, env=env, stdout=out, stderr=err, check=False
-            ).returncode
-        return {"seed": seed, "returncode": code, "wall_s": time.monotonic() - started}
+        gpu = free.get()  # One process per GPU: a device is held for the whole unit (GPU probe).
+        try:
+            env = dict(base_env, CUDA_VISIBLE_DEVICES=gpu)
+            started = time.monotonic()
+            # The runner prints every arm's summary; the file is sealed so undeclared arms stay unread (PDR-0046 F6).
+            with (root / f"seed-{seed}.runner-stdout.sealed").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
+                code = subprocess.run(
+                    train_command(plan, seed, unit, data_root), cwd=snapshot, env=env, stdout=out, stderr=err, check=False
+                ).returncode
+            return {"seed": seed, "returncode": code, "wall_s": time.monotonic() - started, "gpu": gpu}
+        finally:
+            free.put(gpu)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(run, seeds))  # No retries: a failed unit is a recorded failure.
@@ -216,7 +257,11 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
 
 
 def _dev_ce_by_epoch(root: Path, arms: tuple[str, ...] | list[str]) -> dict[str, dict[int, float]]:
-    """Development CE per epoch for the requested arms only; sealed arms are never parsed for values."""
+    """Development CE per epoch for the requested arms only.
+
+    Every record is parsed (kind and arm are read), but values are extracted only for
+    the requested arms; a sealed arm's metrics are never read into the analysis.
+    """
     by_arm: dict[str, dict[int, float]] = {arm: {} for arm in arms}
     for line in (root / "training.jsonl").read_text().splitlines():
         record = json.loads(line)
@@ -386,6 +431,8 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
     plan_sha = file_hash(plan_path)
     launched = read_json(root / "launch.json")
+    if not Path(__file__).resolve().is_relative_to(Path(launched["snapshot"]).resolve()):
+        raise ValueError(f"analysis must run from the launch snapshot {launched['snapshot']} (PYTHONPATH), not the live checkout")
     if launched["prereg_sha256"] != plan_sha:
         raise ValueError("pre-registration changed after launch")
     if launched.get("analysis_module_sha256") != analysis_module_hash():

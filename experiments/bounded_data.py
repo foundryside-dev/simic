@@ -37,6 +37,9 @@ class RunSpec:
     lam: float = 1.0
     host: str = "mild"
     seed_type: str = "conv_light"
+    lifecycle: str = "v1"  # "v2": per-step trust-region curvature clamp (docs/bounded-lifecycle-v2.md)
+    trust_safety: float = 0.5
+    device: str = "cpu"  # "cuda": one visible GPU per process (CUDA_VISIBLE_DEVICES), Academy-exact per SKU
 
     def validate(self) -> None:
         if self.data not in ("smoke", "cifar"):
@@ -45,9 +48,18 @@ class RunSpec:
             raise ValueError(f"host must be one of {PATHOLOGIES}")
         if self.seed_type not in SEED_NAMES:
             raise ValueError(f"seed_type must be one of {SEED_NAMES}")
+        if self.device not in ("cpu", "cuda"):
+            raise ValueError("device must be cpu or cuda (select the GPU with CUDA_VISIBLE_DEVICES)")
+        if self.lifecycle not in ("v1", "v2"):
+            raise ValueError("lifecycle must be v1 or v2")
+        if type(self.trust_safety) not in (int, float) or not 0 < self.trust_safety <= 1:
+            raise ValueError("trust_safety must be in (0, 1]")
         for field in dataclasses.fields(self):
             value = getattr(self, field.name)
-            if field.name not in ("data", "lr", "tau", "lam", "host", "seed_type") and type(value) is not int:
+            if (
+                field.name not in ("data", "lr", "tau", "lam", "host", "seed_type", "lifecycle", "trust_safety", "device")
+                and type(value) is not int
+            ):
                 raise ValueError(f"{field.name} must be an integer, not a boolean/coerced value")
         for name in ("train_size", "dev_size", "outer_size", "epochs", "batch_size", "stage_k", "stage_m", "stage_f", "threads"):
             if getattr(self, name) <= 0:

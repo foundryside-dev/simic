@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+Q = Path(__file__).resolve().parent / "q123"
+R = {p.stem: json.loads(p.read_text()) for p in Q.glob("*.json")}
+CASES = [("mild", "conv_light"), ("under_normalized", "conv_light"), ("under_normalized", "norm")]
+ARMS = ("no_growth", "scheduled", "static")
+
+
+def hashes(r):
+    return [(e["epoch"], e["training_state_sha256"]) for e in r["epochs"]]
+
+
+def same(a, b):
+    """Full-trajectory equality: epoch hashes and divergence record."""
+    return hashes(a) == hashes(b) and a.get("diverged") == b.get("diverged") and a["host_initial_parameter_sha256"] == b["host_initial_parameter_sha256"]
+
+
+print("== Q1 same seed, same device (GPU0), twice ==")
+for h, s in CASES:
+    for arm in ARMS:
+        a, b = R[f"gpu0_{h}_{s}_{arm}_r0"], R[f"gpu0_{h}_{s}_{arm}_r1"]
+        print(f"  {h}/{s}/{arm}: equal={same(a,b)} epochs={len(a['epochs'])} status={a['status']} div={a.get('diverged')} last={hashes(a)[-1][1][:12] if a['epochs'] else '-'}")
+
+print("== Q3a GPU0 vs GPU1 ==")
+for h, s in CASES:
+    for arm in ARMS:
+        a, b = R[f"gpu0_{h}_{s}_{arm}_r0"], R[f"gpu1_{h}_{s}_{arm}_r0"]
+        print(f"  {h}/{s}/{arm}: equal={same(a,b)}  gpu0={a['env']['gpu_name']} gpu1={b['env']['gpu_name']}")
+
+print("== Q2 pairing: scheduled == no_growth at every epoch < graft (and host-param hash at graft epoch) ==")
+for lane in ("gpu0", "gpu1", "cpu"):
+    for h, s in CASES:
+        ng, sc = R[f"{lane}_{h}_{s}_no_growth_r0"], R[f"{lane}_{h}_{s}_scheduled_r0"]
+        graft = sc["spec"]["graft_epoch"]
+        pre = [(e["epoch"], e["training_state_sha256"]) for e in ng["epochs"] if e["epoch"] < graft] == [(e["epoch"], e["training_state_sha256"]) for e in sc["epochs"] if e["epoch"] < graft]
+        init = ng["host_initial_parameter_sha256"] == sc["host_initial_parameter_sha256"]
+        ngg = next((e for e in ng["epochs"] if e["epoch"] == graft), None)
+        scg = next((e for e in sc["epochs"] if e["epoch"] == graft), None)
+        at_graft = (ngg["host_parameter_sha256"] == scg["host_parameter_sha256"]) if ngg and scg else None
+        divs = (ng.get("diverged"), sc.get("diverged"))
+        print(f"  {lane}/{h}/{s}: init_equal={init} pre_graft_equal={pre} host_param_equal_at_graft_epoch(alpha=0 STE)={at_graft} div={divs}")
+
+print("== Q3b CPU vs GPU0 ==")
+for h, s in CASES:
+    for arm in ("no_growth", "scheduled"):
+        c, g = R[f"cpu_{h}_{s}_{arm}_r0"], R[f"gpu0_{h}_{s}_{arm}_r0"]
+        print(f"  {h}/{s}/{arm}: init_equal={c['host_initial_parameter_sha256']==g['host_initial_parameter_sha256']} initial_dev_ce cpu={c['initial_dev']['ce']:.6f} gpu={g['initial_dev']['ce']:.6f}")
+        if "step_trace" in c:
+            for sc_, sg in zip(c["step_trace"], g["step_trace"]):
+                print(f"     step {sc_['step']}: logits_equal={sc_['logits']==sg['logits']} grads_equal={sc_['grads']==sg['grads']} params_equal={sc_['params_after']==sg['params_after']} ce cpu={sc_['ce']:.7f} gpu={sg['ce']:.7f} |d|={abs(sc_['ce']-sg['ce']):.2e}")
+        for ec, eg in zip(c["epochs"], g["epochs"]):
+            print(f"     epoch {ec['epoch']}: hash_equal={ec['training_state_sha256']==eg['training_state_sha256']} dev_ce cpu={ec['dev']['ce']:.5f} gpu={eg['dev']['ce']:.5f} |dCE|={abs(ec['dev']['ce']-eg['dev']['ce']):.2e} acc cpu={ec['dev']['accuracy']:.3f} gpu={eg['dev']['accuracy']:.3f}")
+        print(f"     diverged: cpu={c.get('diverged')} gpu={g.get('diverged')}")
+
+e = R["gpu0_mild_conv_light_no_growth_r0"]["env"]
+print("== env ==", {k: e[k] for k in ("gpu_name", "torch", "cuda", "cudnn", "deterministic", "cudnn_deterministic", "cudnn_benchmark", "tf32_matmul", "tf32_cudnn", "cublas_workspace", "threads")})

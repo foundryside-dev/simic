@@ -122,8 +122,10 @@ recorded here:
   plan's seal lasted "until graft-capture-v1 launches or is abandoned".
   Since that study does not launch as written, the seal is released.
 - `fail_readings_report`: "every reading reports the realised sd …" was
-  false for `instrument_failure`, whose report carries no contrasts. This
-  is fixed in the analyzer (`simic-6cb47b3a06` follow-up).
+  false for `instrument_failure`, whose report carries no contrasts. The
+  analyzer now adds observed per-arm means to an `instrument_failure`
+  report, but still no sd or interval. Later plans disclose this rather
+  than claim it.
 
 ## Evidence
 

@@ -18,27 +18,41 @@ green."* Reserved to John:
     12/48 units, and the runner aborted those units. Root-caused (PDR-0047)
     and fixed in the runner.
   - `positive-control-v2` (fresh seeds) read **`control_fails_below_floor`**:
-    static − no growth −0.119 [−0.151, −0.088], 89% of units.
+    static − no growth −0.119 [−0.151, −0.088], 42/47 finite pairs. The
+    estimate exceeds 0.10; a benefit ≥ 0.10 is **not established**. That is
+    not "below". Seed 2142's static failure is a separate host-edge
+    mechanism.
   - PDR-0049 (**proposed**) applies that reading: no further positive-control
     runs, the next floor set in the graft redesign, and the line continues
     through the lifecycle fix.
-- **Rung 3, does a graft capture the deficit:** blocked. The graft lifecycle
-  is numerically unstable on this host (`simic-75be93e372`; the trust-region
-  curvature violates the kernel's comment-only bound). The kernel stability
-  sweep left a concrete fix set on that issue.
+- **Rung 3, does a graft capture the deficit:** unblocked. The lifecycle
+  fix is validated.
+  - Lifecycle v2 (a per-step trust-curvature clamp, `bounded_comparison.py`
+    `ScaleAwareSlot`) read **`accepted`** in a pre-registered GPU study
+    ([PDR-0051](decisions/0051-lifecycle-v2-validation.md),
+    [result](../results/2026-10-08-lifecycle-v2-validation.md)).
+  - On `under_normalized`, v1's graft diverged in 6/24 units with `norm` and
+    8/24 with `conv_heavy`; v2's diverged in 0/48 on the same seeds.
+  - Every v1 divergence crossed the derived limit c*, and v2 was identical
+    to v1 where v1 was safe.
+  - Descriptive, not a reading: the stable v2 graft beat no growth by 0.068
+    (`norm`) and 0.054 (`conv_heavy`), about 40% of static capacity's gain.
+  - Static-arm host instability is separate: 2/72 static `norm` arms on
+    this host (`simic-9c5c3a2acf`).
 
 ## The bets now (PDR-0050)
-1. **The bounded ladder.** Rung 3 is next: redesign the graft lifecycle
-   (`simic-75be93e372`), then a graft-capture study with its floor set from
-   the measured deficit. GPU is authorised for an exclusive window of about
+1. **The bounded ladder.** Rung 3 is next: a graft-capture v2 study on
+   lifecycle v2, covering `norm` and `conv_heavy`. Its floor is set from the
+   measured deficit, and it must declare its treatment of
+   `simic-9c5c3a2acf`. GPU is authorised for an exclusive window of about
    a week from 2026-10-08.
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
 - **`main` carries all accepted work:** yes once this checkpoint's PR
-  merges. This session's earlier work merged as PRs #20, #21, #26 and #27.
-- **Full `tests/` suite:** 307 passed (8m19s) at `ac9237e`. Since then only
-  plan and doc text has changed.
+  merges. This session's earlier work merged as PRs #20, #21, #26, #27, #28 and #29.
+- **Full `tests/` suite:** 391 passed at the source state of `a2d1062`.
+  Since then only plan, result and doc text has changed.
 - **No configured tool points at a missing binary:** yes (PDR-0042).
 - **Every cited tracker ID resolves:** enforced by
   `tests/unit/test_doc_references.py`.
@@ -53,13 +67,12 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- pre-register the graft lifecycle fix (a scale-aware trust region, a frozen
-  trust denominator, a separate gain lr, host-edge stability) as a new
-  lifecycle variant in the bounded layer, without silently changing the
-  kernel demo's `@semantic` code;
-- review it;
-- test it on exploratory seeds, using GPU where it helps;
-- then pre-register graft-capture v2.
+- merge branch `lifecycle-v2` to `main` (lifecycle v2, the GPU profile,
+  immutable snapshots, the validation study);
+- pre-register graft-capture v2 (rung 3): a full-sample contrast with the
+  failure rate reported apart, a host-instability policy, GPU, and a
+  real-configuration dry run first;
+- review it, then run it.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
