@@ -69,14 +69,21 @@ Outer evaluation stays owner-gated.
 **For Claude, now:**
 - rung 4 (PDR-0054, owner-signed; plan PDR-0055). The plan is reviewed and
   amended, and the runner's common future is now prefix-stable. Next:
-  1. size from the re-pilot;
-  2. post the delta note against the sketch;
-  3. run the gating dry run;
-  4. launch.
+  sized (n = 768), delta note posted, gating dry run clean, **launched**.
+  Next: analyse once from the snapshot when the fleet finishes, then write
+  up and compose the rung-4 reading.
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
 launched):
-- none.
+- **rung 4 (`rung4-timing-horizon`, PDR-0055).** Root
+  `runs/rung4-timing-horizon/`; seeds 8001–8768 × 6 cells (4,608 runs) on
+  both GPUs, from a snapshot of `991dcdc`.
+  - Started 2026-10-09 04:34; estimated finish about 2026-10-09 20:52
+    (local time).
+  - Progress: `runs/rung4-timing-horizon/progress.jsonl`, one line per
+    finished run.
+  - To stop it, kill the `timing_study launch` process. It resumes with
+    `--resume`.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
