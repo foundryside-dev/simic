@@ -14,7 +14,7 @@ from typing import Any
 
 import torch
 
-from experiments.kernel_demo import Config, derive, make_generator
+from experiments.kernel_demo import PATHOLOGIES, SEED_NAMES, Config, derive, make_generator
 
 
 @dataclass(frozen=True)
@@ -35,13 +35,19 @@ class RunSpec:
     lr: float = 0.05
     tau: float = 0.05
     lam: float = 1.0
+    host: str = "mild"
+    seed_type: str = "conv_light"
 
     def validate(self) -> None:
         if self.data not in ("smoke", "cifar"):
             raise ValueError("data must be smoke or cifar")
+        if self.host not in PATHOLOGIES:
+            raise ValueError(f"host must be one of {PATHOLOGIES}")
+        if self.seed_type not in SEED_NAMES:
+            raise ValueError(f"seed_type must be one of {SEED_NAMES}")
         for field in dataclasses.fields(self):
             value = getattr(self, field.name)
-            if field.name not in ("data", "lr", "tau", "lam") and type(value) is not int:
+            if field.name not in ("data", "lr", "tau", "lam", "host", "seed_type") and type(value) is not int:
                 raise ValueError(f"{field.name} must be an integer, not a boolean/coerced value")
         for name in ("train_size", "dev_size", "outer_size", "epochs", "batch_size", "stage_k", "stage_m", "stage_f", "threads"):
             if getattr(self, name) <= 0:
@@ -205,6 +211,7 @@ def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.
     provenance.update(
         {
             "fit_sha256": tensor_hash(tx, ty),
+            "fit_calibration_prefix_sha256": tensor_hash(tx[: spec.batch_size]),
             "dev_sha256": tensor_hash(dx, dy),
             "fit_size": len(ty),
             "dev_size": len(dy),

@@ -28,6 +28,8 @@ from torch import nn
 
 from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, load_outer, tensor_hash, validated_spec
 from experiments.kernel_demo import (
+    PATHOLOGIES,
+    SEED_NAMES,
     CommonFuture,
     Slot,
     Stage,
@@ -103,6 +105,9 @@ def validate_hash(value: Any, context: str) -> None:
 
 
 def validate_summary(summary: Any, spec: RunSpec, arm: str) -> None:
+    if require_keys(summary, ("status",), arm + " summary")["status"] == "diverged":
+        validate_diverged_summary(summary, spec, arm)
+        return
     summary = require_keys(
         summary,
         (
@@ -133,22 +138,51 @@ def validate_summary(summary: Any, spec: RunSpec, arm: str) -> None:
         require_number(gradients[name], arm + "." + name)
     if gradients["host"] <= 0 or (arm != "no_growth" and (gradients["seed_body"] <= 0 or gradients["seed_gain"] <= 0)):
         raise ValueError("missing gradient evidence")
-    cost_keys = (
-        "host_train_examples",
-        "seed_train_examples",
-        "host_dev_examples",
-        "seed_dev_examples",
-        "installed_parameter_epochs",
-        "optimizer_parameter_epochs",
-        "optimizer_parameter_steps",
-        "calibration_examples",
-        "fully_coupled_optimizer_steps",
-    )
-    costs = require_keys(summary["costs"], cost_keys, arm + " costs")
-    if any(type(costs[key]) is not int or costs[key] < 0 for key in cost_keys):
-        raise ValueError("invalid work count")
+    costs = validate_costs(summary["costs"], arm)
     if costs["host_train_examples"] != spec.epochs * spec.train_size:
         raise ValueError("incomplete training work")
+    require_number(summary["wall_s"], arm + " wall time")
+
+
+COST_KEYS = (
+    "host_train_examples",
+    "seed_train_examples",
+    "host_dev_examples",
+    "seed_dev_examples",
+    "installed_parameter_epochs",
+    "optimizer_parameter_epochs",
+    "optimizer_parameter_steps",
+    "calibration_examples",
+    "fully_coupled_optimizer_steps",
+)
+
+
+def validate_costs(raw: Any, arm: str) -> dict[str, Any]:
+    costs: dict[str, Any] = require_keys(raw, COST_KEYS, arm + " costs")
+    if set(costs) != set(COST_KEYS) or any(type(costs[key]) is not int or costs[key] < 0 for key in COST_KEYS):
+        raise ValueError("invalid work count")
+    return costs
+
+
+def valid_divergence_step(step: Any, spec: RunSpec) -> bool:
+    """0..steps-1 is a training step; steps_per_epoch means the post-epoch scoring pass."""
+    return type(step) is int and 0 <= step <= spec.train_size // spec.batch_size
+
+
+def validate_diverged_summary(summary: Any, spec: RunSpec, arm: str) -> None:
+    keys = ("arm", "status", "diverged_epoch", "diverged_step", "diverged_reason", "completed_epochs", "initial_dev", "costs", "wall_s")
+    summary = require_keys(summary, keys, arm + " divergence summary")
+    if set(summary) != set(keys) or summary["arm"] != arm:
+        raise ValueError("divergence summary must carry exactly its declared evidence")
+    stop = summary["diverged_epoch"]
+    if type(stop) is not int or not 0 <= stop < spec.epochs or summary["completed_epochs"] != stop:
+        raise ValueError("divergence summary epoch mismatch")
+    if not valid_divergence_step(summary["diverged_step"], spec) or not isinstance(summary["diverged_reason"], str):
+        raise ValueError("divergence summary step/reason invalid")
+    validate_metrics(summary["initial_dev"], spec.dev_size, arm + ".initial_dev")
+    # Work is charged for completed epochs only; a partial or unscored epoch is not charged (definitional).
+    if validate_costs(summary["costs"], arm)["host_train_examples"] != stop * spec.train_size:
+        raise ValueError("divergence summary work mismatch")
     require_number(summary["wall_s"], arm + " wall time")
 
 
@@ -156,7 +190,13 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
     record = require_keys(record, ("schema_version", "arm", "kind", "birth"), "training record")
     if type(record["schema_version"]) is not int or record["schema_version"] != SCHEMA or record["arm"] != arm or record["kind"] != kind:
         raise ValueError("training evidence order/schema mismatch")
-    if kind == "arm_start":
+    if kind == "diverged":
+        require_keys(record, ("epoch", "step", "reason"), arm + " divergence")
+        if type(record["epoch"]) is not int or record["epoch"] != epoch or not valid_divergence_step(record["step"], spec):
+            raise ValueError("divergence record mismatch")
+        if not isinstance(record["reason"], str) or not record["reason"]:
+            raise ValueError("divergence record needs a reason")
+    elif kind == "arm_start":
         require_keys(record, ("host_initial_parameter_sha256", "initial_dev"), arm + " start")
         validate_hash(record["host_initial_parameter_sha256"], arm + " initial host")
         validate_metrics(record["initial_dev"], spec.dev_size, arm + " initial development")
@@ -211,7 +251,7 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
             require_number(gradients[name], arm + "." + name)
         Stage(record["stage_used"])
         Stage(record["stage_after"])
-    born = (kind == "arm_start" and arm == "static") or (kind == "epoch" and arm == "scheduled" and epoch == spec.graft_epoch)
+    born = (kind == "arm_start" and arm == "static") or (kind in ("epoch", "diverged") and arm == "scheduled" and epoch == spec.graft_epoch)
     if born:
         birth = require_keys(
             record["birth"],
@@ -221,6 +261,8 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
                 "seed_birth_sha256",
                 "gain_at_birth",
                 "calibration_examples",
+                "calibration_source",
+                "calibration_inputs_sha256",
                 "calibration_prefix_forward_examples",
                 "calibration_seed_forward_examples",
                 "host_unchanged_sha256",
@@ -237,10 +279,13 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
             "seed_birth_sha256",
             "host_unchanged_sha256",
             "host_optimizer_preserved_sha256",
+            "calibration_inputs_sha256",
         ):
             validate_hash(birth[name], arm + "." + name)
         require_number(birth["gain_at_birth"], arm + " gain")
-        if birth["calibration_examples"] != min(spec.batch_size, spec.dev_size):
+        if birth["calibration_source"] != "fit":
+            raise ValueError("seed calibration must use fit inputs")
+        if birth["calibration_examples"] != min(spec.batch_size, spec.train_size):
             raise ValueError("calibration count mismatch")
     elif record["birth"] is not None:
         raise ValueError("unexpected germination evidence")
@@ -395,7 +440,7 @@ def score(host: nn.Module, slot: Slot, x: torch.Tensor, y: torch.Tensor, batch_s
                 logits = host(normalize_u8(x[offset : offset + batch_size]), slot)
                 labels = y[offset : offset + batch_size]
                 if not bool(torch.isfinite(logits).all()):
-                    raise ValueError("non-finite scoring logits")
+                    raise NonFiniteError("non-finite scoring logits")
                 loss += float(torch.nn.functional.cross_entropy(logits, labels, reduction="sum"))
                 correct += int((logits.argmax(1) == labels).sum())
         if not torch.equal(rng, torch.get_rng_state()):
@@ -417,10 +462,11 @@ def score(host: nn.Module, slot: Slot, x: torch.Tensor, y: torch.Tensor, batch_s
             host.stage_stats = prior_stats
 
 
-def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_x: torch.Tensor, *, static: bool) -> dict[str, Any]:
+def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_x: torch.Tensor, *, static: bool) -> dict[str, Any]:
+    """Germinate once; the gain is calibrated on fit inputs, never development data."""
     if slot.seed is not None or slot.stage is not Stage.DORMANT:
         raise RuntimeError("one lifetime germination attempt allowed")
-    seed = build_seed("conv_light", 64, derive(spec.seed, "seed-body-init"))
+    seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
     body_before = parameter_hash(seed, body_only=True)
     buffers_before = state_hash(seed)
     host_before, opt_before = state_hash(host), optimizer_host_hash(opt)
@@ -428,7 +474,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_
     host.eval()
     try:
         with torch.no_grad():
-            calibration = dev_x[: spec.batch_size]
+            calibration = fit_x[: spec.batch_size]
             features = host.forward_to_slot(normalize_u8(calibration))
         gain = tau_init(seed, features, spec.kernel_config())
     finally:
@@ -447,6 +493,8 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_
         "seed_birth_sha256": state_hash(seed),
         "gain_at_birth": gain,
         "calibration_examples": len(calibration),
+        "calibration_source": "fit",
+        "calibration_inputs_sha256": tensor_hash(calibration),
         "calibration_prefix_forward_examples": len(calibration),
         "calibration_seed_forward_examples": len(calibration),
         "host_unchanged_sha256": host_before,
@@ -457,12 +505,27 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_
     }
 
 
+class NonFiniteError(ValueError):
+    """Raised by every non-finite detector; training converts it into a recorded arm divergence."""
+
+
+class ArmDivergedError(ValueError):
+    """An arm's training became non-finite. Recorded as a measured outcome, never a unit abort (PDR-0047)."""
+
+    def __init__(self, *, epoch: int, step: int, reason: str) -> None:
+        super().__init__(f"{reason} (epoch {epoch}, step {step})")
+        self.epoch, self.step, self.reason = epoch, step, reason
+
+
+ARM_STATUSES = ("completed", "diverged")
+
+
 def grad_norm(params: Iterable[torch.Tensor]) -> float:
     total = 0.0
     for param in params:
         if param.grad is not None:
             if not bool(torch.isfinite(param.grad).all()):
-                raise ValueError("non-finite gradient")
+                raise NonFiniteError("non-finite gradient")
             total += float(param.grad.detach().square().sum())
     return math.sqrt(total)
 
@@ -484,13 +547,16 @@ def train_epoch(
         ce = torch.nn.functional.cross_entropy(logits, y[idx])
         objective = ce + slot.trust_region_loss(spec.kernel_config())
         if not bool(torch.isfinite(objective)):
-            raise ValueError("non-finite training objective")
+            raise ArmDivergedError(epoch=epoch, step=step, reason="non-finite training objective")
         opt.zero_grad(set_to_none=True)
         objective.backward()  # type: ignore[no-untyped-call]
-        max_grads["host"] = max(max_grads["host"], grad_norm(host.parameters()))
-        if slot.seed is not None:
-            max_grads["seed_body"] = max(max_grads["seed_body"], grad_norm(p for n, p in slot.seed.named_parameters() if n != "gain"))
-            max_grads["seed_gain"] = max(max_grads["seed_gain"], grad_norm([slot.seed.gain]))
+        try:
+            max_grads["host"] = max(max_grads["host"], grad_norm(host.parameters()))
+            if slot.seed is not None:
+                max_grads["seed_body"] = max(max_grads["seed_body"], grad_norm(p for n, p in slot.seed.named_parameters() if n != "gain"))
+                max_grads["seed_gain"] = max(max_grads["seed_gain"], grad_norm([slot.seed.gain]))
+        except NonFiniteError as error:
+            raise ArmDivergedError(epoch=epoch, step=step, reason=str(error)) from error
         opt.step()
         slot.step_tick(spec.kernel_config(), len(order))
         ce_sum += float(ce.detach()) * len(idx)
@@ -549,8 +615,8 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         "schema_version": SCHEMA,
         "spec": dataclasses.asdict(spec),
         "arms": list(ARMS),
-        "host": "kernel-demo-mild",
-        "seed_type": "conv_light",
+        "host": f"kernel-demo-{spec.host}",
+        "seed_type": spec.seed_type,
         "data": provenance,
         "source": source_identity(),
         "git": git_identity(),
@@ -563,23 +629,24 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         "budget": "equal-examples-and-epochs-not-equal-compute",
         "scaffold_state": {
             "execution": "cpu-pinned-stack",
-            "host_distribution": "one-fixed-mild-CNN",
-            "design_prior": "one-human-authored-conv_light",
+            "host_distribution": f"one-fixed-{spec.host}-CNN",
+            "design_prior": f"one-human-authored-{spec.seed_type}",
             "counterfactual_anchor": "measured-no-growth",
         },
     }
     write_json(output / "manifest.json", manifest)
     manifest_hash = file_hash(output / "manifest.json")
-    summaries = {}
+    summaries: dict[str, dict[str, Any]] = {}
+    record_count = 0
     with (output / "training.jsonl").open("x") as log:
         for arm in ARMS:
             started = time.perf_counter()
-            host = build_host("mild", manifest["host_init_seed"])
+            host = build_host(spec.host, manifest["host_init_seed"])
             slot = Slot()
             opt = build_optimizer(host, spec.kernel_config())
             host_initial = parameter_hash(host)
             base_params = sum(p.numel() for p in host.parameters())
-            birth = attach_seed(host, slot, opt, spec, dx, static=True) if arm == "static" else None
+            birth = attach_seed(host, slot, opt, spec, tx, static=True) if arm == "static" else None
             initial_dev = score(host, slot, dx, dy, spec.batch_size)
             append_record(
                 log,
@@ -592,6 +659,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                     "birth": birth,
                 },
             )
+            record_count += 1
             costs = {
                 "host_train_examples": 0,
                 "seed_train_examples": 0,
@@ -604,16 +672,24 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                 "fully_coupled_optimizer_steps": 0,
             }
             history = []
+            diverged: ArmDivergedError | None = None
             for epoch in range(spec.epochs):
                 action = "GERMINATE" if arm == "scheduled" and epoch == spec.graft_epoch else "WAIT"
                 if action == "GERMINATE":
-                    birth = attach_seed(host, slot, opt, spec, dx, static=False)
+                    birth = attach_seed(host, slot, opt, spec, tx, static=False)
                     costs["calibration_examples"] += birth["calibration_examples"]
                 params = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
                 fully_coupled = slot.seed is not None and slot.alpha == slot.beta == 1.0
                 epoch_started = time.perf_counter()
-                metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
-                dev = score(host, slot, dx, dy, spec.batch_size)
+                try:
+                    metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
+                    dev = score(host, slot, dx, dy, spec.batch_size)
+                except ArmDivergedError as stop:
+                    diverged = stop
+                    break
+                except NonFiniteError as error:  # Scoring after the epoch's last step (step == steps per epoch).
+                    diverged = ArmDivergedError(epoch=epoch, step=spec.train_size // spec.batch_size, reason=str(error))
+                    break
                 costs["host_train_examples"] += len(ty)
                 costs["seed_train_examples"] += len(ty) if slot.seed is not None else 0
                 costs["host_dev_examples"] += len(dy)
@@ -638,7 +714,34 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                     **metrics,
                 }
                 append_record(log, record)
+                record_count += 1
                 history.append(record)
+            if diverged is not None:
+                append_record(
+                    log,
+                    {
+                        "schema_version": SCHEMA,
+                        "kind": "diverged",
+                        "arm": arm,
+                        "epoch": diverged.epoch,
+                        "step": diverged.step,
+                        "reason": diverged.reason,
+                        "birth": birth if arm == "scheduled" and diverged.epoch == spec.graft_epoch else None,
+                    },
+                )
+                record_count += 1
+                summaries[arm] = {
+                    "arm": arm,
+                    "status": "diverged",
+                    "diverged_epoch": diverged.epoch,
+                    "diverged_step": diverged.step,
+                    "diverged_reason": diverged.reason,
+                    "completed_epochs": len(history),
+                    "initial_dev": initial_dev,
+                    "costs": costs,
+                    "wall_s": time.perf_counter() - started,
+                }
+                continue
             if arm != "no_growth" and (
                 slot.stage is not Stage.FOSSILIZED or slot.alpha != 1.0 or slot.beta != 1.0 or costs["fully_coupled_optimizer_steps"] == 0
             ):
@@ -657,6 +760,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                 gain_changed = float(slot.seed.gain.detach()) != birth["gain_at_birth"]
             summary = {
                 "arm": arm,
+                "status": "completed",
                 "initial_dev": initial_dev,
                 "final_dev": history[-1]["dev"],
                 "final_parameters": params,
@@ -685,12 +789,14 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
             summaries[arm] = summary
         log.flush()
         os.fsync(log.fileno())
-    expected_records = len(ARMS) * (spec.epochs + 1)
-    artifacts = {name: file_hash(output / name) for name in ("manifest.json", "training.jsonl", *(f"{arm}.pt" for arm in ARMS))}
+    arm_status = {arm: summaries[arm]["status"] for arm in ARMS}
+    checkpoints = [f"{arm}.pt" for arm in ARMS if arm_status[arm] == "completed"]
+    artifacts = {name: file_hash(output / name) for name in ("manifest.json", "training.jsonl", *checkpoints)}
     completion = {
         "schema_version": SCHEMA,
         "status": "complete",
-        "record_count": expected_records,
+        "record_count": record_count,
+        "arm_status": arm_status,
         "artifacts": artifacts,
         "summaries": summaries,
     }
@@ -707,10 +813,13 @@ def _read_training_lines(path: Path) -> list[str]:
 def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     """Assure the declared consumer contract, not arbitrary metadata semantics."""
     complete = read_json(root / "complete.json")
-    require_keys(complete, ("schema_version", "status", "record_count", "artifacts", "summaries"), "completion")
+    require_keys(complete, ("schema_version", "status", "record_count", "arm_status", "artifacts", "summaries"), "completion")
+    arm_status = complete["arm_status"]
+    if not isinstance(arm_status, dict) or set(arm_status) != set(ARMS) or any(arm_status[a] not in ARM_STATUSES for a in ARMS):
+        raise ValueError("arm status must name every arm as completed or diverged")
     if type(complete["schema_version"]) is not int or complete["schema_version"] != SCHEMA or complete["status"] != "complete":
         raise ValueError("unsupported/incomplete completion record")
-    expected_names = {"manifest.json", "training.jsonl", *(f"{arm}.pt" for arm in ARMS)}
+    expected_names = {"manifest.json", "training.jsonl", *(f"{arm}.pt" for arm in ARMS if arm_status[arm] == "completed")}
     if set(complete["artifacts"]) != expected_names:
         raise ValueError("artifact set mismatch")
     for name, sha in complete["artifacts"].items():
@@ -755,10 +864,23 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         raise ValueError("execution runtime mismatch")
     data = require_keys(
         manifest["data"],
-        ("kind", "source_files", "outer_identity", "fit_sha256", "dev_sha256", "fit_size", "dev_size", "data_seed"),
+        (
+            "kind",
+            "source_files",
+            "outer_identity",
+            "fit_sha256",
+            "dev_sha256",
+            "fit_size",
+            "dev_size",
+            "data_seed",
+            "fit_calibration_prefix_sha256",
+        ),
         "data provenance",
     )
     validate_hash(data["fit_sha256"], "fit data")
+    validate_hash(data["fit_calibration_prefix_sha256"], "fit calibration prefix")
+    if manifest["host"] != f"kernel-demo-{spec.host}" or manifest["seed_type"] != spec.seed_type:
+        raise ValueError("manifest host/seed type disagree with the specification")
     validate_hash(data["dev_sha256"], "development data")
     validate_hash(manifest["common_future_sha256"], "common future")
     if data["fit_size"] != spec.train_size or data["dev_size"] != spec.dev_size or data["data_seed"] != spec.data_seed:
@@ -766,20 +888,58 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     if not isinstance(complete["summaries"], dict) or set(complete["summaries"]) != set(ARMS):
         raise ValueError("missing required evidence: summary arm set")
     for arm in ARMS:
+        if require_keys(complete["summaries"][arm], ("status",), arm + " summary")["status"] != arm_status[arm]:
+            raise ValueError("summary status disagrees with arm status")
         validate_summary(complete["summaries"][arm], spec, arm)
     lines = _read_training_lines(root / "training.jsonl")
-    if (
-        len(lines) != complete["record_count"]
-        or len(lines) != len(ARMS) * (spec.epochs + 1)
-        or any(not line.endswith("\n") for line in lines)
-    ):
+    expected: list[tuple[str, str, int | None]] = []
+    for arm in ARMS:
+        expected.append((arm, "arm_start", None))
+        if arm_status[arm] == "completed":
+            expected += [(arm, "epoch", e) for e in range(spec.epochs)]
+        else:
+            stop = complete["summaries"][arm]["diverged_epoch"]
+            expected += [(arm, "epoch", e) for e in range(stop)] + [(arm, "diverged", stop)]
+    if len(lines) != complete["record_count"] or len(lines) != len(expected) or any(not line.endswith("\n") for line in lines):
         raise ValueError("training evidence incomplete")
-    expected = [(arm, kind, epoch) for arm in ARMS for kind, epoch in [("arm_start", None), *(("epoch", e) for e in range(spec.epochs))]]
+    records: dict[tuple[str, int | None], dict[str, Any]] = {}
+    divergences: dict[str, dict[str, Any]] = {}
     for line, (arm, kind, epoch) in zip(lines, expected, strict=True):
         record = json.loads(line, object_pairs_hook=_pairs, parse_constant=_bad_constant)
         strict_json(record)
         validate_record(record, spec, arm, kind, epoch)
+        if kind == "diverged":
+            divergences[arm] = record
+            summary = complete["summaries"][arm]
+            if (record["epoch"], record["step"], record["reason"]) != (
+                summary["diverged_epoch"],
+                summary["diverged_step"],
+                summary["diverged_reason"],
+            ):
+                raise ValueError("divergence record and summary do not agree")
+        else:
+            records[(arm, epoch)] = record
+        if record["birth"] is not None and record["birth"]["calibration_inputs_sha256"] != data["fit_calibration_prefix_sha256"]:
+            raise ValueError("seed calibration inputs are not the recorded fit prefix")
+    verify_pairing(records, divergences, spec)
     return manifest, complete, spec
+
+
+def verify_pairing(records: dict[tuple[str, int | None], dict[str, Any]], divergences: dict[str, dict[str, Any]], spec: RunSpec) -> None:
+    """Arms of one unit share the host initialization, and the scheduled arm is the no-growth trajectory until germination."""
+    if len({records[(arm, None)]["host_initial_parameter_sha256"] for arm in ARMS}) != 1:
+        raise ValueError("pairing broken: arms start from different host initializations")
+    for epoch in range(spec.graft_epoch):
+        scheduled, baseline = records.get(("scheduled", epoch)), records.get(("no_growth", epoch))
+        if (scheduled is None) != (baseline is None):
+            raise ValueError(f"pairing broken: only one of scheduled/no growth reached epoch {epoch} before germination")
+        if scheduled is None:  # Both stopped before germination: they must have diverged identically.
+            fields = ("epoch", "step", "reason")
+            if [divergences["scheduled"][f] for f in fields] != [divergences["no_growth"][f] for f in fields]:
+                raise ValueError("pairing broken: scheduled and no growth diverged differently before germination")
+            break
+        if scheduled is not None and baseline is not None and scheduled["training_state_sha256"] != baseline["training_state_sha256"]:
+            raise ValueError(f"pairing broken: scheduled diverged from no growth before germination (epoch {epoch})")
 
 
 def _read_checkpoint(path: Path) -> Any:
@@ -792,11 +952,11 @@ def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) 
     checkpoint = _read_checkpoint(root / f"{arm}.pt")
     if checkpoint["schema_version"] != SCHEMA or checkpoint["arm"] != arm or checkpoint["manifest_sha256"] != manifest_hash:
         raise ValueError("checkpoint identity mismatch")
-    host = build_host("mild", derive(spec.seed, "host-init"))
+    host = build_host(spec.host, derive(spec.seed, "host-init"))
     host.load_state_dict(checkpoint["host"], strict=True)
     slot = Slot()
     if arm != "no_growth":
-        slot.seed = build_seed("conv_light", 64, derive(spec.seed, "seed-body-init"))
+        slot.seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
         slot.seed.load_state_dict(checkpoint["seed"], strict=True)
     elif checkpoint["seed"] is not None:
         raise ValueError("no-growth checkpoint contains a seed")
@@ -816,11 +976,13 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
         raise FileExistsError("outer results already exist; evaluation is final and cannot be overwritten")
     verified = verify_run(root)
     manifest, complete, spec = verified
+    if any(status != "completed" for status in complete["arm_status"].values()):
+        raise ValueError("outer evaluation requires every arm completed; this run has a diverged arm")
     # All checkpoints validated/materialized before opening outer data.
     models = {arm: restore_checkpoint(root, arm, complete["artifacts"]["manifest.json"], spec) for arm in ARMS}
     x, y, outer_identity = load_outer(spec, data_root, manifest["data"])
     started = time.perf_counter()
-    untrained = score(build_host("mild", derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
+    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
     scores = {arm: score(host, slot, x, y, spec.batch_size) for arm, (host, slot) in models.items()}
     result = evaluation_record(
         verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")
@@ -910,7 +1072,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         if field.name == "data":
             training.add_argument("--data", choices=("smoke", "cifar"), default=default)
         else:
-            training.add_argument("--" + field.name.replace("_", "-"), type=type(default), default=default)
+            choices = {"host": PATHOLOGIES, "seed_type": SEED_NAMES}.get(field.name)
+            training.add_argument("--" + field.name.replace("_", "-"), type=type(default), default=default, choices=choices)
     evaluation = sub.add_parser("evaluate")
     evaluation.add_argument("--run", type=Path, required=True)
     evaluation.add_argument("--data-root", type=Path)

@@ -178,11 +178,35 @@ then analyses the completed units once:
 
 ```bash
 PYTHONPATH=.:src .venv/bin/python -B -m experiments.bounded_screen launch \
-  --root runs/<screen> --data-root runs/cifar-fit-only --workers 8
-PYTHONPATH=.:src .venv/bin/python -B -m experiments.bounded_screen analyze --root runs/<screen>
+  --root runs/<screen> --plan docs/prereg/<plan>.json --data-root runs/cifar-fit-only --workers 8
+PYTHONPATH=.:src .venv/bin/python -B -m experiments.bounded_screen analyze \
+  --root runs/<screen> --plan docs/prereg/<plan>.json
 ```
 
 The analysis checks every unit with `verify_run`, refuses a plan whose hash
-changed since launch, records failures rather than dropping them, and refuses
-to overwrite `screen_report.json`. The unit of inference is one training
-seed: the three arms within a seed are matched repeated measures.
+changed since launch, records any unit failure rather than dropping it, and
+refuses to overwrite `screen_report.json`. The unit of inference is one
+training seed: the three arms within a seed are matched repeated measures.
+
+A plan declares its contrasts as arm pairs with a role (`co-primary` or
+`descriptive`), the late epochs, the floor δ, and a named `reading_rule`.
+The rule maps the report onto one pre-committed reading with a stated
+precedence. The report also records:
+- the plan hash, the analysis commit and a timestamp;
+- per-arm mean costs;
+- for each contrast, the true effect needed for an 80% chance that the whole
+  interval clears −δ.
+
+The screen v1 plan predates this schema and is kept unchanged as its record.
+
+## Hosts and seed types
+
+`--host` selects one of the kernel demo's host pathologies (`mild`,
+`under_normalized`, `channel_starved`, `no_spatial_mix`), and `--seed-type`
+selects one of its seed blocks (`norm`, `attn`, `conv_light`, `conv_heavy`).
+The defaults, `mild` and `conv_light`, reproduce screen v1's configuration.
+The seed's gain is calibrated on the first batch of *fit* inputs. Runs from
+before 2026-10-08's hardening calibrated on development inputs, a negligible
+but asymmetric touch that the screen v1 audit flagged. `verify_run` now also
+refuses a run whose arms do not share the host initialization, or whose
+scheduled arm diverges from no growth before germination.

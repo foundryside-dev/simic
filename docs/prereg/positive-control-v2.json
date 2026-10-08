@@ -1,0 +1,202 @@
+{
+  "study": {
+    "id": "positive-control-v2",
+    "status": "confirmatory",
+    "rung": 2,
+    "question": "On the under_normalized host, does static norm-seed capacity beat no growth in late-epoch development CE by more than delta_pc? A pass establishes a measured, repairable deficit for a later, redesigned graft study.",
+    "authority": [
+      "ADR-0018",
+      "PDR-0047",
+      "PDR-0048"
+    ],
+    "based_on": [
+      "positive-control-v1 read instrument_failure (PDR-0047): the scheduled arm diverged in 12/48 units and the runner aborted those units. That is now a recorded per-arm outcome.",
+      "positive-control-v1 exploratory estimate on all 48 units: static - no growth -0.159 [-0.187, -0.131] (95%). It was SEEN. This study is a confirmatory replication on fresh seeds, not an independent discovery."
+    ]
+  },
+  "units": {
+    "definition": "one training seed; the three arms share initialization and every minibatch and are matched repeated measures",
+    "first_seed": 2101,
+    "count": 48,
+    "excluded_seeds": [
+      7,
+      999,
+      5001,
+      5002,
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031,
+      2032,
+      2033,
+      2034,
+      2035,
+      2036,
+      2037,
+      2038,
+      2039,
+      2040,
+      2041,
+      2042,
+      2043,
+      2044,
+      2045,
+      2046,
+      2047,
+      2048,
+      6001,
+      6002,
+      6003,
+      6004,
+      6005,
+      6006,
+      6007,
+      6008,
+      6009,
+      6010,
+      6011,
+      6012,
+      6013,
+      6014,
+      6015,
+      6016
+    ],
+    "population_note": "Inference covers training randomness on one fixed data sample (data_seed 20261004), one host pathology and one seed type."
+  },
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "epochs": 10,
+    "batch_size": 32,
+    "graft_epoch": 2,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "host": "under_normalized",
+    "seed_type": "norm"
+  },
+  "endpoint": {
+    "metric": "development cross-entropy (nats) over all 5,000 dev examples",
+    "late_epochs": [
+      7,
+      8,
+      9
+    ],
+    "per_unit_reduction": "mean dev CE over the late epochs per arm; one paired difference per unit"
+  },
+  "analysis": {
+    "contrasts": {
+      "static_minus_no_growth": {
+        "arms": [
+          "static",
+          "no_growth"
+        ],
+        "role": "co-primary"
+      }
+    },
+    "family_alpha": 0.05,
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261011,
+    "sealed_arm": "The scheduled arm is trained only because the runner always trains all three arms. No contrast involves it. Verification (verify_run) validates every arm's evidence, including the scheduled arm's records and divergence summary, so a scheduled-arm verification failure would fail the unit and appear in failures[]. Only contrast arms' values and statuses are extracted or reported; a cleanly recorded scheduled divergence does not fail the unit. The runner's stdout, which prints every arm, goes to seed-N.runner-stdout.sealed. Known exposure: the graft's divergence rate on this host is already public from v1 (12/48).",
+    "test": "paired t interval at 95% (single co-primary), percentile bootstrap check",
+    "exclusions": "A unit whose CONTRAST arm (static or no_growth) diverges counts as failed under fail_unit; that is a declared post-treatment exclusion of up to max_failed_units = 4 (v1 had 0/48). A unit that fails verification is recorded with its traceback. No unit is re-run.",
+    "interim_looks": "None. Analysis refuses an unfinished fleet."
+  },
+  "decision": {
+    "delta_nats": 0.1,
+    "max_failed_units": 4,
+    "reading_rule": "positive-control-v1",
+    "diverged_arm_policy": "fail_unit",
+    "diverged_arm_policy_note": "fail_unit applies to the CONTRAST arms (static, no_growth), neither of which diverged in any of v1's 48 units. A diverged scheduled arm is outside every contrast and does not fail the unit.",
+    "delta_rationale": "Unchanged from v1 (PDR-0046): twice the later graft floor of 0.05.",
+    "readings": {
+      "control_passes": "static - no growth CI upper < -delta_pc: a measured, repairable deficit. A graft study may be designed against it once the lifecycle instability (simic-75be93e372) has a pre-registered fix.",
+      "control_fails_static_worse": "CI lower > 0: the static birth harms this host. Reopen the configuration choice.",
+      "control_imprecise": "half-width > delta_pc and neither of the above (needs sd > ~0.34; effectively unreachable). Redesign the endpoint or scale.",
+      "control_fails_below_floor": "A detected deficit under the floor. A new PDR chooses between a longer horizon or budget and stopping.",
+      "control_fails_no_effect": "No repairable deficit beyond the floor. The consequence depends on the recorded verdict. If equivalent_within_floor (the CI lies inside (-delta_pc, delta_pc)), v1's exploratory estimate did not replicate: record it, and the bounded line stops at rung 2 unless a new configuration family is proposed. If inconclusive (a precise CI spanning both 0 and -delta_pc, which needs sd > ~0.17), this is NOT a stop: a new PDR decides between more units and stopping.",
+      "instrument_failure": "More than 4 failed units or fewer than 3 analysable. With divergence now recorded per arm, this would mean a contrast arm diverged or a new failure class appeared: investigate before any re-run."
+    },
+    "sizing": {
+      "sd_assumption": 0.117,
+      "sd_source": "95% upper confidence limit on v1's exploratory 48-unit sd (0.097, 47 df). The sd, not the effect, is borrowed.",
+      "effect_for_80pct_pass_at_n48": 0.148,
+      "note": "v1's exploratory effect (0.159) is not used for sizing. Simulated pass probability (20,000 48-unit studies, sd 0.117, the committed interval code): 0.80 at a true benefit of 0.148, and 0.93 at 0.159.",
+      "sensitivity": "See predictions.reading_probabilities."
+    }
+  },
+  "linked_plans": [],
+  "predictions": {
+    "recorded_before_launch": true,
+    "reading_probabilities": {
+      "method": "10,000 simulated 48-unit studies through the committed interval, verdict and positive-control-v1 rule; normal paired differences",
+      "sd_0.097": {
+        "benefit_0.134": {
+          "control_passes": 0.661,
+          "control_fails_below_floor": 0.339
+        },
+        "benefit_0.148": {
+          "control_passes": 0.915,
+          "control_fails_below_floor": 0.085
+        },
+        "benefit_0.159": {
+          "control_passes": 0.985,
+          "control_fails_below_floor": 0.015
+        }
+      },
+      "sd_0.117": {
+        "benefit_0.134": {
+          "control_passes": 0.517,
+          "control_fails_below_floor": 0.483
+        },
+        "benefit_0.148": {
+          "control_passes": 0.794,
+          "control_fails_below_floor": 0.206
+        },
+        "benefit_0.159": {
+          "control_passes": 0.929,
+          "control_fails_below_floor": 0.071
+        }
+      },
+      "note": "0.134 is v1's survivor-subset estimate, 0.148 is the design effect, and 0.159 is v1's all-unit exploratory estimate."
+    },
+    "expected_reading": "control_passes is the likeliest reading. control_fails_below_floor is a plausible outcome (7-48% across the table above), NOT a failed replication: it means a real deficit smaller than the floor.",
+    "would_surprise": "control_fails_no_effect, control_fails_static_worse, or instrument_failure."
+  },
+  "disclosures": [
+    "v1's exploratory 48-unit estimate was seen before this plan was written.",
+    "Seeds 6001-6016 were used for the divergence reproduction (PDR-0047) and are excluded.",
+    "Carried from positive-control-v1: delta_pc was set after the exploratory probe (PDR-0046), and the positive-control-v1 rule code postdates the sweep (fe6c7ed disclosures).",
+    "The instrument_failure branch reports observed arm means but no sd or intervals."
+  ],
+  "deviations": []
+}

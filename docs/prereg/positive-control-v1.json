@@ -1,0 +1,122 @@
+{
+  "study": {
+    "id": "positive-control-v1",
+    "status": "confirmatory",
+    "rung": 2,
+    "question": "On the under_normalized host, does static norm-seed capacity beat no growth in late-epoch development CE by more than delta_pc? A pass establishes a measured, repairable deficit for the rung-3 graft study.",
+    "authority": [
+      "ADR-0018",
+      "PDR-0045",
+      "PDR-0046"
+    ],
+    "based_on": [
+      "exploratory sweep 2026-10-08: K = 4 host/seed configurations (mild/conv_light, under_normalized/norm, channel_starved/conv_heavy, no_spatial_mix/attn), seeds 5001-5002, one unit each; under_normalized/norm was the only configuration with static - no growth below -delta on both seeds (-0.188, -0.177). Selected as best-of-4: its probe effect is an optimistic estimate and is NOT used for sizing."
+    ]
+  },
+  "units": {
+    "definition": "one training seed; the three arms share initialization and every minibatch and are matched repeated measures",
+    "first_seed": 2001,
+    "count": 48,
+    "excluded_seeds": [
+      7,
+      999,
+      5001,
+      5002
+    ],
+    "population_note": "Inference covers training randomness on one fixed data sample (data_seed 20261004), one host pathology and one seed type."
+  },
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "epochs": 10,
+    "batch_size": 32,
+    "graft_epoch": 2,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "host": "under_normalized",
+    "seed_type": "norm"
+  },
+  "endpoint": {
+    "metric": "development cross-entropy (nats) over all 5,000 dev examples",
+    "late_epochs": [
+      7,
+      8,
+      9
+    ],
+    "per_unit_reduction": "mean dev CE over the late epochs per arm; one paired difference per unit"
+  },
+  "analysis": {
+    "contrasts": {
+      "static_minus_no_growth": {
+        "arms": [
+          "static",
+          "no_growth"
+        ],
+        "role": "co-primary"
+      }
+    },
+    "family_alpha": 0.05,
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261009,
+    "sealed_arm": "The scheduled arm is trained only because the runner always trains all three arms (pairing verification and reproducibility). No contrast involves it and the report omits it, including arm means and trajectories. Its late CE is computed in memory by the shared reducer but never written. The runner's per-unit stdout, which prints every arm, goes to seed-N.runner-stdout.sealed. Neither that file nor the scheduled arm's training logs are opened before graft-capture-v1 launches or is abandoned. graft-capture-v1's hash is pinned in this study's launch record (linked_plan_sha256).",
+    "test": "paired t interval at 95% (single co-primary), percentile bootstrap check",
+    "exclusions": "None. Failed units are recorded with tracebacks and never re-run.",
+    "interim_looks": "None. One analysis, after every unit finishes."
+  },
+  "decision": {
+    "delta_nats": 0.1,
+    "delta_graft_nats": 0.05,
+    "delta_rationale": "delta_pc is set at twice the rung-3 floor delta_graft (0.05, carried from screen v1). A deficit that static capacity repairs by more than 2 x delta_graft leaves room for the graft study to distinguish 'captures half or more' from 'captures nothing'. Set AFTER the exploratory probe was seen; a higher floor makes the control harder to pass, which is the conservative direction for the decision it gates.",
+    "max_failed_units": 4,
+    "reading_rule": "positive-control-v1",
+    "readings": {
+      "control_passes": "static - no growth CI upper < -delta_pc. Launch graft-capture-v1 exactly as committed (its hash is pinned in this launch record).",
+      "control_fails_static_worse": "CI lower > 0: static's step-zero birth harms this host. Do not launch the graft study; record and reopen the configuration choice.",
+      "control_imprecise": "half-width > delta_pc and neither of the above. At n = 48 this needs an sd above ~0.34, so it is effectively unreachable; it is kept so the space is covered. Do not launch the graft study; redesign the endpoint or scale.",
+      "control_fails_below_floor": "A detected deficit smaller than the floor (CI upper < 0 but >= -delta_pc). Do NOT launch graft-capture-v1, whose design assumes about 0.15 of headroom. Do NOT stop the bounded line either: record the CI and the realised effect_for_80pct_progress, then a new PDR chooses between a longer horizon or budget on this configuration and stopping.",
+      "control_fails_no_effect": "Otherwise (equivalent within the floor, or precise and inconclusive): no repairable deficit at this scale. Do not launch the graft study. Declared K for this rung is 4 configurations, all already probed, so the bounded line stops at rung 2 with this as its result unless a NEW configuration family is proposed by a new PDR. Only this reading exhausts K; static_worse and imprecise are diagnostic continuations (intended)."
+    },
+    "sizing": {
+      "sd_assumption": 0.115,
+      "sd_source": "95% upper confidence limit on screen v1's static - no growth sd (0.095, 47 df); the probe has too few units to estimate sd",
+      "effect_for_80pct_pass_at_n48": 0.147,
+      "note": "A true static benefit of ~0.15 nats gives ~80% chance of control_passes; the probe's 0.18 is a best-of-4 estimate and likely inflated.",
+      "sensitivity_pass_probability_n48": {
+        "true_benefit_0.12": {
+          "sd_0.115": 0.21,
+          "sd_0.15": 0.14,
+          "sd_0.20": 0.1
+        },
+        "true_benefit_0.15": {
+          "sd_0.115": 0.84,
+          "sd_0.15": 0.62,
+          "sd_0.20": 0.38
+        },
+        "true_benefit_0.18": {
+          "sd_0.115": 1.0,
+          "sd_0.15": 0.95,
+          "sd_0.20": 0.78
+        },
+        "method": "4,000 simulated 48-unit studies with normal paired differences, using the committed interval and verdict code"
+      },
+      "fail_readings_report": "Every reading reports the realised sd, half-width, mde_vs_zero_80pct and effect_for_80pct_progress for the co-primary, so a failure caused by a larger spread is visible as such."
+    }
+  },
+  "deviations": [],
+  "linked_plans": [
+    "docs/prereg/graft-capture-v1.json"
+  ],
+  "predictions": {
+    "recorded_before_launch": true,
+    "expected_reading": "control_passes if the true benefit is >= 0.15 and the spread <= 0.15 (probability 0.6-1.0). The probe's best-of-4 effect of 0.18 plausibly shrinks to 0.09-0.16; toward the low end, control_fails_below_floor becomes the likeliest reading.",
+    "would_surprise": "control_fails_static_worse, or control_fails_no_effect with a CI centred near zero."
+  },
+  "disclosures": [
+    "delta_pc (0.10) was set after the exploratory probe was seen; the higher floor is the conservative direction.",
+    "The positive-control-v1 reading rule code was committed at 5551e97, six minutes after the exploratory sweep finished. It is generic detection-first, and the below-floor split was added after a pre-launch review (PDR-0046), before any confirmatory unit ran.",
+    "The exploratory sweep computed graft numbers on this configuration; those seeds are excluded from both studies."
+  ]
+}
