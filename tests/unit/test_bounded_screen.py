@@ -61,6 +61,7 @@ def fake_screen(
 
     monkeypatch.setattr(screen, "verify_run", verify)
     monkeypatch.setattr(screen, "late_ce", lambda unit, epochs: values[int(unit.name.split("-")[1])])
+    monkeypatch.setattr(screen, "epoch_ce", lambda unit: {arm: [values[int(unit.name.split("-")[1])][arm]] * 7 for arm in runner.ARMS})
     monkeypatch.setattr(
         screen, "unit_costs", lambda unit: {arm: dict.fromkeys((*screen.COST_FIELDS, "wall_s"), 1.0) for arm in runner.ARMS}
     )
@@ -271,7 +272,7 @@ def test_undeclared_arms_are_sealed_out_of_the_report(tmp_path, monkeypatch):
         (0.2, 0.02, "control_fails_static_worse"),
         (-0.05, 0.4, "control_imprecise"),
         (0.0, 0.02, "control_fails_no_effect"),
-        (-0.02, 0.02, "control_fails_no_effect"),
+        (-0.02, 0.02, "control_fails_below_floor"),
     ],
 )
 def test_positive_control_readings_are_detection_first(tmp_path, monkeypatch, static_shift, static_sd, reading):
@@ -345,3 +346,86 @@ def test_identical_failure_in_every_unit_is_raised_not_published(tmp_path, monke
     with pytest.raises(RuntimeError, match="analysis-side"):
         screen.analyze(root, plan)
     assert not (root / "screen_report.json").exists()
+
+
+@pytest.mark.parametrize("name", ["positive-control-v1", "graft-capture-v1"])
+def test_committed_round_two_plans_load_and_keep_their_seeds_disjoint(name):
+    plan = screen.load_plan(runner.REPO / "docs" / "prereg" / f"{name}.json")
+    assert plan["config"]["host"] == "under_normalized" and plan["config"]["seed_type"] == "norm"
+    assert not set(screen.unit_seeds(plan)) & {7, 999, 5001, 5002}
+
+
+def test_graft_study_excludes_every_positive_control_seed():
+    control = screen.load_plan(runner.REPO / "docs" / "prereg" / "positive-control-v1.json")
+    graft = screen.load_plan(runner.REPO / "docs" / "prereg" / "graft-capture-v1.json")
+    assert set(screen.unit_seeds(control)) <= set(graft["units"]["excluded_seeds"])
+    assert "scheduled" not in json.dumps(control["analysis"]["contrasts"])
+
+
+GRAFT_PLAN: dict[str, Any] = {
+    **BASE_PLAN,
+    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "graft-capture-v1"},
+}
+
+
+@pytest.mark.parametrize(
+    ("graft_shift", "static_shift", "reading"),
+    [
+        (-0.15, -0.15, "progress"),  # graft matches static and clears the floor
+        (-0.08, -0.16, "partial_capture"),  # static significantly better, graft significantly better than nothing
+        (0.0, -0.16, "reopen_static_wins"),  # static better, graft captures nothing
+        (0.0, 0.0, "reopen_no_value"),
+    ],
+)
+def test_graft_capture_rule_separates_partial_from_no_capture(tmp_path, monkeypatch, graft_shift, static_shift, reading):
+    values = unit_values(graft_shift, static_shift=static_shift, static_sd=0.005)
+    root, plan = fake_screen(tmp_path, monkeypatch, values, plan=GRAFT_PLAN)
+    assert screen.analyze(root, plan)["reading"] == reading
+
+
+def test_graft_capture_rule_covers_every_verdict_combination():
+    verdicts = ("first_better_beyond_floor", "first_worse", "first_better_floor_not_cleared", "equivalent_within_floor", "inconclusive")
+    for none_verdict in verdicts:
+        for static_lower in (-0.1, 0.01):
+            for half_width in (0.01, 0.5):
+                report = {
+                    "delta_nats": 0.05,
+                    "contrasts": {
+                        "scheduled_minus_no_growth": {"verdict": none_verdict, "t_interval": {"half_width": half_width, "upper": -0.2}},
+                        "scheduled_minus_static": {
+                            "verdict": "inconclusive",
+                            "t_interval": {"half_width": half_width, "lower": static_lower},
+                        },
+                    },
+                }
+                assert screen.reading_graft_capture_v1(report)[0] in screen.GRAFT_CAPTURE_READINGS
+
+
+def test_positive_control_names_a_detected_deficit_below_the_floor(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0, static_shift=-0.03, static_sd=0.005), plan=POSITIVE_CONTROL)
+    report = screen.analyze(root, plan)
+    assert report["reading"] == "control_fails_below_floor"
+    assert "effect_for_80pct_progress" in report["contrasts"]["static_minus_no_growth"]
+
+
+def test_report_carries_per_epoch_means_for_declared_arms_only(tmp_path):
+    unit = tmp_path / "seed-1"
+    runner.train(RunSpec(epochs=7), unit)
+    trajectory = screen.epoch_ce(unit)
+    assert set(trajectory) == set(runner.ARMS) and all(len(v) == 7 for v in trajectory.values())
+
+
+def test_launch_records_linked_plan_hashes_and_seals_runner_stdout(tmp_path, monkeypatch):
+    linked = tmp_path / "graft.json"
+    linked.write_text("{}")
+    plan = copy.deepcopy(BASE_PLAN)
+    plan["units"]["count"] = 1
+    plan["linked_plans"] = [str(linked)]
+    path = write_plan(tmp_path, plan)
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
+    screen.launch(tmp_path / "screen", tmp_path, 1, path)
+    record = json.loads((tmp_path / "screen" / "launch.json").read_text())
+    assert record["linked_plan_sha256"] == {str(linked): file_hash(linked)}
+    assert (tmp_path / "screen" / "seed-1.runner-stdout.sealed").exists()
+    assert not (tmp_path / "screen" / "seed-1.stdout").exists()

@@ -1,0 +1,197 @@
+{
+  "study": {
+    "id": "graft-capture-v1",
+    "status": "confirmatory",
+    "rung": 3,
+    "question": "On the under_normalized host with the norm seed, does a scheduled mid-training graft repair the deficit: does it beat no growth beyond delta, without static capacity from step zero beating it?",
+    "authority": [
+      "ADR-0018",
+      "PDR-0046"
+    ],
+    "launch_condition": "Launch ONLY if positive-control-v1 reads control_passes. Committed before positive-control-v1 is analysed, so nothing in this plan can depend on that study's results.",
+    "based_on": [
+      "The exploratory sweep (seeds 5001-5002) computed graft numbers on this configuration (scheduled - no growth -0.060 and -0.105). They were seen. They are not used for sizing and their seeds are excluded."
+    ]
+  },
+  "units": {
+    "definition": "one training seed; matched three-arm unit",
+    "first_seed": 3001,
+    "count": 48,
+    "excluded_seeds": [
+      7,
+      999,
+      5001,
+      5002,
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031,
+      2032,
+      2033,
+      2034,
+      2035,
+      2036,
+      2037,
+      2038,
+      2039,
+      2040,
+      2041,
+      2042,
+      2043,
+      2044,
+      2045,
+      2046,
+      2047,
+      2048
+    ],
+    "population_note": "Fresh seeds disjoint from the positive control (2001-2048), whose scheduled arms are sealed, and from every exploratory unit."
+  },
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "epochs": 10,
+    "batch_size": 32,
+    "graft_epoch": 2,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "host": "under_normalized",
+    "seed_type": "norm"
+  },
+  "endpoint": {
+    "metric": "development cross-entropy (nats) over all 5,000 dev examples",
+    "late_epochs": [
+      7,
+      8,
+      9
+    ],
+    "per_unit_reduction": "mean dev CE over the late epochs per arm; one paired difference per unit per contrast"
+  },
+  "analysis": {
+    "contrasts": {
+      "scheduled_minus_no_growth": {
+        "arms": [
+          "scheduled",
+          "no_growth"
+        ],
+        "role": "co-primary"
+      },
+      "scheduled_minus_static": {
+        "arms": [
+          "scheduled",
+          "static"
+        ],
+        "role": "co-primary"
+      },
+      "static_minus_no_growth": {
+        "arms": [
+          "static",
+          "no_growth"
+        ],
+        "role": "descriptive"
+      }
+    },
+    "family_alpha": 0.05,
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261010,
+    "test": "paired t intervals at 97.5% (Bonferroni over two co-primaries), percentile bootstrap check",
+    "exclusions": "None. Failed units are recorded and never re-run.",
+    "interim_looks": "None.",
+    "descriptive_note": "static_minus_no_growth is reported on this study's own seeds (95% interval, no verdict, no multiplicity charge) so the capture fraction can be described. Per-epoch arm means for every epoch are reported, so a static advantage that is still closing at the horizon is visible."
+  },
+  "decision": {
+    "delta_nats": 0.05,
+    "max_failed_units": 4,
+    "reading_rule": "graft-capture-v1",
+    "readings": {
+      "reopen_instrument_imprecise": "The no-op contrast does not resolve (half-width > delta): report the MDE; redesign.",
+      "partial_capture": "Static beats the graft (scheduled - static CI lower > 0) AND the graft beats no growth (scheduled - no growth CI upper < 0): the lifecycle repairs part of the deficit. Report the capture fraction descriptively. Reopen birth timing and the blend schedule before any controller work, but record that the graft does repair.",
+      "reopen_static_wins": "Static beats the graft and the graft does not beat no growth: at this horizon the graft captures none of the repair. Part of a static advantage at a ten-epoch horizon may be a head start rather than repair quality; check the trajectories before calling it structural.",
+      "reopen_static_not_credible": "The no-op contrast resolves, the static contrast does not, and static does not win: report; the graft-vs-static question needs more units.",
+      "progress": "The graft beats no growth beyond delta and static does not beat it: the lifecycle captures (nearly) all of the repair. Shape rung 4 (do timing and location change the outcome).",
+      "reopen_no_value": "Precise, but the graft beats neither no growth beyond delta nor reaches partial capture: no repair captured at this scale."
+    },
+    "cost_note": "The norm seed adds 129 parameters (~1.0008x), so parameter cost does not separate the arms; optimizer parameter-steps and wall time are reported from the run summaries.",
+    "sizing": {
+      "method": "4,000 simulated 48-unit studies through the committed graft-capture-v1 rule; static benefit 0.15; correlation between the two co-primary differences 0.3",
+      "reading_probability_by_capture_fraction": {
+        "sd_0.115_both": {
+          "0.00": {
+            "reopen_static_wins": 0.99
+          },
+          "0.25": {
+            "reopen_static_wins": 0.51,
+            "partial_capture": 0.49
+          },
+          "0.50": {
+            "partial_capture": 0.97
+          },
+          "0.75": {
+            "progress": 0.49,
+            "partial_capture": 0.48
+          },
+          "1.00": {
+            "progress": 0.98
+          }
+        },
+        "sd_v1_empirical_0.054_0.087": {
+          "0.00": {
+            "reopen_static_wins": 0.99
+          },
+          "0.25": {
+            "partial_capture": 0.99
+          },
+          "0.50": {
+            "partial_capture": 1.0
+          },
+          "0.75": {
+            "partial_capture": 0.75,
+            "progress": 0.25
+          },
+          "1.00": {
+            "progress": 0.99
+          }
+        }
+      },
+      "superseded": "The earlier figure of 0.103 for an 80% progress chance covered the no-op contrast alone. Progress is a conjunction, so that figure is withdrawn (PDR-0046 F2)."
+    }
+  },
+  "deviations": [],
+  "predictions": {
+    "recorded_before_launch": true,
+    "expected_reading": "partial_capture. The exploratory point estimate is a capture of about 0.46 (graft -0.083 vs static -0.18 over no growth); at a capture of 0.5 the rule reads partial_capture with probability >= 0.97.",
+    "would_surprise": "progress (near-full capture), or reopen_static_wins (no capture)."
+  },
+  "disclosures": [
+    "The reading rule graft-capture-v1 replaced bounded-screen-v1 after a pre-launch review (PDR-0046 F1). The v1 rule ranked 'static wins' above everything, so it could not tell partial capture from none. No confirmatory unit of either study had run."
+  ]
+}

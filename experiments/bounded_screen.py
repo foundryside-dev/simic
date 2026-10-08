@@ -109,6 +109,8 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
         "plan_path": str(plan_path),
         "prereg_sha256": file_hash(plan_path),
         "analysis_module_sha256": analysis_module_hash(),
+        # Plans that must stay frozen while this study runs, e.g. a graft study gated on it (PDR-0046 F7).
+        "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan.get("linked_plans", [])},
         "git": git,
         "seeds": seeds,
         "workers": workers,
@@ -121,7 +123,8 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
     def run(seed: int) -> dict[str, Any]:
         unit = root / f"seed-{seed}"
         started = time.monotonic()
-        with (root / f"seed-{seed}.stdout").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
+        # The runner prints every arm's summary; the file is sealed so undeclared arms stay unread (PDR-0046 F6).
+        with (root / f"seed-{seed}.runner-stdout.sealed").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
             code = subprocess.run(
                 train_command(plan, seed, unit, data_root), cwd=REPO, env=env, stdout=out, stderr=err, check=False
             ).returncode
@@ -142,6 +145,16 @@ def late_ce(root: Path, epochs: list[int]) -> dict[str, float]:
         if record["kind"] == "epoch":
             by_arm[record["arm"]][record["epoch"]] = float(record["dev"]["ce"])
     return {arm: sum(by_arm[arm][e] for e in epochs) / len(epochs) for arm in ARMS}
+
+
+def epoch_ce(root: Path) -> dict[str, list[float]]:
+    """Development CE at every epoch, per arm, from verified evidence."""
+    by_arm: dict[str, dict[int, float]] = {arm: {} for arm in ARMS}
+    for line in (root / "training.jsonl").read_text().splitlines():
+        record = json.loads(line)
+        if record["kind"] == "epoch":
+            by_arm[record["arm"]][record["epoch"]] = float(record["dev"]["ce"])
+    return {arm: [by_arm[arm][e] for e in sorted(by_arm[arm])] for arm in ARMS}
 
 
 def unit_costs(root: Path) -> dict[str, dict[str, float]]:
@@ -211,7 +224,13 @@ def reading_screen_v1(report: dict[str, Any]) -> tuple[str, dict[str, bool]]:
     return "reopen_no_value", gates
 
 
-POSITIVE_CONTROL_READINGS = ("control_passes", "control_fails_static_worse", "control_imprecise", "control_fails_no_effect")
+POSITIVE_CONTROL_READINGS = (
+    "control_passes",
+    "control_fails_static_worse",
+    "control_imprecise",
+    "control_fails_below_floor",
+    "control_fails_no_effect",
+)
 
 
 def reading_positive_control_v1(report: dict[str, Any]) -> tuple[str, dict[str, bool]]:
@@ -224,7 +243,45 @@ def reading_positive_control_v1(report: dict[str, Any]) -> tuple[str, dict[str, 
         return "control_fails_static_worse", gates
     if not gates["control_precise"]:
         return "control_imprecise", gates
+    if primary["verdict"] == "first_better_floor_not_cleared":
+        return "control_fails_below_floor", gates  # A real deficit smaller than the floor, not "no effect" (F4).
     return "control_fails_no_effect", gates
+
+
+GRAFT_CAPTURE_READINGS = (
+    "reopen_instrument_imprecise",
+    "partial_capture",
+    "reopen_static_wins",
+    "reopen_static_not_credible",
+    "progress",
+    "reopen_no_value",
+)
+
+
+def reading_graft_capture_v1(report: dict[str, Any]) -> tuple[str, dict[str, bool]]:
+    """Does the graft repair the deficit? Partial repair is named, not swallowed by 'static wins' (PDR-0046 F1)."""
+    delta = report["delta_nats"]
+    vs_none = report["contrasts"]["scheduled_minus_no_growth"]
+    vs_static = report["contrasts"]["scheduled_minus_static"]
+    graft_helps = vs_none["verdict"] in ("first_better_beyond_floor", "first_better_floor_not_cleared")
+    static_wins = vs_static["t_interval"]["lower"] > 0
+    gates = {
+        "gate_instrument_resolves": vs_none["t_interval"]["half_width"] <= delta,
+        "static_comparison_credible": vs_static["t_interval"]["half_width"] <= delta,
+        "graft_beats_no_growth": graft_helps,
+        "static_beats_graft": static_wins,
+    }
+    if not gates["gate_instrument_resolves"]:
+        return "reopen_instrument_imprecise", gates
+    if static_wins and graft_helps:
+        return "partial_capture", gates
+    if static_wins:
+        return "reopen_static_wins", gates
+    if not gates["static_comparison_credible"]:
+        return "reopen_static_not_credible", gates
+    if vs_none["verdict"] == "first_better_beyond_floor":
+        return "progress", gates
+    return "reopen_no_value", gates
 
 
 @dataclass(frozen=True)
@@ -238,6 +295,10 @@ READING_RULES = {
         reading_screen_v1, {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")}
     ),
     "positive-control-v1": ReadingRule(reading_positive_control_v1, {"static_minus_no_growth": ("static", "no_growth")}),
+    "graft-capture-v1": ReadingRule(
+        reading_graft_capture_v1,
+        {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")},
+    ),
 }
 
 
@@ -261,6 +322,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     delta = decision["delta_nats"]
     units: dict[int, dict[str, float]] = {}
     costs: dict[int, dict[str, dict[str, float]]] = {}
+    trajectories: dict[int, dict[str, list[float]]] = {}
     failures: list[dict[str, Any]] = []
     for seed in unit_seeds(plan):
         unit = root / f"seed-{seed}"
@@ -268,6 +330,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
             verify_run(unit)
             units[seed] = late_ce(unit, epochs)
             costs[seed] = unit_costs(unit)
+            trajectories[seed] = epoch_ce(unit)
         except Exception as error:  # Any unit failure is recorded, never silently dropped (audit F8).
             failures.append({"seed": seed, "error": f"{type(error).__name__}: {error}", "traceback": traceback.format_exc()})
     if failures and not units and len({f["error"] for f in failures}) == 1:
@@ -324,6 +387,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
             "arm_costs_mean": {
                 arm: {k: float(np.mean([costs[s][arm][k] for s in seeds])) for k in (*COST_FIELDS, "wall_s")} for arm in declared
             },
+            "arm_epoch_dev_ce_mean": {arm: np.mean([trajectories[s][arm] for s in seeds], axis=0).tolist() for arm in declared},
             "contrasts": contrasts,
         }
     )
