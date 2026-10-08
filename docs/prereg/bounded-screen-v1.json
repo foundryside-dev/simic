@@ -1,0 +1,71 @@
+{
+  "study": {
+    "id": "bounded-screen-v1",
+    "status": "confirmatory",
+    "question": "At bounded scale, does the scheduled graft lifecycle earn its cost against both no growth and static same-block capacity, and can the paired instrument resolve differences of the declared size at all?",
+    "authority": ["ADR-0018", "PDR-0043", "PDR-0044"],
+    "based_on": ["docs/results/2026-10-08-bounded-cpu-pilot.md (exploratory, seed 7)", "timing unit seed 7 at this config (exploratory: no_growth 1.1351, scheduled 1.1284, static 1.3912 final dev CE)"]
+  },
+  "units": {
+    "definition": "one training seed: host initialization, seed-body initialization, augmentation future and process RNG. The three arms within a seed share all of them and are matched repeated measures, not samples.",
+    "first_seed": 1001,
+    "count": 48,
+    "excluded_seeds": [7, 999],
+    "population_note": "Inference is over training randomness on ONE fixed data sample (data_seed 20261004). It does not generalise over fit/dev subsets."
+  },
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "epochs": 10,
+    "batch_size": 32,
+    "graft_epoch": 2,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1
+  },
+  "endpoint": {
+    "metric": "development cross-entropy (nats), sample-weighted over all 5,000 dev examples",
+    "late_epochs": [7, 8, 9],
+    "per_unit_reduction": "mean dev CE over the late epochs, per arm; then one paired difference per unit per contrast",
+    "rationale": "Averaging the last three epochs damps the single-epoch swings (up to 0.47 nats) seen in the pilot. Declared before any confirmatory unit runs."
+  },
+  "analysis": {
+    "co_primary_contrasts": {
+      "scheduled_minus_no_growth": "late CE(scheduled) - late CE(no_growth); negative favours the graft",
+      "scheduled_minus_static": "late CE(scheduled) - late CE(static); negative favours the graft"
+    },
+    "descriptive_contrasts": ["static_minus_no_growth"],
+    "test": "paired t interval over per-unit differences, two-sided",
+    "family_alpha": 0.05,
+    "multiplicity": "Bonferroni over the two co-primary contrasts: each interval at 97.5%",
+    "secondary_check": "percentile bootstrap over units at the same level",
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261008,
+    "also_reported": ["Wilcoxon signed-rank p (descriptive)", "fraction of units favouring the first arm", "worst decile", "MDE at 80% power from the observed sd", "per-unit differences", "costs from the run summaries"],
+    "exclusions": "None. A unit that fails to complete or fails verify_run is recorded as a failure with its error and is never re-run.",
+    "interim_looks": "None. The analysis runs once, after every unit has finished, and refuses to overwrite its report."
+  },
+  "decision": {
+    "delta_nats": 0.05,
+    "delta_rationale": "About 4% of the ~1.13-nat CE the timing unit reached. Below this, the lifecycle machinery is not worth building controllers on at bounded scale. Chosen as an engineering judgement before the fleet, not fitted to the pilot.",
+    "max_failed_units": 4,
+    "per_contrast_verdict": {
+      "scheduled_better_beyond_floor": "CI upper < -delta",
+      "scheduled_worse": "CI lower > 0",
+      "scheduled_better_below_floor": "CI upper < 0 (and not beyond floor)",
+      "equivalent_within_floor": "-delta < CI lower and CI upper < delta",
+      "inconclusive": "otherwise"
+    },
+    "gate_instrument_resolves": "Both co-primary CI half-widths <= delta. This is a precision criterion; it does not depend on the sign of any effect. It closes the PDR-0043 gate question.",
+    "adr0018_reopen_trigger": "Fires if scheduled_minus_static has CI lower > 0 (static capacity wins at equal final parameters), or if the gate precision criterion fails (measurement uncertainty prevents a credible comparison).",
+    "instrument_failure": "More than max_failed_units units fail: the verdict is instrument_failure and the design reopens.",
+    "readings": {
+      "progress": "Instrument resolves, trigger does not fire, and scheduled_minus_no_growth is scheduled_better_beyond_floor: shape random/heuristic timing next, and resume Phase A per PDR-0043.",
+      "reopen_static_wins": "Instrument resolves and static wins: reopen the lifecycle design per ADR-0018. Do not enlarge the controller.",
+      "reopen_no_value": "Instrument resolves, no trigger, but the graft does not beat no growth beyond the floor: the lifecycle does not earn its cost at this scale. Reopen the design, and resume Phase A only because the instrument itself resolves.",
+      "reopen_imprecise": "Instrument does not resolve at this n: report the MDE. Redesign the instrument (endpoint, scale or fleet) before any contract is drafted."
+    }
+  }
+}
