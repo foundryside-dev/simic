@@ -1,6 +1,6 @@
 {
   "study": {
-    "id": "lifecycle-v2-validation",
+    "id": "lifecycle-v2-validation-dryrun3",
     "status": "exploratory engineering acceptance test",
     "prerequisite_for_rung": 3,
     "question": "Does lifecycle v2 (the per-step trust-region curvature clamp) remove the graft's germination-stage divergence on the norm and conv_heavy seeds of the under_normalized host, for the derived reason, without changing the graft where v1 is already safe?",
@@ -16,8 +16,8 @@
   },
   "units": {
     "definition": "one training seed in one cell; v1 and v2 of that seed share initialization and every minibatch, and within each run the three arms are matched repeated measures",
-    "first_seed": 4001,
-    "count": 24,
+    "first_seed": 9204,
+    "count": 3,
     "excluded_seeds": [
       7,
       999,
@@ -235,10 +235,7 @@
       6016,
       9201,
       9202,
-      9203,
-      9204,
-      9205,
-      9206
+      9203
     ],
     "population_note": "Inference covers training randomness on one fixed data sample (data_seed 20261004) for the three declared host x seed cells."
   },
@@ -322,12 +319,12 @@
     "c3": "Expected pass: shown bitwise on the 7-epoch smoke pair (test_variant_independent_arms_are_bitwise_equal_across_variants) and the GPU probe shows bitwise replay per device; both variants of one seed run on the same GPU.",
     "c4": "Expected pass with verdict 'equivalent' and v2_units_clamped = 0 (conv_light on the mild host, kappa ~0.3 in the pilot), in which case v2 equals v1 exactly and the guard is trivially met. The report states the clamp-engagement count so a trivial pass is visible.",
     "c5": "Not predicted. The static arm diverged once on this host in positive-control-v2 (seed 2142). C5 reports host-arm divergences; it does not decide acceptance.",
-    "would_surprise": "Any v2 lifecycle divergence in A or B; a v1 STE-epoch divergence in the stable cells (A, B) with pre-divergence max kappa below c*/1.1; a replay mismatch, within or across cells."
+    "would_surprise": "Any v2 lifecycle divergence in A or B; a v1 STE-epoch divergence with pre-divergence max kappa below c*/1.1; a replay mismatch, within or across cells."
   },
   "disclosures": [
     "Exploratory engineering acceptance test (docs/bounded-lifecycle-v2.md), pre-registered so the criteria cannot move after the data. It is not a confirmatory study of graft value.",
     "The divergence rate on cell A under v1 is already public (positive-control-v1 12/48; reproduction 6/16), and the mechanism was derived from those runs.",
-    "PILOT-INFORMED AMENDMENTS. Two 3-seed GPU dry runs (seeds 9201-9203; docs/results/2026-10-08-lifecycle-v2-dryrun-1 and -2) preceded launch. Dry run 1 found the float32 witness defect (every clamped v2 run failed verification). Two pre-launch reviews (theory and statistics) read the pilot's per-step records and criteria output, and their findings, including pilot numbers, reached the author. C2 was then restructured (falsification on pre-divergence STE rows with a declared bilinear allowance of 0.1; an intervention gate; ranking reported, not gated; within-cell AUC on a rectified score), the runner was changed (float32 lambda recorded; gain_at_birth read back from the parameter), and reporting was added. Seeds 9201-9206 are excluded. Dry run 3 (seeds 9204-9206, commit a2d1062; docs/results/2026-10-08-lifecycle-v2-dryrun-3) was read for mechanics only: 18/18 units verified, C3 held on 9/9 pairs and across cells, and no clamped row (629) exceeded s*c*. The statistics reviewer additionally ran the amended criteria on dry run 2's records.",
+    "PILOT-INFORMED AMENDMENTS. Two 3-seed GPU dry runs (seeds 9201-9203; docs/results/2026-10-08-lifecycle-v2-dryrun-1 and -2) preceded launch. Dry run 1 found the float32 witness defect (every clamped v2 run failed verification). Two pre-launch reviews (theory and statistics) read the pilot's per-step records and criteria output, and their findings, including pilot numbers, reached the author. C2 was then restructured (falsification on pre-divergence STE rows with a declared bilinear allowance of 0.1; an intervention gate; ranking reported, not gated; within-cell AUC on a rectified score), the runner was changed (float32 lambda recorded; gain_at_birth read back from the parameter), and reporting was added. Seeds 9201-9206 are excluded (9204-9206: a third dry run of the amended commit, mechanics only).",
     "data_identity was copied from positive-control-v2 manifests (same data_seed, train_size and dev_size).",
     "Pre-germination scheduled divergences are host instability (the scheduled arm is the no-growth host until its seed exists, enforced by verify_pairing). They are excluded from C1 and C2 and reported in C5. Post-germination divergences that coincide with a host-arm divergence of the same cell and seed are flagged, not reclassified.",
     "STE-epoch divergence is identified by the divergence record carrying the STE table, not by its stage label: a divergence in the STE epoch's scoring is recorded with the stage after the epoch.",

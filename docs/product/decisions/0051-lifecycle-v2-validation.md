@@ -63,12 +63,17 @@ used by an earlier study is excluded.
     The 10% is the design's own allowance for the cross-entropy bilinear
     term; the strict-c* rate is reported beside it. The diverging row is
     excluded because it records the blow-up itself (κ ≈ 10²⁴ in the pilot).
+    The ramp spans several rows before it (pre-divergence maxima of
+    10⁷–10⁸ in the pilot), so the exclusion does not stop a blow-up from
+    meeting the threshold.
     This can only falsify: survivors cross c* too.
   - **C2b, intervention.** v2 changes only λ_t, where κ > s·c*, on the same
     initialisation and minibatches. A seed that diverges under v1 and not
-    under v2 attributes the divergence to the clamped curvature. At least
-    one such seed is required, and none the other way. The McNemar p is
-    reported but does not gate.
+    under v2 therefore attributes the divergence to the clamped curvature.
+    At least one such seed is required, and none the other way. This is not
+    an independent second test. "None the other way" is part of C1, so C2b
+    reads C1's result as attribution and adds only the requirement that v1
+    did diverge. The McNemar p is reported but does not gate.
 
   With no v1 STE divergence the criterion is untestable, and that is not a
   pass. **Reported, not gated:** a within-cell AUC of the rectified growth
@@ -136,8 +141,13 @@ is pilot-informed**:
 The runner now also records the float32 λ the loss multiplies, rounded
 toward zero, and reads `gain_at_birth` back from the parameter (the
 float64 value made `seed_gain_changed` vacuous). Seeds 9201–9206 are
-excluded (9204–9206 were a third dry run of the amended commit, read for
-mechanics only).
+excluded. Dry run 3 (seeds 9204–9206, commit `a2d1062`, archived as
+`-dryrun-3`) was read for mechanics only:
+- 18/18 units verified;
+- C3 held on 9/9 pairs and across cells;
+- none of the 629 clamped rows exceeded s·c*.
+
+The statistics reviewer's one-pass re-check of `a2d1062` returned GO.
 
 ## Rationale
 
