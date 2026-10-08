@@ -1,0 +1,110 @@
+{
+ "arm": "scheduled",
+ "birth": {
+  "body_init_sha256": "d9f8d56648b0bca89dfc32573186fb258c6b25a43e700e503930ebc8adba02d8",
+  "gain_at_birth": 0.044441551515169174,
+  "seed_birth_sha256": "9064452b111404e0d73f3bf6a6b19da4de20a8735af20ceebabae3748fa0e103"
+ },
+ "diverged": {
+  "epoch": 3,
+  "reason": "non-finite training objective",
+  "step": 3
+ },
+ "env": {
+  "cublas_workspace": ":4096:8",
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": true,
+  "deterministic": true,
+  "device": "cuda:0",
+  "gpu_name": "NVIDIA GeForce RTX 4060 Ti",
+  "pid": 2073776,
+  "tf32_cudnn": false,
+  "tf32_matmul": false,
+  "threads": 1,
+  "torch": "2.13.0+cu130"
+ },
+ "epochs": [
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.390625,
+    "ce": 1.8111491203308105,
+    "examples": 64
+   },
+   "epoch": 0,
+   "host_parameter_sha256": "5b13210b31fb015171db98be39aa1c0611d9087562a4f297ae5df30a0f069a11",
+   "host_state_sha256": "8275df1f5665428e713ff79eb20d79d1ed96368b600321b72dd7335dd84517e0",
+   "stage_after": "dormant",
+   "train_ce": 1.9688578397035599,
+   "training_state_sha256": "0425cded85e99e5320f85c18a74eb5534bcdaf02fbced5f284ed203256a0f38b",
+   "wall_epoch_s": 0.16854038299061358,
+   "wall_train_s": 0.1669715449679643
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.3125,
+    "ce": 2.132078528404236,
+    "examples": 64
+   },
+   "epoch": 1,
+   "host_parameter_sha256": "1912d9a5a834d63d371f7e0c18b8f982bdab542c844bb4ab82dc132db2f7ca7a",
+   "host_state_sha256": "e7055bb55c41909aaf107a266389b8f0a2db9367aa91f2f54f2b763141e52355",
+   "stage_after": "dormant",
+   "train_ce": 1.962119147181511,
+   "training_state_sha256": "ccd54ad4126216f25f64d7153501ec93d3eebf5c6010133d436d304ec1aaed68",
+   "wall_epoch_s": 0.0379065060405992,
+   "wall_train_s": 0.03636004001600668
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.09375,
+    "ce": 77.5902099609375,
+    "examples": 64
+   },
+   "epoch": 2,
+   "host_parameter_sha256": "434bdb06fa2056016d098ce01203f298f6c97e8af0e923cfa25fa787098d99b8",
+   "host_state_sha256": "36b87a3254c1f30e3833a4b6bc9e907e7c533ae0e749a7fda4f14b1b73e99a22",
+   "stage_after": "blending",
+   "train_ce": 36.01943175494671,
+   "training_state_sha256": "eea7897c3ca5cd4c632cff4930b3b854c5cf73952ea3ef472b0ab50ea561908f",
+   "wall_epoch_s": 0.0529017910012044,
+   "wall_train_s": 0.05071638699155301
+  }
+ ],
+ "host_initial_parameter_sha256": "d2c2cd418451f6a4ffdddd31307e949a5341a0b6760f931d652a8348e5d151c6",
+ "initial_dev": {
+  "accuracy": 0.21875,
+  "ce": 2.3384406566619873,
+  "examples": 64
+ },
+ "peak_mem_mib": 118.34375,
+ "spec": {
+  "batch_size": 32,
+  "data": "smoke",
+  "data_seed": 20261004,
+  "dev_size": 64,
+  "epochs": 6,
+  "graft_epoch": 2,
+  "host": "under_normalized",
+  "lam": 1.0,
+  "lr": 0.05,
+  "outer_size": 128,
+  "seed": 7,
+  "seed_type": "norm",
+  "stage_f": 1,
+  "stage_k": 1,
+  "stage_m": 1,
+  "tau": 0.05,
+  "threads": 1,
+  "train_size": 256
+ },
+ "status": "diverged",
+ "wall_s": 0.3090577920083888
+}

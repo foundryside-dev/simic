@@ -1,0 +1,56 @@
+"""Q1-Q3 driver: every run is a fresh process; lanes (gpu0, gpu1, cpu) run in parallel,
+runs inside a lane are sequential so same-seed-twice is uncontended."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PY = "/home/john/simic/.venv/bin/python"
+ENV = {**os.environ, "PYTHONPATH": "/home/john/simic:/home/john/simic/src", "PYTHONDONTWRITEBYTECODE": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+ENV.pop("CUBLAS_WORKSPACE_CONFIG", None)
+OUT = HERE / "q123"
+OUT.mkdir(exist_ok=True)
+
+BASE = ["--data", "smoke", "--seed", "7", "--train-size", "256", "--dev-size", "64", "--batch-size", "32", "--epochs", "6", "--graft-epoch", "2", "--stage-k", "1", "--stage-m", "1", "--stage-f", "1", "--threads", "1"]
+CASES = [("mild", "conv_light"), ("under_normalized", "conv_light"), ("under_normalized", "norm")]
+ARMS = ("no_growth", "scheduled", "static")
+
+
+def run(lane: str, visible: str, device: str, host: str, seed_type: str, arm: str, rep: int, step_trace: int) -> str:
+    name = f"{lane}_{host}_{seed_type}_{arm}_r{rep}"
+    out = OUT / f"{name}.json"
+    env = {**ENV, "CUDA_VISIBLE_DEVICES": visible}
+    cmd = [PY, "-B", str(HERE / "probe_lib.py"), "--device", device, "--arm", arm, "--det", "1", "--step-trace", str(step_trace), "--out", str(out), "--host", host, "--seed-type", seed_type, *BASE]
+    r = subprocess.run(cmd, env=env, capture_output=True, text=True, cwd=str(HERE))
+    if r.returncode != 0:
+        (OUT / f"{name}.err").write_text(r.stdout + r.stderr)
+        return f"{name}: FAILED rc={r.returncode}: {r.stderr.strip().splitlines()[-1] if r.stderr.strip() else ''}"
+    return f"{name}: {r.stdout.strip()}"
+
+
+def lane(lane_name: str, visible: str, device: str, reps: int) -> list[str]:
+    lines = []
+    for host, seed_type in CASES:
+        for arm in ARMS:
+            for rep in range(reps):
+                lines.append(run(lane_name, visible, device, host, seed_type, arm, rep, 3 if arm == "no_growth" and rep == 0 else 0))
+                print(lines[-1], flush=True)
+    return lines
+
+
+if __name__ == "__main__":
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futs = [
+            pool.submit(lane, "gpu0", "0", "cuda:0", 2),
+            pool.submit(lane, "gpu1", "1", "cuda:0", 1),
+            pool.submit(lane, "cpu", "", "cpu", 1),
+        ]
+        for f in futs:
+            f.result()
+    print("done")

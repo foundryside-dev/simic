@@ -86,9 +86,9 @@ def load_plan(path: Path) -> dict[str, Any]:
         if declared.get("role") != "co-primary" or declared.get("arms") != list(arms):
             raise ValueError(f"reading rule requires contrast {name} as co-primary with arms {list(arms)} in that order")
     config = plan["config"]
-    allowed = {f for f in RunSpec.__dataclass_fields__ if f not in UNIT_FIELDS}
-    if not isinstance(config, dict) or not set(config) <= allowed:
-        raise ValueError(f"plan config may only set {sorted(allowed)}")
+    required = {f for f in RunSpec.__dataclass_fields__ if f not in UNIT_FIELDS}
+    if not isinstance(config, dict) or set(config) != required:  # Flush F5: no silent RunSpec defaults.
+        raise ValueError(f"plan config must state exactly {sorted(required)}")
     validated_spec({**RunSpec().__dict__, **config, "data": "cifar"})
     late = plan["endpoint"]["late_epochs"]
     if not late or any(type(e) is not int or not 0 <= e < plan["config"]["epochs"] for e in late):
@@ -125,7 +125,9 @@ def validate_plan_fields(plan: dict[str, Any]) -> None:
     linked = plan["linked_plans"]
     if not isinstance(linked, list) or any(not Path(p).is_file() for p in linked):
         raise ValueError("linked_plans must list existing plan files")
-    gate = plan.get("gated_by")
+    if "gated_by" not in plan:  # Flush F6: absence must not mean "ungated".
+        raise ValueError("plan must declare gated_by (null for an ungated study)")
+    gate = plan["gated_by"]
     if gate is not None and (
         not isinstance(gate, dict) or set(gate) != {"root", "plan", "reading"} or not all(isinstance(v, str) for v in gate.values())
     ):
@@ -142,7 +144,7 @@ def check_gate(plan: dict[str, Any], plan_path: Path) -> None:
 
     The pin is matched by resolved path and content hash, so path spelling cannot cause a false refusal.
     """
-    gate = plan.get("gated_by")
+    gate = plan["gated_by"]
     if gate is None:
         return
     report = read_json(Path(gate["root"]) / "screen_report.json")
@@ -188,7 +190,7 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
         "prereg_sha256": file_hash(plan_path),
         "analysis_module_sha256": analysis_module_hash(),
         # Plans that must stay frozen while this study runs, e.g. a graft study gated on it (PDR-0046 F7).
-        "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan.get("linked_plans", [])},
+        "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan["linked_plans"]},
         "git": git,
         "seeds": seeds,
         "workers": workers,
@@ -216,7 +218,11 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
 
 
 def _dev_ce_by_epoch(root: Path, arms: tuple[str, ...] | list[str]) -> dict[str, dict[int, float]]:
-    """Development CE per epoch for the requested arms only; sealed arms are never parsed for values."""
+    """Development CE per epoch for the requested arms only.
+
+    Every record is parsed (kind and arm are read), but values are extracted only for
+    the requested arms; a sealed arm's metrics are never read into the analysis.
+    """
     by_arm: dict[str, dict[int, float]] = {arm: {} for arm in arms}
     for line in (root / "training.jsonl").read_text().splitlines():
         record = json.loads(line)

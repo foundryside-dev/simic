@@ -1,0 +1,77 @@
+== Q1 same seed, same device (GPU0), twice ==
+  mild/conv_light/no_growth: equal=True epochs=6 status=completed div=None last=8f88bdc7d3e8
+  mild/conv_light/scheduled: equal=True epochs=6 status=completed div=None last=047852755472
+  mild/conv_light/static: equal=True epochs=6 status=completed div=None last=ff7858d0e20e
+  under_normalized/conv_light/no_growth: equal=True epochs=3 status=diverged div={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3} last=544448466f3b
+  under_normalized/conv_light/scheduled: equal=True epochs=3 status=diverged div={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3} last=400164b939a3
+  under_normalized/conv_light/static: equal=True epochs=2 status=diverged div={'epoch': 2, 'reason': 'non-finite gradient', 'step': 6} last=82756662a2be
+  under_normalized/norm/no_growth: equal=True epochs=3 status=diverged div={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3} last=544448466f3b
+  under_normalized/norm/scheduled: equal=True epochs=3 status=diverged div={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3} last=eea7897c3ca5
+  under_normalized/norm/static: equal=True epochs=3 status=diverged div={'epoch': 3, 'reason': 'non-finite training objective', 'step': 6} last=281267c9c8c6
+== Q3a GPU0 vs GPU1 ==
+  mild/conv_light/no_growth: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  mild/conv_light/scheduled: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  mild/conv_light/static: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/conv_light/no_growth: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/conv_light/scheduled: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/conv_light/static: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/norm/no_growth: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/norm/scheduled: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+  under_normalized/norm/static: equal=True  gpu0=NVIDIA GeForce RTX 4060 Ti gpu1=NVIDIA GeForce RTX 4060 Ti
+== Q2 pairing: scheduled == no_growth at every epoch < graft (and host-param hash at graft epoch) ==
+  gpu0/mild/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=(None, None)
+  gpu0/under_normalized/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}, {'epoch': 3, 'reason': 'non-finite training objective', 'step': 3})
+  gpu0/under_normalized/norm: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}, {'epoch': 3, 'reason': 'non-finite training objective', 'step': 3})
+  gpu1/mild/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=(None, None)
+  gpu1/under_normalized/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}, {'epoch': 3, 'reason': 'non-finite training objective', 'step': 3})
+  gpu1/under_normalized/norm: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}, {'epoch': 3, 'reason': 'non-finite training objective', 'step': 3})
+  cpu/mild/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=(None, None)
+  cpu/under_normalized/conv_light: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 5, 'reason': 'non-finite training objective', 'step': 6}, {'epoch': 4, 'reason': 'non-finite training objective', 'step': 5})
+  cpu/under_normalized/norm: init_equal=True pre_graft_equal=True host_param_equal_at_graft_epoch(alpha=0 STE)=True div=({'epoch': 5, 'reason': 'non-finite training objective', 'step': 6}, {'epoch': 5, 'reason': 'non-finite training objective', 'step': 5})
+== Q3b CPU vs GPU0 ==
+  mild/conv_light/no_growth: init_equal=True initial_dev_ce cpu=2.304453 gpu=2.304453
+     step 0: logits_equal=False grads_equal=False params_equal=False ce cpu=2.5651364 gpu=2.5651364 |d|=0.00e+00
+     step 1: logits_equal=False grads_equal=False params_equal=False ce cpu=1.6946447 gpu=1.6946448 |d|=1.19e-07
+     step 2: logits_equal=False grads_equal=False params_equal=False ce cpu=1.4845332 gpu=1.4845337 |d|=4.77e-07
+     epoch 0: hash_equal=False dev_ce cpu=1.39062 gpu=1.39056 |dCE|=5.55e-05 acc cpu=0.609 gpu=0.609
+     epoch 1: hash_equal=False dev_ce cpu=3.81364 gpu=3.82574 |dCE|=1.21e-02 acc cpu=0.609 gpu=0.609
+     epoch 2: hash_equal=False dev_ce cpu=0.97284 gpu=1.00400 |dCE|=3.12e-02 acc cpu=0.906 gpu=0.906
+     epoch 3: hash_equal=False dev_ce cpu=0.32541 gpu=0.33212 |dCE|=6.70e-03 acc cpu=0.906 gpu=0.906
+     epoch 4: hash_equal=False dev_ce cpu=0.03345 gpu=0.03130 |dCE|=2.15e-03 acc cpu=1.000 gpu=1.000
+     epoch 5: hash_equal=False dev_ce cpu=0.00069 gpu=0.00068 |dCE|=1.74e-05 acc cpu=1.000 gpu=1.000
+     diverged: cpu=None gpu=None
+  mild/conv_light/scheduled: init_equal=True initial_dev_ce cpu=2.304453 gpu=2.304453
+     epoch 0: hash_equal=False dev_ce cpu=1.39062 gpu=1.39056 |dCE|=5.55e-05 acc cpu=0.609 gpu=0.609
+     epoch 1: hash_equal=False dev_ce cpu=3.81364 gpu=3.82574 |dCE|=1.21e-02 acc cpu=0.609 gpu=0.609
+     epoch 2: hash_equal=False dev_ce cpu=0.97284 gpu=1.00400 |dCE|=3.12e-02 acc cpu=0.906 gpu=0.906
+     epoch 3: hash_equal=False dev_ce cpu=0.32447 gpu=0.33102 |dCE|=6.56e-03 acc cpu=0.906 gpu=0.906
+     epoch 4: hash_equal=False dev_ce cpu=0.03426 gpu=0.03255 |dCE|=1.71e-03 acc cpu=1.000 gpu=1.000
+     epoch 5: hash_equal=False dev_ce cpu=0.00071 gpu=0.00068 |dCE|=2.90e-05 acc cpu=1.000 gpu=1.000
+     diverged: cpu=None gpu=None
+  under_normalized/conv_light/no_growth: init_equal=True initial_dev_ce cpu=2.338440 gpu=2.338441
+     step 0: logits_equal=False grads_equal=False params_equal=False ce cpu=2.3478882 gpu=2.3478882 |d|=0.00e+00
+     step 1: logits_equal=False grads_equal=False params_equal=False ce cpu=2.1372910 gpu=2.1372910 |d|=0.00e+00
+     step 2: logits_equal=False grads_equal=False params_equal=False ce cpu=1.9508102 gpu=1.9508102 |d|=0.00e+00
+     epoch 0: hash_equal=False dev_ce cpu=1.81088 gpu=1.81115 |dCE|=2.67e-04 acc cpu=0.391 gpu=0.391
+     epoch 1: hash_equal=False dev_ce cpu=2.02551 gpu=2.13208 |dCE|=1.07e-01 acc cpu=0.312 gpu=0.312
+     epoch 2: hash_equal=False dev_ce cpu=1.72259 gpu=77.59021 |dCE|=7.59e+01 acc cpu=0.203 gpu=0.094
+     diverged: cpu={'epoch': 5, 'reason': 'non-finite training objective', 'step': 6} gpu={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}
+  under_normalized/conv_light/scheduled: init_equal=True initial_dev_ce cpu=2.338440 gpu=2.338441
+     epoch 0: hash_equal=False dev_ce cpu=1.81088 gpu=1.81115 |dCE|=2.67e-04 acc cpu=0.391 gpu=0.391
+     epoch 1: hash_equal=False dev_ce cpu=2.02551 gpu=2.13208 |dCE|=1.07e-01 acc cpu=0.312 gpu=0.312
+     epoch 2: hash_equal=False dev_ce cpu=1.72259 gpu=77.59021 |dCE|=7.59e+01 acc cpu=0.203 gpu=0.094
+     diverged: cpu={'epoch': 4, 'reason': 'non-finite training objective', 'step': 5} gpu={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}
+  under_normalized/norm/no_growth: init_equal=True initial_dev_ce cpu=2.338440 gpu=2.338441
+     step 0: logits_equal=False grads_equal=False params_equal=False ce cpu=2.3478882 gpu=2.3478882 |d|=0.00e+00
+     step 1: logits_equal=False grads_equal=False params_equal=False ce cpu=2.1372910 gpu=2.1372910 |d|=0.00e+00
+     step 2: logits_equal=False grads_equal=False params_equal=False ce cpu=1.9508102 gpu=1.9508102 |d|=0.00e+00
+     epoch 0: hash_equal=False dev_ce cpu=1.81088 gpu=1.81115 |dCE|=2.67e-04 acc cpu=0.391 gpu=0.391
+     epoch 1: hash_equal=False dev_ce cpu=2.02551 gpu=2.13208 |dCE|=1.07e-01 acc cpu=0.312 gpu=0.312
+     epoch 2: hash_equal=False dev_ce cpu=1.72259 gpu=77.59021 |dCE|=7.59e+01 acc cpu=0.203 gpu=0.094
+     diverged: cpu={'epoch': 5, 'reason': 'non-finite training objective', 'step': 6} gpu={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}
+  under_normalized/norm/scheduled: init_equal=True initial_dev_ce cpu=2.338440 gpu=2.338441
+     epoch 0: hash_equal=False dev_ce cpu=1.81088 gpu=1.81115 |dCE|=2.67e-04 acc cpu=0.391 gpu=0.391
+     epoch 1: hash_equal=False dev_ce cpu=2.02551 gpu=2.13208 |dCE|=1.07e-01 acc cpu=0.312 gpu=0.312
+     epoch 2: hash_equal=False dev_ce cpu=1.72259 gpu=77.59021 |dCE|=7.59e+01 acc cpu=0.203 gpu=0.094
+     diverged: cpu={'epoch': 5, 'reason': 'non-finite training objective', 'step': 5} gpu={'epoch': 3, 'reason': 'non-finite training objective', 'step': 3}
+== env == {'gpu_name': 'NVIDIA GeForce RTX 4060 Ti', 'torch': '2.13.0+cu130', 'cuda': '13.0', 'cudnn': 92000, 'deterministic': True, 'cudnn_deterministic': True, 'cudnn_benchmark': False, 'tf32_matmul': False, 'tf32_cudnn': False, 'cublas_workspace': ':4096:8', 'threads': 1}

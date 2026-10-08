@@ -1,0 +1,22 @@
+[
+ {
+  "name": "cpu_solo_det_sched",
+  "wall_process_s": 111.03271003998816,
+  "wall_train_s": 105.72354933194583,
+  "epoch_s": [
+   9.74,
+   9.79,
+   10.29,
+   10.41,
+   10.48,
+   10.43,
+   10.53,
+   10.83,
+   11.34,
+   11.86
+  ],
+  "hash": "f31c085f0a502d24",
+  "status": "completed",
+  "peak_mem_mib": null
+ }
+]

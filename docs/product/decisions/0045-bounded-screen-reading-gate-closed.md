@@ -109,3 +109,18 @@ qualifications attach to point 1 above:
   epoch alone, the static contrast's half-width would be 0.065.
 
 The "no deficit" wording in the redesign section was narrowed to match.
+
+## Caveat addendum (2026-10-08, systemic defect flush F4)
+
+This caveats the reading; it does not re-read it. On BatchNorm hosts,
+including `mild`, the static arm calibrates its seed gain against features
+from the *untrained* host in eval mode. Those features have rms ≈ 0.04,
+while the train-mode rms at step zero is ≈ 0.98. So screen v1's static seed
+was born at about 1/25 of its intended relative scale: realised
+gain-to-activation ratio ≈ 0.002 rather than tau = 0.05. The archived
+gains are 0.003–0.0075 in 48/48 units.
+
+The static-arm comparisons in this record are therefore comparisons against
+an under-scaled static birth. The `under_normalized` host has no BatchNorm
+and is unaffected (ratio ≈ 0.050), so PDR-0047 to PDR-0049 stand. The fix is
+tracked as `simic-e3803e8200`.

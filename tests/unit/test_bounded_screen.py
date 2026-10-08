@@ -18,7 +18,23 @@ from experiments.bounded_data import RunSpec, file_hash
 BASE_PLAN: dict[str, Any] = {
     "study": {"id": "test-screen", "status": "confirmatory"},
     "units": {"first_seed": 1, "count": 20, "excluded_seeds": []},
-    "config": {"data_seed": 20261004, "train_size": 128, "dev_size": 64, "epochs": 7, "host": "mild", "seed_type": "conv_light"},
+    "config": {
+        "data_seed": 20261004,
+        "train_size": 128,
+        "dev_size": 64,
+        "epochs": 7,
+        "batch_size": 32,
+        "graft_epoch": 2,
+        "stage_k": 1,
+        "stage_m": 2,
+        "stage_f": 1,
+        "threads": 1,
+        "lr": 0.05,
+        "tau": 0.05,
+        "lam": 1.0,
+        "host": "mild",
+        "seed_type": "conv_light",
+    },
     "endpoint": {"late_epochs": [4, 5, 6]},
     "analysis": {
         "contrasts": {
@@ -32,6 +48,7 @@ BASE_PLAN: dict[str, Any] = {
     },
     "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "bounded-screen-v1", "diverged_arm_policy": "fail_unit"},
     "linked_plans": [],
+    "gated_by": None,
 }
 
 
@@ -616,3 +633,39 @@ def test_gate_accepts_the_pinned_plan_by_hash_whatever_path_spelling(tmp_path, m
     monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path.resolve())
+
+
+@pytest.mark.parametrize("missing", ["host", "seed_type", "train_size", "lr", "epochs"])
+def test_plan_config_must_state_every_run_field(tmp_path, missing):
+    """Flush F5: an omitted config key silently fell back to a RunSpec default."""
+    plan = copy.deepcopy(BASE_PLAN)
+    del plan["config"][missing]
+    with pytest.raises(ValueError, match="config"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+def test_plan_must_declare_gated_by_explicitly(tmp_path):
+    """Flush F6: an absent gated_by meant an ungated launch."""
+    plan = copy.deepcopy(BASE_PLAN)
+    del plan["gated_by"]
+    with pytest.raises(ValueError, match="gated_by"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+@pytest.mark.parametrize(
+    ("none_hw", "static_lower", "static_hw", "reading"),
+    [
+        (0.5, 0.01, 0.01, "reopen_instrument_imprecise"),  # imprecision outranks static-wins
+        (0.01, -0.1, 0.5, "reopen_static_not_credible"),
+    ],
+)
+def test_graft_capture_rule_precedence_for_imprecision_and_credibility(none_hw, static_lower, static_hw, reading):
+    """Flush F11: these branches had no test; a reordering mutant passed the suite."""
+    report = {
+        "delta_nats": 0.05,
+        "contrasts": {
+            "scheduled_minus_no_growth": {"verdict": "inconclusive", "t_interval": {"half_width": none_hw, "upper": 0.1}},
+            "scheduled_minus_static": {"verdict": "inconclusive", "t_interval": {"half_width": static_hw, "lower": static_lower}},
+        },
+    }
+    assert screen.reading_graft_capture_v1(report)[0] == reading

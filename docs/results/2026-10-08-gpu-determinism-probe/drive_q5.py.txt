@@ -1,0 +1,58 @@
+"""Q5: throughput at the screen config (4096 fit / 5000 dev / 10 epochs / batch 32).
+Phases: (a) 1 GPU process alone, det on; (b) det off (benchmark on) for cost of det mode;
+(c) k concurrent processes on GPU0 for k in (2,4,8) with hash check against (a);
+(d) 1 CPU thread, no_growth arm, full 10 epochs."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PY = "/home/john/simic/.venv/bin/python"
+ENV = {**os.environ, "PYTHONPATH": "/home/john/simic:/home/john/simic/src", "PYTHONDONTWRITEBYTECODE": "1", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+ENV.pop("CUBLAS_WORKSPACE_CONFIG", None)
+OUT = HERE / "q5"
+OUT.mkdir(exist_ok=True)
+SCREEN = ["--data", "smoke", "--seed", "2101", "--train-size", "4096", "--dev-size", "5000", "--batch-size", "32", "--epochs", "10", "--graft-epoch", "2", "--stage-k", "1", "--stage-m", "2", "--stage-f", "1", "--threads", "1", "--host", "mild", "--seed-type", "conv_light"]
+
+
+def run(name: str, visible: str, device: str, arm: str, det: int, epochs: int | None = None) -> dict:
+    out = OUT / f"{name}.json"
+    env = {**ENV, "CUDA_VISIBLE_DEVICES": visible}
+    args = list(SCREEN)
+    if epochs is not None:
+        args[args.index("--epochs") + 1] = str(epochs)
+    cmd = [PY, "-B", str(HERE / "probe_lib.py"), "--device", device, "--arm", arm, "--det", str(det), "--out", str(out), *args]
+    t0 = time.perf_counter()
+    r = subprocess.run(cmd, env=env, capture_output=True, text=True, cwd=str(HERE))
+    wall = time.perf_counter() - t0
+    if r.returncode != 0:
+        (OUT / f"{name}.err").write_text(r.stdout + r.stderr)
+        return {"name": name, "failed": True, "wall_process_s": wall}
+    d = json.loads(out.read_text())
+    return {"name": name, "wall_process_s": wall, "wall_train_s": d["wall_s"], "epoch_s": [round(e["wall_epoch_s"], 2) for e in d["epochs"]], "hash": d["epochs"][-1]["training_state_sha256"][:16], "status": d["status"], "peak_mem_mib": d.get("peak_mem_mib")}
+
+
+if __name__ == "__main__":
+    phase = sys.argv[1]
+    results = []
+    if phase == "solo":
+        results.append(run("gpu_solo_det_sched", "0", "cuda:0", "scheduled", 1))
+        results.append(run("gpu_solo_nodet_sched", "0", "cuda:0", "scheduled", 0))
+        results.append(run("gpu_solo_det_nogrowth", "0", "cuda:0", "no_growth", 1))
+    elif phase == "cpu":
+        results.append(run("cpu_solo_det_sched", "", "cpu", "scheduled", 1))
+    elif phase.startswith("share"):
+        k = int(phase[5:])
+        with ThreadPoolExecutor(max_workers=k) as pool:
+            futs = [pool.submit(run, f"gpu_share{k}_p{i}", "0", "cuda:0", "scheduled", 1) for i in range(k)]
+            results = [f.result() for f in futs]
+    (OUT / f"{phase}.summary.json").write_text(json.dumps(results, indent=1))
+    for r in results:
+        print(json.dumps(r))

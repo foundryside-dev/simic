@@ -88,3 +88,22 @@ Any change to the plan after launch is an amendment, and the analysis
 refuses a changed plan or a changed analysis module. If v2 reads anything
 other than `control_passes`, v1's exploratory estimate failed to replicate,
 and the reading's own consequence applies.
+
+## Correction (2026-10-08, systemic defect flush)
+
+Two errors in this record are corrected here. The plan itself is
+hash-pinned and is not edited:
+
+- **F7.** The reversal trigger said any reading other than `control_passes`
+  means "v1's exploratory estimate failed to replicate". That contradicts
+  the plan's own text and PDR-0049: `control_fails_below_floor` is a
+  detected deficit smaller than the floor, not a failed replication. Only
+  `control_fails_no_effect` with an `equivalent_within_floor` verdict
+  would be a failed replication.
+- **F8.** "`below_floor` has a 7–48% chance across the table" is wrong. The
+  plan's own table runs from 1.5% (sd 0.097, benefit 0.159) to 48.3%
+  (sd 0.117, benefit 0.134). The same "7–48%" also appears in the plan's
+  `expected_reading` text.
+- **Sizing method.** The planning sd of 0.117 used a normal approximation
+  to the sd's upper confidence limit. The χ² limit is about 0.120. Both
+  understate nothing material at n = 48.

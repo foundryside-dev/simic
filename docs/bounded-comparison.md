@@ -58,7 +58,7 @@ collection, policy fitting, scheduler, checkpoint selection or GPU execution.
 | Host/task | `Host("mild")`: CNN widths 20/64/72, BatchNorm in all stages, ten classes, one 64-channel 8×8 insertion site |
 | Capacity | 142,006 host parameters; 8,897 seed parameters; final added-capacity topology 150,903 (+6.27%) |
 | No growth | Train the host normally for the complete horizon |
-| Static | Initialize the same seed body at step zero; calibrate gain on development features; alpha=beta=1; ordinary cross-entropy and joint training throughout |
+| Static | Initialize the same seed body at step zero; calibrate gain on the first batch of fit inputs (development inputs before the 2026-10-08 hardening); alpha=beta=1; ordinary cross-entropy and joint training throughout. Caveat: on BatchNorm hosts the calibration features come from the untrained host in eval mode, so the static gain is born far below tau (screen v1: about 1/25 of intended), see PDR-0045's addendum |
 | Scheduled | Germinate once before zero-based epoch 2; one epoch of invisible STE training, two blending epochs, one beta-ramp epoch, then joint training |
 | Graft equation | `h + alpha * Delta(h.detach()*(1-beta) + h*beta)`; TRAINING instead returns `h + (Delta - Delta.detach())` and adds the kernel trust-region penalty |
 | Fossilized meaning | Alpha=beta=1; the seed remains in SGD and remains trainable. This is the kernel demo's joint-training behavior, distinct from Esper-lite's frozen seed semantics |
@@ -168,6 +168,8 @@ not claim HLD conformance, and the full HLD contract registry is unseeded.
 | 2026-10-04 | Synthetic acceptance and tiny CIFAR smoke (128 fit / 64 dev / 128 outer, 7 epochs) | Synthetic fixture; CIFAR-10 | Synthetic data: all arms learn. CIFAR: accuracy rose but CE worsened in every arm (Codex task-7 report) |
 | 2026-10-08 | [CPU development pilot](results/2026-10-08-bounded-cpu-pilot.md) (1,024 fit / 256 dev, 10 epochs, seed 7) | CIFAR-10 training files only | Dev CE fell in all three arms. Final dev CE: static 1.605, no growth 1.691, scheduled 1.722, within single-epoch noise. Outer data not opened |
 | 2026-10-08 | [Pre-registered screen v1](results/2026-10-08-bounded-screen-v1.md): 48 paired seeds (4,096 fit / 5,000 dev, 10 epochs) | CIFAR-10 training files only | Instrument resolves (±0.018 nats). Graft equivalent to no growth (+0.002) and to static capacity (−0.016) within δ = 0.05. Reading `reopen_no_value` (PDR-0045) |
+| 2026-10-08 | [Positive control v1](results/2026-10-08-positive-control-v1.md): 48 seeds, `under_normalized` + `norm` | CIFAR-10 training files only | `instrument_failure`: the graft arm diverged in 12/48 units and the runner then aborted them (since fixed); root cause in PDR-0047 |
+| 2026-10-08 | [Positive control v2](results/2026-10-08-positive-control-v2.md): 48 fresh seeds | CIFAR-10 training files only | `control_fails_below_floor`: static − no growth −0.119 [−0.151, −0.088], 89% of units; a real deficit below δ_pc = 0.10 (PDR-0049) |
 
 ## Multi-seed screens
 

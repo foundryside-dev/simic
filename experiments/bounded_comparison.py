@@ -179,7 +179,9 @@ def validate_diverged_summary(summary: Any, spec: RunSpec, arm: str) -> None:
         raise ValueError("divergence summary epoch mismatch")
     if not valid_divergence_step(summary["diverged_step"], spec) or not isinstance(summary["diverged_reason"], str):
         raise ValueError("divergence summary step/reason invalid")
-    validate_metrics(summary["initial_dev"], spec.dev_size, arm + ".initial_dev")
+    marker = validate_initial_dev(summary["initial_dev"], spec, arm + ".initial_dev")
+    if marker != ((stop, summary["diverged_step"], summary["diverged_reason"]) == (0, 0, NON_FINITE_INITIAL_REASON)):
+        raise ValueError("non-finite initial marker must coincide with a divergence at initial scoring")
     # Work is charged for completed epochs only; a partial or unscored epoch is not charged (definitional).
     if validate_costs(summary["costs"], arm)["host_train_examples"] != stop * spec.train_size:
         raise ValueError("divergence summary work mismatch")
@@ -199,7 +201,7 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
     elif kind == "arm_start":
         require_keys(record, ("host_initial_parameter_sha256", "initial_dev"), arm + " start")
         validate_hash(record["host_initial_parameter_sha256"], arm + " initial host")
-        validate_metrics(record["initial_dev"], spec.dev_size, arm + " initial development")
+        validate_initial_dev(record["initial_dev"], spec, arm + " initial development")
     else:
         keys = (
             "epoch",
@@ -261,7 +263,6 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
                 "seed_birth_sha256",
                 "gain_at_birth",
                 "calibration_examples",
-                "calibration_source",
                 "calibration_inputs_sha256",
                 "calibration_prefix_forward_examples",
                 "calibration_seed_forward_examples",
@@ -283,16 +284,10 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
         ):
             validate_hash(birth[name], arm + "." + name)
         require_number(birth["gain_at_birth"], arm + " gain")
-        if birth["calibration_source"] != "fit":
-            raise ValueError("seed calibration must use fit inputs")
         if birth["calibration_examples"] != min(spec.batch_size, spec.train_size):
             raise ValueError("calibration count mismatch")
     elif record["birth"] is not None:
         raise ValueError("unexpected germination evidence")
-
-
-def digest(value: Any) -> str:
-    return hashlib.sha256(strict_json(value).encode()).hexdigest()
 
 
 def _fsync_dir(path: Path) -> None:
@@ -493,7 +488,6 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
         "seed_birth_sha256": state_hash(seed),
         "gain_at_birth": gain,
         "calibration_examples": len(calibration),
-        "calibration_source": "fit",
         "calibration_inputs_sha256": tensor_hash(calibration),
         "calibration_prefix_forward_examples": len(calibration),
         "calibration_seed_forward_examples": len(calibration),
@@ -518,6 +512,16 @@ class ArmDivergedError(ValueError):
 
 
 ARM_STATUSES = ("completed", "diverged")
+NON_FINITE_INITIAL = {"status": "non-finite"}  # Explicit marker, never a silent null (ADR-0006).
+NON_FINITE_INITIAL_REASON = "non-finite initial scoring"
+
+
+def validate_initial_dev(initial_dev: Any, spec: RunSpec, context: str) -> bool:
+    """Metrics, or the explicit non-finite marker. Returns True for the marker."""
+    if initial_dev == NON_FINITE_INITIAL:
+        return True
+    validate_metrics(initial_dev, spec.dev_size, context)
+    return False
 
 
 def grad_norm(params: Iterable[torch.Tensor]) -> float:
@@ -647,7 +651,12 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
             host_initial = parameter_hash(host)
             base_params = sum(p.numel() for p in host.parameters())
             birth = attach_seed(host, slot, opt, spec, tx, static=True) if arm == "static" else None
-            initial_dev = score(host, slot, dx, dy, spec.batch_size)
+            birth_divergence: ArmDivergedError | None = None
+            try:
+                initial_dev: dict[str, Any] = score(host, slot, dx, dy, spec.batch_size)
+            except NonFiniteError:  # Flush F1: a non-finite birth is a recorded divergence, not a unit abort.
+                initial_dev = dict(NON_FINITE_INITIAL)
+                birth_divergence = ArmDivergedError(epoch=0, step=0, reason=NON_FINITE_INITIAL_REASON)
             append_record(
                 log,
                 {
@@ -672,8 +681,8 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                 "fully_coupled_optimizer_steps": 0,
             }
             history = []
-            diverged: ArmDivergedError | None = None
-            for epoch in range(spec.epochs):
+            diverged: ArmDivergedError | None = birth_divergence
+            for epoch in range(0 if birth_divergence is not None else spec.epochs):
                 action = "GERMINATE" if arm == "scheduled" and epoch == spec.graft_epoch else "WAIT"
                 if action == "GERMINATE":
                     birth = attach_seed(host, slot, opt, spec, tx, static=False)
@@ -908,6 +917,10 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         record = json.loads(line, object_pairs_hook=_pairs, parse_constant=_bad_constant)
         strict_json(record)
         validate_record(record, spec, arm, kind, epoch)
+        if kind == "arm_start" and (record["initial_dev"] == NON_FINITE_INITIAL) != (
+            arm_status[arm] == "diverged" and complete["summaries"][arm]["diverged_reason"] == NON_FINITE_INITIAL_REASON
+        ):
+            raise ValueError("arm start's initial scoring disagrees with the arm's divergence summary")
         if kind == "diverged":
             divergences[arm] = record
             summary = complete["summaries"][arm]

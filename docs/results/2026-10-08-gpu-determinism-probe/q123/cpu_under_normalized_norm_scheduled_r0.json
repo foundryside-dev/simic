@@ -1,0 +1,143 @@
+{
+ "arm": "scheduled",
+ "birth": {
+  "body_init_sha256": "d9f8d56648b0bca89dfc32573186fb258c6b25a43e700e503930ebc8adba02d8",
+  "gain_at_birth": 0.04331203200317784,
+  "seed_birth_sha256": "90c45972e824953aa0748f84b8b72f79959f17ce2676f022ee3220e1c9537c6c"
+ },
+ "diverged": {
+  "epoch": 5,
+  "reason": "non-finite training objective",
+  "step": 5
+ },
+ "env": {
+  "cublas_workspace": ":4096:8",
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": true,
+  "deterministic": true,
+  "device": "cpu",
+  "gpu_name": "cpu",
+  "pid": 2073656,
+  "tf32_cudnn": false,
+  "tf32_matmul": false,
+  "threads": 1,
+  "torch": "2.13.0+cu130"
+ },
+ "epochs": [
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.390625,
+    "ce": 1.8108822107315063,
+    "examples": 64
+   },
+   "epoch": 0,
+   "host_parameter_sha256": "3254c8a5f6b74ae50cfa82ded0ae19d5833a1b7b13133184c9d7bd97bdbd1e40",
+   "host_state_sha256": "ac692c30cfa0c1a19c8b46eeef38a7430347d73b097e733a88bf1ee960982dec",
+   "stage_after": "dormant",
+   "train_ce": 1.9688594490289688,
+   "training_state_sha256": "3e876abe8984c5cfad477c662c0aa8831af110ef5f1a0889c766dc307d4dc576",
+   "wall_epoch_s": 0.542212872998789,
+   "wall_train_s": 0.49958499398780987
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.3125,
+    "ce": 2.025508999824524,
+    "examples": 64
+   },
+   "epoch": 1,
+   "host_parameter_sha256": "6ccd4e4f4397abd1b07bb57e841fad0f48d2581f6354b9725ded99e99afa9e9b",
+   "host_state_sha256": "8e8b249495f7ebea27ed02eb7416f92a8b24de01069a4ea2a62a614b3116f5c4",
+   "stage_after": "dormant",
+   "train_ce": 1.9696634113788605,
+   "training_state_sha256": "19b2a7b9306d9814ac9a8aa6b9848e59f17d50b67f0049c681b9522ad3fb1525",
+   "wall_epoch_s": 0.5120558419730514,
+   "wall_train_s": 0.46831975696841255
+  },
+  {
+   "alpha_after": 0.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.203125,
+    "ce": 1.722592294216156,
+    "examples": 64
+   },
+   "epoch": 2,
+   "host_parameter_sha256": "807e2950bc1582c746b19409979acb5cf48cf0ad8ba3b64fce592f62988556b0",
+   "host_state_sha256": "38fdfb04d05addcd682fd2fa4b3265d564e32903f97bc2ee551a965f2b42346a",
+   "stage_after": "blending",
+   "train_ce": 2.017372503876686,
+   "training_state_sha256": "7da1cc9c778e379074b64227595e4e0baf345e4d0cfb628533b2b9bf3b98d53b",
+   "wall_epoch_s": 0.5465335149783641,
+   "wall_train_s": 0.506585715978872
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 0.0,
+   "dev": {
+    "accuracy": 0.09375,
+    "ce": 2.6907109022140503,
+    "examples": 64
+   },
+   "epoch": 3,
+   "host_parameter_sha256": "c75bf08a687f6f924e5ccfb62c85892ca938fa04b68361315277f9594a74720d",
+   "host_state_sha256": "1af0f992f903d4884a6f77d3e1b86ba81741f1497b4b426808841c246ad5cb57",
+   "stage_after": "fossilizing",
+   "train_ce": 2.7806638330221176,
+   "training_state_sha256": "d4ad2299136fbfbc1cf5b4d04580f2e3bb26d4c1f85f081ce88210f4415d3ea2",
+   "wall_epoch_s": 0.552782119018957,
+   "wall_train_s": 0.515756813052576
+  },
+  {
+   "alpha_after": 1.0,
+   "beta_after": 1.0,
+   "dev": {
+    "accuracy": 0.109375,
+    "ce": 9.574374198913574,
+    "examples": 64
+   },
+   "epoch": 4,
+   "host_parameter_sha256": "5020e3500c6ab3a0c24dca61eb85eca09fd63a5f722e1bab35066c93ba356272",
+   "host_state_sha256": "a685ef39985f77ba56e170f56ac4813a5b8a285782e769581db5b59c14cde5dd",
+   "stage_after": "fossilized",
+   "train_ce": 2.186902493238449,
+   "training_state_sha256": "b95b8a8906ff8cfc705d99512dc9b04383901d9ba70d615ce2af27a8019d62ca",
+   "wall_epoch_s": 0.5467278599971905,
+   "wall_train_s": 0.5088779699872248
+  }
+ ],
+ "host_initial_parameter_sha256": "d2c2cd418451f6a4ffdddd31307e949a5341a0b6760f931d652a8348e5d151c6",
+ "initial_dev": {
+  "accuracy": 0.21875,
+  "ce": 2.338440418243408,
+  "examples": 64
+ },
+ "spec": {
+  "batch_size": 32,
+  "data": "smoke",
+  "data_seed": 20261004,
+  "dev_size": 64,
+  "epochs": 6,
+  "graft_epoch": 2,
+  "host": "under_normalized",
+  "lam": 1.0,
+  "lr": 0.05,
+  "outer_size": 128,
+  "seed": 7,
+  "seed_type": "norm",
+  "stage_f": 1,
+  "stage_k": 1,
+  "stage_m": 1,
+  "tau": 0.05,
+  "threads": 1,
+  "train_size": 256
+ },
+ "status": "diverged",
+ "wall_s": 3.0486945009906776
+}
