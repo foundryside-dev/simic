@@ -1,0 +1,55 @@
+# PDR-0049 — Rung 2: a real deficit is detected below the pre-registered floor; continue through the lifecycle redesign, set the next floor there
+
+Date: 2026-10-08   Status: **proposed**   Author: Claude (session 17)
+Owner sign-off: **pending.** The applied reading is within the grant. The
+continuation commits the next working sessions to the graft lifecycle, so
+it is the owner's call.
+Related: PDR-0046 (δ_pc), PDR-0047, PDR-0048, result
+[`docs/results/2026-10-08-positive-control-v2.md`](../../results/2026-10-08-positive-control-v2.md),
+`simic-75be93e372`, `simic-f73351380d`
+
+## Context
+
+`positive-control-v2` read `control_fails_below_floor`. Static − no growth
+is −0.119 [−0.151, −0.088], and static helped in 89% of units. The plan's
+consequence for this reading: "a new PDR chooses between a longer horizon
+or budget and stopping".
+
+## The applied reading (within the grant)
+
+**Rung 2 is met as a question and not met at the pre-registered floor.**
+Both statements are true, and neither is re-read away.
+
+- On this host there *is* a measurable, repairable deficit. It replicated on
+  fresh seeds after the expected shrinkage from the exploratory estimate.
+- The data are **not** re-analysed against any lower floor. That would be
+  the post-hoc move the pre-registration exists to prevent.
+
+## The recommendation (proposed)
+
+The plan's three options all assume the floor is a property of this host.
+It is not. PDR-0046 set δ_pc = 0.10 as **2 × δ_graft**, purely to leave room
+for a graft study. That graft study now has no runnable design, because the
+graft lifecycle is unstable on this host (`simic-75be93e372`). So the
+floor's rationale has gone with it.
+
+1. **No further positive-control run.** Re-measuring will not change the
+   deficit. A longer horizon is unlikely to move the gap past 0.10: it has
+   been stable at about 0.10–0.14 per epoch since epoch 4, with both arms
+   still descending.
+2. **No replacement floor is chosen now.** The next floor is set *by the
+   graft study's redesign* when it is pre-registered. The measured deficit
+   (0.119, [0.088, 0.151]) is an input. Capture-fraction readings
+   (`graft-capture-v1`'s `partial_capture`) do not need a hard 0.10.
+3. **Do not stop.** The bounded line continues through the lifecycle
+   redesign. The kernel sweep's fix set is the input: a scale-aware trust
+   region, a frozen trust denominator, a separate gain learning rate, and
+   host-edge stability (seed 2142). It is pre-registered and reviewed before
+   any graft study.
+
+## Reversal trigger
+
+- If the owner prefers to stop the bounded line, or to test a longer
+  horizon first, this proposal is superseded by that decision.
+- If the lifecycle redesign cannot produce a graft that is stable on this
+  host, the bounded line stops at rung 2, with this deficit as its result.
