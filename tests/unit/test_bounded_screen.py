@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,7 @@ BASE_PLAN: dict[str, Any] = {
         "bootstrap_seed": 1,
     },
     "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "bounded-screen-v1", "diverged_arm_policy": "fail_unit"},
+    "linked_plans": [],
 }
 
 
@@ -565,3 +567,52 @@ def test_gated_launch_requires_the_gate_reading_and_its_own_pinned_hash(tmp_path
         with pytest.raises(RuntimeError, match="gate"):
             screen.launch(tmp_path / "screen", tmp_path, 1, path)
         assert not (tmp_path / "screen").exists()
+
+
+@pytest.mark.parametrize("field", ["commit", "data"])
+def test_unit_from_another_commit_or_data_sample_is_a_failure(tmp_path, monkeypatch, field):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    good = vars(screen)["verify_run"]
+
+    def stray(unit: Path) -> Any:
+        manifest, complete, spec = good(unit)
+        if unit.name == "seed-4":
+            if field == "commit":
+                manifest = {**manifest, "git": {"commit": "y"}}
+            else:
+                manifest = {**manifest, "data": {"fit_sha256": "e" * 64, "dev_sha256": "d" * 64}}
+        return manifest, complete, spec
+
+    monkeypatch.setattr(screen, "verify_run", stray)
+    report = screen.analyze(root, plan)
+    assert [f["seed"] for f in report["failures"]] == [4] and "identity" in report["failures"][0]["error"]
+
+
+def test_analysis_refuses_when_launched_and_finished_seeds_disagree(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    finished = json.loads((root / "launch-finished.json").read_text())
+    finished["units"] = finished["units"][:-1]
+    (root / "launch-finished.json").write_text(json.dumps(finished))
+    with pytest.raises(ValueError, match="disagree"):
+        screen.analyze(root, plan)
+
+
+def test_plan_must_declare_linked_plans_explicitly(tmp_path):
+    plan = copy.deepcopy(BASE_PLAN)
+    del plan["linked_plans"]
+    with pytest.raises(ValueError, match="linked_plans"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+def test_gate_accepts_the_pinned_plan_by_hash_whatever_path_spelling(tmp_path, monkeypatch):
+    gate_root = tmp_path / "gate"
+    gate_root.mkdir()
+    gate_plan = tmp_path / "gate-plan.json"
+    gate_plan.write_text("{}")
+    path = gated_plan(tmp_path, gate_root, gate_plan)
+    (gate_root / "screen_report.json").write_text(json.dumps({"reading": "control_passes"}))
+    relative = Path(os.path.relpath(path))
+    (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(relative): file_hash(path)}}))
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
+    screen.launch(tmp_path / "screen", tmp_path, 1, path.resolve())

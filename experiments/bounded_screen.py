@@ -120,7 +120,9 @@ def validate_plan_fields(plan: dict[str, Any]) -> None:
     late = plan["endpoint"].get("late_epochs")
     if not isinstance(late, list) or len(set(late)) != len(late):
         raise ValueError("late_epochs must be a list of distinct epochs")
-    linked = plan.get("linked_plans", [])
+    if "linked_plans" not in plan:  # Explicit, even when empty: absence must not mean "no links" (review 60683c4).
+        raise ValueError("plan must declare linked_plans (use [] for none)")
+    linked = plan["linked_plans"]
     if not isinstance(linked, list) or any(not Path(p).is_file() for p in linked):
         raise ValueError("linked_plans must list existing plan files")
     gate = plan.get("gated_by")
@@ -136,7 +138,10 @@ def expected_spec(plan: dict[str, Any], seed: int) -> RunSpec:
 
 
 def check_gate(plan: dict[str, Any], plan_path: Path) -> None:
-    """A gated study launches only on its gate's published reading, and only as the gate pinned it (sweep E-2)."""
+    """A gated study launches only on its gate's published reading, and only as the gate pinned it (sweep E-2).
+
+    The pin is matched by resolved path and content hash, so path spelling cannot cause a false refusal.
+    """
     gate = plan.get("gated_by")
     if gate is None:
         return
@@ -144,7 +149,8 @@ def check_gate(plan: dict[str, Any], plan_path: Path) -> None:
     if report["reading"] != gate["reading"]:
         raise RuntimeError(f"gate not satisfied: {gate['root']} read {report['reading']!r}, not {gate['reading']!r}")
     pinned = read_json(Path(gate["root"]) / "launch.json")["linked_plan_sha256"]
-    if pinned.get(str(plan_path)) != file_hash(plan_path):
+    ours = (plan_path.resolve(), file_hash(plan_path))
+    if ours not in {(Path(path).resolve(), sha) for path, sha in pinned.items()}:
         raise RuntimeError("gate not satisfied: this plan is not the one the gating study pinned")
 
 
@@ -444,7 +450,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     if len(failures) > decision["max_failed_units"] or len(units) < 3:
         report["reading"] = "instrument_failure"
         report["observed_arm_late_ce_mean"] = {arm: float(np.mean([u[arm] for u in units.values()])) for arm in declared}
-        out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
         return report
     seeds = sorted(units)
     n = len(seeds)

@@ -168,3 +168,89 @@ def test_evaluate_refuses_a_run_with_a_diverged_arm(diverged_run: Path, tmp_path
     shutil.copytree(diverged_run, root)
     with pytest.raises(ValueError, match="diverged"):
         runner.evaluate(root)
+
+
+def _train_with(monkeypatch: pytest.MonkeyPatch, root: Path, target: str, inject: Any) -> Path:
+    monkeypatch.setattr(target, inject)
+    runner.train(RunSpec(epochs=7), root)
+    return root
+
+
+@pytest.mark.parametrize("path", ["objective", "gradient", "scoring"])
+def test_every_non_finite_detector_records_a_divergence_instead_of_aborting(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Induce real non-finite values at each detector, only in the scheduled arm after germination (review 60683c4)."""
+    from experiments import kernel_demo
+
+    original_tr = kernel_demo.Slot.trust_region_loss
+    original_score = runner.score
+
+    def nan_trust_region(self: Any, cfg: Any) -> Any:
+        value = original_tr(self, cfg)
+        return value * float("nan") if self.stage is kernel_demo.Stage.TRAINING else value
+
+    def nan_gradient_trust_region(self: Any, cfg: Any) -> Any:
+        value = original_tr(self, cfg)
+        if self.stage is kernel_demo.Stage.TRAINING and self.last_delta is not None:
+            return value + _nan_grad(self.last_delta)  # finite forward, NaN backward
+        return value
+
+    def nan_score(host: Any, slot: Any, x: Any, y: Any, batch_size: int) -> Any:
+        if slot.seed is not None and slot.alpha == 0.0:
+            x = x.float() * float("nan")
+            return original_score(host, slot, x, y, batch_size)
+        return original_score(host, slot, x, y, batch_size)
+
+    injected = {
+        "objective": ("experiments.kernel_demo.Slot.trust_region_loss", nan_trust_region),
+        "gradient": ("experiments.kernel_demo.Slot.trust_region_loss", nan_gradient_trust_region),
+        "scoring": ("experiments.bounded_comparison.score", nan_score),
+    }[path]
+    root = _train_with(monkeypatch, tmp_path / path, *injected)
+    _manifest, complete, spec = runner.verify_run(root)
+    assert complete["arm_status"] == {"no_growth": "completed", "static": "completed", "scheduled": "diverged"}
+    assert complete["summaries"]["scheduled"]["diverged_epoch"] == spec.graft_epoch
+
+
+def _nan_grad(t: Any) -> Any:
+    """Zero in the forward pass, NaN in the backward pass: a finite objective with a non-finite gradient."""
+    import torch
+
+    class NanGrad(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx: Any, x: Any) -> Any:
+            return x.sum() * 0.0
+
+        @staticmethod
+        def backward(ctx: Any, grad: Any) -> Any:
+            return torch.full_like(t, float("nan"))
+
+    return NanGrad.apply(t)  # type: ignore[no-untyped-call]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("diverged_step", -7), ("diverged_step", 10**6), ("costs.seed_train_examples", -1), ("costs.optimizer_parameter_steps", "x")],
+)
+def test_forged_divergence_summary_is_refused(diverged_run: Path, tmp_path: Path, field: str, value: Any) -> None:
+    root = tmp_path / "forged"
+    shutil.copytree(diverged_run, root)
+    completion = json.loads((root / "complete.json").read_text())
+    target = completion["summaries"]["scheduled"]
+    if "." in field:
+        outer, inner = field.split(".")
+        target[outer][inner] = value
+    else:
+        target[field] = value
+    (root / "complete.json").write_text(json.dumps(completion))
+    with pytest.raises(ValueError):
+        runner.verify_run(root)
+
+
+def test_divergence_record_and_summary_must_agree(diverged_run: Path, tmp_path: Path) -> None:
+    def mutate(records: list[dict[str, Any]]) -> None:
+        next(r for r in records if r["kind"] == "diverged")["step"] += 1
+
+    with pytest.raises(ValueError, match="agree"):
+        runner.verify_run(_tamper(diverged_run, tmp_path, mutate))
