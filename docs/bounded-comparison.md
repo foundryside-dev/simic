@@ -171,6 +171,7 @@ not claim HLD conformance, and the full HLD contract registry is unseeded.
 | 2026-10-08 | [Positive control v1](results/2026-10-08-positive-control-v1.md): 48 seeds, `under_normalized` + `norm` | CIFAR-10 training files only | `instrument_failure`: the graft arm diverged in 12/48 units and the runner then aborted them (since fixed); root cause in PDR-0047 |
 | 2026-10-08 | [Positive control v2](results/2026-10-08-positive-control-v2.md): 48 fresh seeds | CIFAR-10 training files only | `control_fails_below_floor`: static − no growth −0.119 [−0.151, −0.088], 42/47 finite pairs; a real deficit, but a benefit ≥ δ_pc = 0.10 is not established (PDR-0049) |
 | 2026-10-08 | [Lifecycle v2 validation](results/2026-10-08-lifecycle-v2-validation.md): 3 cells × 24 seeds × {v1, v2}, GPU | CIFAR-10 training files only | `accepted`: on `under_normalized`, v1's graft diverged in 6/24 (`norm`) and 8/24 (`conv_heavy`) units, v2's in 0/48. Every v1 divergence crossed c*. v2 was identical to v1 where safe (PDR-0051) |
+| 2026-10-09 | [Graft-capture v2](results/2026-10-09-graft-capture-v2.md) (rung 3): 96 seeds × {`norm`, `conv_heavy`}, lifecycle v2, GPU | CIFAR-10 training files only | `partial_capture` on both, so rung 3 is a partial capture (PDR-0052). Capture 0.60 [0.51, 0.72] (`norm`) and 0.31 [0.19, 0.42] (`conv_heavy`). Static wins at the declared cost; graft divergences 0/192 |
 
 ## Multi-seed screens
 

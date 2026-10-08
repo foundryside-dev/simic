@@ -1,6 +1,6 @@
 # PDR-0052 — Rung 3: graft-capture v2 on lifecycle v2, for both seed types
 
-Date: 2026-10-08   Status: proposed (pending pre-launch review)   Author: Claude (session 17)
+Date: 2026-10-08   Status: accepted; both plans read **`partial_capture`**; composed rung-3 verdict **partial capture**   Author: Claude (session 17)
 Owner sign-off: within the grant (PDR-0040 carriage, PDR-0050 ladder and
 GPU window). On 2026-10-08 Claude proposed: "pre-register graft-capture v2
 (rung 3) on lifecycle v2, covering both seeds, with graft value measured
@@ -124,6 +124,24 @@ The first matching row applies.
 5. Launch **both** fleets before analysing **either**, so one seed type's
    result cannot inform the other's plan.
 6. Analyse each fleet from its snapshot, and write up.
+
+## Outcome (2026-10-09)
+
+Both fleets ran from `37e5a5b` (192/192 runs) and were analysed once each
+from their snapshots
+([result](../../results/2026-10-09-graft-capture-v2.md)).
+
+| | `norm` | `conv_heavy` |
+|---|---|---|
+| Reading | `partial_capture` | `partial_capture` |
+| Graft − no growth | −0.087 [−0.105, −0.069] | −0.045 [−0.071, −0.019] |
+| Graft − static | +0.057 [+0.028, +0.086] | +0.098 [+0.074, +0.123] |
+| Capture fraction | 0.60 [0.51, 0.72] | 0.31 [0.19, 0.42] |
+
+The graft diverged in 0/192 runs. The static arm diverged in 1/96 `norm`
+runs (seed 7074, `simic-9c5c3a2acf`). The composed verdict (row 4) is
+**partial capture**: static wins at the declared cost (ADR-0018). Next by
+the ladder is the rung-4 DECIDE PDR.
 
 ## Pre-launch reviews
 

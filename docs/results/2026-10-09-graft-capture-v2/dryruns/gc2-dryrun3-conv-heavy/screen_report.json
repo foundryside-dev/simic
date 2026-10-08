@@ -1,0 +1,234 @@
+{
+  "analysis_git": {
+    "commit": "37e5a5bb2c9f77754f67cae122eb3d614c0a2c8d",
+    "status": ""
+  },
+  "analyzed_unix": 1791463872.4120624,
+  "arm_costs_mean": {
+    "no_growth": {
+      "calibration_examples": 0.0,
+      "optimizer_parameter_steps": 206092800.0,
+      "seed_train_examples": 0.0,
+      "wall_s": 5.946515256325559
+    },
+    "scheduled": {
+      "calibration_examples": 32.0,
+      "optimizer_parameter_steps": 267673088.0,
+      "seed_train_examples": 32768.0,
+      "wall_s": 7.585254848333231
+    },
+    "static": {
+      "calibration_examples": 32.0,
+      "optimizer_parameter_steps": 283068160.0,
+      "seed_train_examples": 40960.0,
+      "wall_s": 7.907530729329058
+    }
+  },
+  "arm_divergence_bounds": {
+    "no_growth": {
+      "lower_95": 0.0,
+      "upper_95": 0.7075982261787133,
+      "upper_one_sided_95": 0.6315968501359612
+    },
+    "scheduled": {
+      "lower_95": 0.0,
+      "upper_95": 0.7075982261787133,
+      "upper_one_sided_95": 0.6315968501359612
+    },
+    "static": {
+      "lower_95": 0.0,
+      "upper_95": 0.7075982261787133,
+      "upper_one_sided_95": 0.6315968501359612
+    }
+  },
+  "arm_epoch_dev_ce_mean": {
+    "no_growth": [
+      2.112706838353475,
+      2.1370735509236654,
+      1.9926275979359946,
+      1.8798962425231933,
+      1.8964897696812948,
+      1.8250464723587037,
+      1.7748608954111738,
+      1.6844962395350136,
+      1.708426309013367,
+      1.6532830787658692
+    ],
+    "scheduled": [
+      2.112706838353475,
+      2.1370735509236654,
+      1.9926275979359946,
+      1.8861778277079264,
+      1.8479103207906087,
+      1.7673611405054725,
+      1.8174926948547363,
+      1.7761006383895872,
+      1.5951496782302854,
+      1.6121350705782573
+    ],
+    "static": [
+      1.8925674347559613,
+      1.8899754695256548,
+      2.1385265436808267,
+      1.6816178581873578,
+      1.6205654503186544,
+      1.5536965085347492,
+      1.550790250269572,
+      1.5296945542971292,
+      1.3779934157053628,
+      1.3139657914479574
+    ]
+  },
+  "arm_finite_n": {
+    "no_growth": 3,
+    "scheduled": 3,
+    "static": 3
+  },
+  "arm_late_ce_mean": {
+    "no_growth": 1.682068542438083,
+    "scheduled": 1.6611284623993765,
+    "static": 1.4072179204834834
+  },
+  "capture_fraction": {
+    "bootstrap_interval": {
+      "level": 0.95,
+      "lower": -0.10943674641196709,
+      "upper": 0.1906355862797875
+    },
+    "estimate": 0.07618712990274894,
+    "n": 3
+  },
+  "confidence_level": 0.9875,
+  "contrasts": {
+    "scheduled_minus_no_growth": {
+      "arms": [
+        "scheduled",
+        "no_growth"
+      ],
+      "bootstrap_interval": {
+        "lower": -0.07590340766906722,
+        "upper": 0.03398603839874248
+      },
+      "effect_for_80pct_progress": 0.36471306018569966,
+      "fraction_first_better": 0.6666666666666666,
+      "interval_level": 0.9875,
+      "lost_pairs": [],
+      "mde_vs_zero_80pct": 0.31471306018569967,
+      "n_pairs": 3,
+      "per_unit": {
+        "9207": -0.07590340766906722,
+        "9208": -0.020902870845794563,
+        "9209": 0.03398603839874248
+      },
+      "role": "co-primary",
+      "t_interval": {
+        "half_width": 0.2810664205262244,
+        "lower": -0.30200650056493084,
+        "mean": -0.020940080038706437,
+        "sd": 0.05494473248333767,
+        "upper": 0.2601263404875179
+      },
+      "verdict": "inconclusive",
+      "wilcoxon_p": 0.75,
+      "worst_decile": 0.02300825654983507
+    },
+    "scheduled_minus_static": {
+      "arms": [
+        "scheduled",
+        "static"
+      ],
+      "bootstrap_interval": {
+        "lower": 0.09493512182235708,
+        "upper": 0.34454021250406885
+      },
+      "effect_for_80pct_progress": 0.8411646320144913,
+      "fraction_first_better": 0.0,
+      "interval_level": 0.9875,
+      "lost_pairs": [],
+      "mde_vs_zero_80pct": 0.7911646320144913,
+      "n_pairs": 3,
+      "per_unit": {
+        "9207": 0.32225629142125434,
+        "9208": 0.09493512182235708,
+        "9209": 0.34454021250406885
+      },
+      "role": "co-primary",
+      "t_interval": {
+        "half_width": 0.7065795459395582,
+        "lower": -0.4526690040236648,
+        "mean": 0.2539105419158934,
+        "sd": 0.13812686715532047,
+        "upper": 0.9604900878554516
+      },
+      "verdict": "inconclusive",
+      "wilcoxon_p": 0.25,
+      "worst_decile": 0.34008342828750593
+    },
+    "static_minus_no_growth": {
+      "arms": [
+        "static",
+        "no_growth"
+      ],
+      "bootstrap_interval": {
+        "lower": -0.39815969909032156,
+        "upper": -0.11583799266815165
+      },
+      "fraction_first_better": 1.0,
+      "interval_level": 0.95,
+      "lost_pairs": [],
+      "n_pairs": 3,
+      "per_unit": {
+        "9207": -0.39815969909032156,
+        "9208": -0.11583799266815165,
+        "9209": -0.3105541741053264
+      },
+      "role": "descriptive",
+      "t_interval": {
+        "half_width": 0.35897675944382607,
+        "lower": -0.6338273813984259,
+        "mean": -0.27485062195459986,
+        "sd": 0.14450759221029258,
+        "upper": 0.0841261374892262
+      },
+      "verdict": null,
+      "wilcoxon_p": 0.25,
+      "worst_decile": -0.15478122895558658
+    }
+  },
+  "delta_nats": 0.05,
+  "diverged_arm_policy": "per_contrast",
+  "diverged_units_by_arm": {
+    "no_growth": 0,
+    "scheduled": 0,
+    "static": 0
+  },
+  "failures": [],
+  "gate_instrument_resolves": false,
+  "graft_beats_no_growth": false,
+  "graft_failures_within_cap": true,
+  "max_graft_failures": 2,
+  "max_static_failures": 2,
+  "n_units": 3,
+  "plan_sha256": "f38d890d59bd82ffb72294d54ff6cfd90dc57b023e7d0e258ff23a505d8380e6",
+  "reading": "reopen_instrument_imprecise",
+  "reading_rule": "graft-capture-v2",
+  "sensitivity": {
+    "lost_pairs": {},
+    "readings": {},
+    "robust": true
+  },
+  "static_beats_graft": false,
+  "static_comparison_credible": false,
+  "static_failures_within_cap": true,
+  "static_loss_diagnostic": {
+    "static_diverged": {
+      "n": 0,
+      "scheduled_minus_no_growth_mean": null
+    },
+    "static_finished": {
+      "n": 3,
+      "scheduled_minus_no_growth_mean": -0.020940080038706437
+    }
+  },
+  "study": "graft-capture-v2-conv-heavy-dryrun3"
+}

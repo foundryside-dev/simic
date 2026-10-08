@@ -26,9 +26,10 @@
   - Rung 2, a repairable deficit: **detected; a benefit ≥ the 0.10 floor not
     established** (estimate 0.119, 95% interval 0.088–0.151; conditional on 47
     finite pairs).
-  - Rung 3, does a graft capture the deficit: **next**. Lifecycle v2 is
-    validated (0/48 divergences, PDR-0051). `graft-capture-v2` runs both seed
-    types with δ = 0.05 retained (PDR-0052).
+  - Rung 3, does a graft capture the deficit: **met as a partial capture**
+    (PDR-0052, 2026-10-09). The graft repairs 60% [51, 72] of static's gain
+    with `norm` and 31% [19, 42] with `conv_heavy`. Static wins at the
+    declared cost. Lifecycle v2 was stable (0/192).
   - Tracker: `simic-f73351380d`.
   - Kill / reopen: each rung's stop condition. Per ADR-0018, do not respond
     to a failed rung by enlarging the controller.
