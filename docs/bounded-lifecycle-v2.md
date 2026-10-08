@@ -1,6 +1,7 @@
 # Bounded graft lifecycle v2 — design
 
-Status: **revised after Fable design review** (2026-10-08). Tracker:
+Status: **revised after Fable design review** (2026-10-08); validation
+study pre-registered (PDR-0051). Tracker:
 `simic-75be93e372`. Authority: PDR-0049 and PDR-0050 (both accepted).
 
 ## Why
@@ -85,9 +86,15 @@ bounded-layer `Slot` subclass). Note that the parked kernel demo campaign
 
 ## Validation study (pre-registered as its own PDR before running)
 
-An exploratory engineering acceptance test on fresh exploratory seeds.
+Plan: [`lifecycle-v2-validation`](prereg/lifecycle-v2-validation.json).
+Decision: [PDR-0051](product/decisions/0051-lifecycle-v2-validation.md).
+Code: `experiments/lifecycle_validation.py` (`evaluate_criteria`).
+
+An exploratory engineering acceptance test on fresh seeds (4001–4024).
 Execution profile: **GPU, Academy-exact per SKU** (2× RTX 4060 Ti; GPU
-lineage only, never mixed with CPU).
+lineage only, never mixed with CPU). Both variants of one seed run on the
+same GPU, so the replay test never crosses devices. Units train, and the
+analysis runs, from one immutable source snapshot.
 
 | Cell | Host × seed | Run |
 |---|---|---|
@@ -95,22 +102,43 @@ lineage only, never mixed with CPU).
 | B | `under_normalized` × `conv_heavy` | v1 and v2, 24 seeds each |
 | C | `mild` × `conv_light` | v1 and v2, 24 seeds each (regression guard) |
 
-**Acceptance criteria, declared before running:**
+**Declared before running.** A scheduled arm that diverges before its seed
+is germinated is host instability: until germination, it is the no-growth
+host. Such divergences count toward C5, not toward C1 or C2.
 
-1. **v2 is stable.** Zero non-finite scheduled arms in A and B, out of 48.
-   Stated with its rule-of-three bound: 0/48 means a rate below 6.2% at 95%.
-   Paired v1-vs-v2 divergence uses McNemar on discordant seeds.
-2. **The mechanism, v1 cells.** "Max κ_live > c* during STE" is a
-   *necessary* condition for divergence: 100% sensitivity is required (no
-   v1 divergence without it). The cumulative amplification
-   `Σ_t log ρ(κ_t)` ranks divergence with AUC ≥ 0.9. Sensitivity and
-   specificity are reported separately.
+Acceptance needs C1–C4. C5 and the performance table are reported but
+never decide acceptance.
+
+1. **v2 is stable.** Zero germinated scheduled-arm divergences in A and B,
+   out of 48. The report states the rule-of-three bound (3/48 = 6.25%) and
+   the exact one-sided 95% bound (6.05%). A per-cell paired McNemar on
+   v1-vs-v2 discordant seeds is reported.
+2. **The mechanism, in the v1 units.** Strict reading: every germinated v1
+   divergence, in any stage, must have shown max κ_live > c* during STE.
+   Sensitivity must be 1.0. The cumulative amplification `Σ_t log ρ(κ_t)`
+   must rank divergence with AUC ≥ 0.9. Specificity and the by-stage
+   breakdown are reported. With no v1 divergence the criterion is
+   untestable, and that is not a pass.
 3. **A free replay test.** The no-growth and static arms do not depend on
-   the variant, so their records must be bitwise-equal between the v1 and
-   v2 runs of the same seed.
-4. **Regression guard, cell C.** A paired TOST shows the late dev CE of v1
-   and v2 equivalent within ±0.05. In cell C, λ_t = λ almost always, so
-   this tests that v2 is v1 where v1 is safe.
+   the variant. Their records (wall time excepted) must hash identically
+   between the v1 and v2 runs of the same seed.
+4. **Regression guard, cell C.** Two parts:
+   - failure rate: no seed may diverge under v2 and not under v1;
+   - finite performance: on the seeds where both finished, a paired TOST
+     must show the scheduled arm's late dev CE equivalent within ±0.05 at
+     α = 0.05.
+5. **Host instability (reported).** No-growth and static divergences, and
+   pre-germination scheduled divergences, per cell. This is the class of
+   positive-control-v2's seed-2142 static divergence. It is a separate
+   problem and is not patched here.
+
+**Failure rate and finite performance are reported apart.** For every
+cell × variant × arm, the report gives:
+- the divergence count, with exact bounds;
+- the late dev CE over the units that finished, with its own n.
+
+Paired contrasts use finite pairs only, and the excluded pairs are counted.
+A survivor mean is never presented as an arm's performance.
 
 If criterion 2 fails, the derivation is wrong. Return to diagnosis, and do
 not proceed to a graft study.
