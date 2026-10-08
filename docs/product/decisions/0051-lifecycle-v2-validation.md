@@ -1,6 +1,6 @@
 # PDR-0051 — Validate graft lifecycle v2 before any graft-capture study
 
-Date: 2026-10-08   Status: proposed (pending pre-launch review)   Author: Claude (session 17)
+Date: 2026-10-08   Status: accepted; study run, reading **`accepted`**   Author: Claude (session 17)
 Owner sign-off: within the grant (run authorisation; PDR-0040 carriage).
 The owner directed: "you're authorised to execute the study as soon as its
 ready", and approved the GPU window ("you have exclusive use to them for
@@ -148,6 +148,23 @@ excluded. Dry run 3 (seeds 9204–9206, commit `a2d1062`, archived as
 - none of the 629 clamped rows exceeded s·c*.
 
 The statistics reviewer's one-pass re-check of `a2d1062` returned GO.
+
+## Outcome (2026-10-08)
+
+The study ran from `64b5392` (144/144 runs, 30.9 min on two GPUs) and read
+**`accepted`** ([result](../../results/2026-10-08-lifecycle-v2-validation.md)):
+
+- **C1:** v2 diverged in 0/48 units. v1 diverged in 6/24 units in cell A
+  and 8/24 in cell B.
+- **C2a:** 14/14 v1 STE divergences crossed c*/1.1 before blowing up.
+- **C2b:** 14 seeds diverged under v1 and were kept by v2, with none the
+  other way.
+- **C3:** bitwise replay held on 72/72 pairs and across cells.
+- **C4:** a trivial `equivalent`: the clamp never engaged in cell C.
+
+The reported ranking AUC was 1.0. One static-arm divergence (A, seed 4004)
+is host instability, now `simic-9c5c3a2acf`. Next: graft-capture v2 (rung
+3), on lifecycle v2.
 
 ## Rationale
 

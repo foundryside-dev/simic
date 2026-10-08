@@ -1,7 +1,8 @@
 # Bounded graft lifecycle v2 — design
 
 Status: **revised after Fable design review** (2026-10-08); validation
-study pre-registered (PDR-0051). Tracker:
+study pre-registered (PDR-0051) and **accepted**
+([result](results/2026-10-08-lifecycle-v2-validation.md)). Tracker:
 `simic-75be93e372`. Authority: PDR-0049 and PDR-0050 (both accepted).
 
 ## Why

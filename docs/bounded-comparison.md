@@ -170,6 +170,7 @@ not claim HLD conformance, and the full HLD contract registry is unseeded.
 | 2026-10-08 | [Pre-registered screen v1](results/2026-10-08-bounded-screen-v1.md): 48 paired seeds (4,096 fit / 5,000 dev, 10 epochs) | CIFAR-10 training files only | Instrument resolves (±0.018 nats). Graft equivalent to no growth (+0.002) and to static capacity (−0.016) within δ = 0.05. Reading `reopen_no_value` (PDR-0045) |
 | 2026-10-08 | [Positive control v1](results/2026-10-08-positive-control-v1.md): 48 seeds, `under_normalized` + `norm` | CIFAR-10 training files only | `instrument_failure`: the graft arm diverged in 12/48 units and the runner then aborted them (since fixed); root cause in PDR-0047 |
 | 2026-10-08 | [Positive control v2](results/2026-10-08-positive-control-v2.md): 48 fresh seeds | CIFAR-10 training files only | `control_fails_below_floor`: static − no growth −0.119 [−0.151, −0.088], 42/47 finite pairs; a real deficit, but a benefit ≥ δ_pc = 0.10 is not established (PDR-0049) |
+| 2026-10-08 | [Lifecycle v2 validation](results/2026-10-08-lifecycle-v2-validation.md): 3 cells × 24 seeds × {v1, v2}, GPU | CIFAR-10 training files only | `accepted`: on `under_normalized`, v1's graft diverged in 6/24 (`norm`) and 8/24 (`conv_heavy`) units, v2's in 0/48. Every v1 divergence crossed c*. v2 was identical to v1 where safe (PDR-0051) |
 
 ## Multi-seed screens
 
@@ -200,6 +201,38 @@ precedence. The report also records:
   interval clears −δ.
 
 The screen v1 plan predates this schema and is kept unchanged as its record.
+
+### Immutable snapshots and the GPU profile
+
+Every launch first writes a `git archive` of the launch commit to
+`<root>/src`, with its identity in `SNAPSHOT.json`. Every unit trains from
+that copy (`cwd` and `PYTHONPATH`), so edits to the live checkout cannot
+change a running fleet. Analysis must also run from the snapshot, and it
+refuses otherwise. `python -m` imports from the current directory, so run it
+from inside the snapshot:
+
+```bash
+cd runs/<screen>/src && PYTHONPATH=$PWD:$PWD/src /home/john/simic/.venv/bin/python -B \
+  -m experiments.bounded_screen analyze --root /home/john/simic/runs/<screen> \
+  --plan /home/john/simic/docs/prereg/<plan>.json
+```
+
+A plan with `"device": "cuda"` runs one process per GPU and refuses more
+workers than visible GPUs. Its profile is Academy-exact per SKU: bitwise
+within a device and across the two identical RTX 4060 Ti cards
+([probe](results/2026-10-08-gpu-determinism-probe.md)). CPU and GPU
+lineages are never mixed inside a study. `verify_run` compares each
+manifest's runtime (hostname, platform, CPU count, GPU name) with the
+analysing process. Analyse on the same host, with a GPU visible.
+
+`experiments/lifecycle_validation.py` uses the same machinery for
+[PDR-0051](product/decisions/0051-lifecycle-v2-validation.md). Its units
+are (cell, seed). It runs both lifecycle variants of a seed on one GPU, and
+its plan pins the data identity.
+
+Before any fleet, run a real-configuration dry run on a few fresh seeds into
+a separate root. CPU smoke tests missed a float32 witness defect that the
+first lifecycle dry run caught on every clamped unit.
 
 ## Hosts and seed types
 
