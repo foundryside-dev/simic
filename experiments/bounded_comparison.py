@@ -221,6 +221,8 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
                 "seed_birth_sha256",
                 "gain_at_birth",
                 "calibration_examples",
+                "calibration_source",
+                "calibration_inputs_sha256",
                 "calibration_prefix_forward_examples",
                 "calibration_seed_forward_examples",
                 "host_unchanged_sha256",
@@ -237,10 +239,13 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
             "seed_birth_sha256",
             "host_unchanged_sha256",
             "host_optimizer_preserved_sha256",
+            "calibration_inputs_sha256",
         ):
             validate_hash(birth[name], arm + "." + name)
         require_number(birth["gain_at_birth"], arm + " gain")
-        if birth["calibration_examples"] != min(spec.batch_size, spec.dev_size):
+        if birth["calibration_source"] != "fit":
+            raise ValueError("seed calibration must use fit inputs")
+        if birth["calibration_examples"] != min(spec.batch_size, spec.train_size):
             raise ValueError("calibration count mismatch")
     elif record["birth"] is not None:
         raise ValueError("unexpected germination evidence")
@@ -417,10 +422,11 @@ def score(host: nn.Module, slot: Slot, x: torch.Tensor, y: torch.Tensor, batch_s
             host.stage_stats = prior_stats
 
 
-def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_x: torch.Tensor, *, static: bool) -> dict[str, Any]:
+def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_x: torch.Tensor, *, static: bool) -> dict[str, Any]:
+    """Germinate once; the gain is calibrated on fit inputs, never development data."""
     if slot.seed is not None or slot.stage is not Stage.DORMANT:
         raise RuntimeError("one lifetime germination attempt allowed")
-    seed = build_seed("conv_light", 64, derive(spec.seed, "seed-body-init"))
+    seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
     body_before = parameter_hash(seed, body_only=True)
     buffers_before = state_hash(seed)
     host_before, opt_before = state_hash(host), optimizer_host_hash(opt)
@@ -428,7 +434,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_
     host.eval()
     try:
         with torch.no_grad():
-            calibration = dev_x[: spec.batch_size]
+            calibration = fit_x[: spec.batch_size]
             features = host.forward_to_slot(normalize_u8(calibration))
         gain = tau_init(seed, features, spec.kernel_config())
     finally:
@@ -447,6 +453,8 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, dev_
         "seed_birth_sha256": state_hash(seed),
         "gain_at_birth": gain,
         "calibration_examples": len(calibration),
+        "calibration_source": "fit",
+        "calibration_inputs_sha256": tensor_hash(calibration),
         "calibration_prefix_forward_examples": len(calibration),
         "calibration_seed_forward_examples": len(calibration),
         "host_unchanged_sha256": host_before,
@@ -549,8 +557,8 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         "schema_version": SCHEMA,
         "spec": dataclasses.asdict(spec),
         "arms": list(ARMS),
-        "host": "kernel-demo-mild",
-        "seed_type": "conv_light",
+        "host": f"kernel-demo-{spec.host}",
+        "seed_type": spec.seed_type,
         "data": provenance,
         "source": source_identity(),
         "git": git_identity(),
@@ -563,8 +571,8 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         "budget": "equal-examples-and-epochs-not-equal-compute",
         "scaffold_state": {
             "execution": "cpu-pinned-stack",
-            "host_distribution": "one-fixed-mild-CNN",
-            "design_prior": "one-human-authored-conv_light",
+            "host_distribution": f"one-fixed-{spec.host}-CNN",
+            "design_prior": f"one-human-authored-{spec.seed_type}",
             "counterfactual_anchor": "measured-no-growth",
         },
     }
@@ -574,12 +582,12 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
     with (output / "training.jsonl").open("x") as log:
         for arm in ARMS:
             started = time.perf_counter()
-            host = build_host("mild", manifest["host_init_seed"])
+            host = build_host(spec.host, manifest["host_init_seed"])
             slot = Slot()
             opt = build_optimizer(host, spec.kernel_config())
             host_initial = parameter_hash(host)
             base_params = sum(p.numel() for p in host.parameters())
-            birth = attach_seed(host, slot, opt, spec, dx, static=True) if arm == "static" else None
+            birth = attach_seed(host, slot, opt, spec, tx, static=True) if arm == "static" else None
             initial_dev = score(host, slot, dx, dy, spec.batch_size)
             append_record(
                 log,
@@ -607,7 +615,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
             for epoch in range(spec.epochs):
                 action = "GERMINATE" if arm == "scheduled" and epoch == spec.graft_epoch else "WAIT"
                 if action == "GERMINATE":
-                    birth = attach_seed(host, slot, opt, spec, dx, static=False)
+                    birth = attach_seed(host, slot, opt, spec, tx, static=False)
                     costs["calibration_examples"] += birth["calibration_examples"]
                 params = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
                 fully_coupled = slot.seed is not None and slot.alpha == slot.beta == 1.0
@@ -775,11 +783,23 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     ):
         raise ValueError("training evidence incomplete")
     expected = [(arm, kind, epoch) for arm in ARMS for kind, epoch in [("arm_start", None), *(("epoch", e) for e in range(spec.epochs))]]
+    records: dict[tuple[str, int | None], dict[str, Any]] = {}
     for line, (arm, kind, epoch) in zip(lines, expected, strict=True):
         record = json.loads(line, object_pairs_hook=_pairs, parse_constant=_bad_constant)
         strict_json(record)
         validate_record(record, spec, arm, kind, epoch)
+        records[(arm, epoch)] = record
+    verify_pairing(records, spec)
     return manifest, complete, spec
+
+
+def verify_pairing(records: dict[tuple[str, int | None], dict[str, Any]], spec: RunSpec) -> None:
+    """Arms of one unit share the host initialization, and the scheduled arm is the no-growth trajectory until germination."""
+    if len({records[(arm, None)]["host_initial_parameter_sha256"] for arm in ARMS}) != 1:
+        raise ValueError("pairing broken: arms start from different host initializations")
+    for epoch in range(spec.graft_epoch):
+        if records[("scheduled", epoch)]["training_state_sha256"] != records[("no_growth", epoch)]["training_state_sha256"]:
+            raise ValueError(f"pairing broken: scheduled diverged from no growth before germination (epoch {epoch})")
 
 
 def _read_checkpoint(path: Path) -> Any:
@@ -792,11 +812,11 @@ def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) 
     checkpoint = _read_checkpoint(root / f"{arm}.pt")
     if checkpoint["schema_version"] != SCHEMA or checkpoint["arm"] != arm or checkpoint["manifest_sha256"] != manifest_hash:
         raise ValueError("checkpoint identity mismatch")
-    host = build_host("mild", derive(spec.seed, "host-init"))
+    host = build_host(spec.host, derive(spec.seed, "host-init"))
     host.load_state_dict(checkpoint["host"], strict=True)
     slot = Slot()
     if arm != "no_growth":
-        slot.seed = build_seed("conv_light", 64, derive(spec.seed, "seed-body-init"))
+        slot.seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
         slot.seed.load_state_dict(checkpoint["seed"], strict=True)
     elif checkpoint["seed"] is not None:
         raise ValueError("no-growth checkpoint contains a seed")
@@ -820,7 +840,7 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
     models = {arm: restore_checkpoint(root, arm, complete["artifacts"]["manifest.json"], spec) for arm in ARMS}
     x, y, outer_identity = load_outer(spec, data_root, manifest["data"])
     started = time.perf_counter()
-    untrained = score(build_host("mild", derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
+    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
     scores = {arm: score(host, slot, x, y, spec.batch_size) for arm, (host, slot) in models.items()}
     result = evaluation_record(
         verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")
