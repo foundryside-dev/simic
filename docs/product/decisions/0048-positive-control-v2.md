@@ -47,6 +47,33 @@ exploratory 0.159.
 
 **Budget:** about 5 CPU-hours on 8 workers, roughly 45 minutes.
 
+## Runbook (pre-launch review F3)
+
+**Commit, launch and analyze in one sitting.** Do not commit while the
+fleet runs, and do not commit between launch and analysis:
+
+- each unit records the git commit it trained under, and the analysis
+  requires it to equal the launch commit;
+- `verify_run` recomputes the experiment source, `pyproject.toml`,
+  `uv.lock` and the runtime identity at analysis time.
+
+Any commit, edit, upgrade or reboot in that window fails units wholesale.
+`runs/` is gitignored, so the screen root itself is safe.
+
+## Pre-launch review amendments
+
+A Fable statistical review returned **GO with amendments**. All are plan
+text; no code changed:
+
+- **F1:** a precise but inconclusive interval no longer stops the line.
+- **F2:** the predictions now carry simulated reading probabilities.
+  `below_floor` has a 7–48% chance across the table and is not a failed
+  replication.
+- **F3:** the runbook above.
+- **F4:** the seal text says what verification actually touches.
+- **F5:** the exclusion and disclosure wording is corrected, and the
+  sensitivity table is restored.
+
 ## Rationale
 
 A positive control is cheap, and the deficit is the foundation for every
