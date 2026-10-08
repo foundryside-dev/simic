@@ -69,10 +69,11 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- pre-register graft-capture v2 (rung 3): a full-sample contrast with the
-  failure rate reported apart, a host-instability policy, GPU, and a
-  real-configuration dry run first;
-- review it, then run it.
+- graft-capture v2 (rung 3, PDR-0052) is pre-registered and reviewed (three
+  Fable reviews, then re-checks). Dry-run the amended commit, then launch both
+  fleets before analysing either;
+- compose the rung-3 verdict by PDR-0052's table, then draft the rung-4
+  DECIDE PDR.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

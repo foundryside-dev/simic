@@ -92,7 +92,7 @@ def load_plan(path: Path) -> dict[str, Any]:
         raise ValueError(f"unknown reading rule; known: {sorted(READING_RULES)}")
     for key in rule.required_decision:
         cap = plan["decision"].get(key)
-        if type(cap) is not int or not 0 <= cap < plan["units"]["count"]:
+        if type(cap) is not int or type(plan["units"].get("count")) is not int or not 0 <= cap < plan["units"]["count"]:
             raise ValueError(f"reading rule {plan['decision']['reading_rule']} requires decision.{key} as an int in [0, units.count)")
     if rule.policy is not None and plan["decision"]["diverged_arm_policy"] != rule.policy:
         raise ValueError(f"reading rule {plan['decision']['reading_rule']} requires diverged_arm_policy {rule.policy}")
@@ -709,7 +709,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
         # not a bound: a diverged arm may lie outside the observed range. The headline stays on finished pairs.
         primaries = [name for name, c in analysis["contrasts"].items() if c["role"] == "co-primary" and lost_pairs[name]]
         readings = {}
-        for corner in itertools.product((0, 1), repeat=len(primaries)):
+        for corner in itertools.product((0, 1), repeat=len(primaries)) if primaries else ():
             imputed = dict(pairs)
             labels = []
             for name, side in zip(primaries, corner, strict=True):

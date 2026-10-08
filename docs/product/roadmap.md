@@ -26,7 +26,6 @@
   - Rung 2, a repairable deficit: **detected; a benefit ≥ the 0.10 floor not
     established** (estimate 0.119, 95% interval 0.088–0.151; conditional on 47
     finite pairs).
-    −0.119 nats on `under_normalized`/`norm` (PDR-0049).
   - Rung 3, does a graft capture the deficit: **next**. Lifecycle v2 is
     validated (0/48 divergences, PDR-0051). `graft-capture-v2` runs both seed
     types with δ = 0.05 retained (PDR-0052).
@@ -37,8 +36,10 @@
 ## Next (shaped, decreasing certainty)
 - **Rung 4: does the timing or location of the graft change the outcome?**
   This fans K grafts plus a no-op from snapshots at several decision points.
-  It is the parked kernel demo's design and its re-entry route. GPU is
-  authorised (PDR-0050, exclusive window from 2026-10-08).
+  A rung-4 DECIDE PDR, drafted after rung 3 reads, chooses the apparatus.
+  The bounded runner's snapshot fan is the default, not the parked kernel
+  demo (PDR-0052). GPU is authorised (PDR-0050, exclusive window from
+  2026-10-08).
 - **Rung 5: can telemetry predict the label better than a fixed schedule?**
   This is the first Tamiyo-shaped result. HLD contracts are drafted here,
   only for what it touches.

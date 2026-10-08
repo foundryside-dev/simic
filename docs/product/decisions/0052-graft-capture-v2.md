@@ -85,15 +85,22 @@ pre-registered deficit measurement.
 **Rung-3 verdict, composed from the two plans before launch.** Both plans
 carry this table in `decision.rung_composition`, so it is hash-pinned.
 
-| `norm` reads | `conv_heavy` reads | Rung-3 verdict |
+The first matching row applies.
+- **Conclusive** readings: `progress`, `partial_capture`,
+  `reopen_static_wins`, `reopen_no_value`.
+- **Inconclusive** readings: `reopen_static_not_credible`,
+  `reopen_instrument_imprecise`.
+
+| # | Readings (either order) | Rung-3 verdict |
 |---|---|---|
-| `graft_unstable` in either | — | Lifecycle v2 is unstable at scale. No capture claim for either seed type. Diagnose before rung 4. |
-| `instrument_failure` in either | — | That seed type is unresolved. Investigate, and re-run on fresh seeds. No rung verdict until it is resolved. |
-| `progress` | `progress` | **Capture.** |
-| `progress` or `partial_capture` | `progress` or `partial_capture` (not both `progress`) | **Partial capture.** The graft repairs part of the deficit. Static wins at the declared cost (ADR-0018), which is a negative on graft ≥ static at this horizon. |
-| `reopen_static_wins` or `reopen_no_value` | `reopen_static_wins` or `reopen_no_value` | **No capture.** The ladder stops at rung 3 (PDR-0050). |
-| capture or partial on one seed type | `reopen_static_wins` or `reopen_no_value` on the other | **Seed-type dependent.** Rung 3 is met only for the capturing seed type, and any continuation uses only that seed type. |
-| `reopen_static_not_credible` or `reopen_instrument_imprecise` on one | a conclusive reading on the other | The verdict comes from the conclusive plan alone, labelled single-seed-type. The other plan routes to its own consequence. |
+| 1 | `graft_unstable` in either | Lifecycle v2 is unstable at scale. No capture claim for either seed type. Diagnose before rung 4. |
+| 2 | `instrument_failure` in either | That seed type is unresolved. Re-run on fresh seeds. No rung verdict until it is resolved. |
+| 3 | `progress` + `progress` | **Capture.** |
+| 4 | both in {`progress`, `partial_capture`}, not both `progress` | **Partial capture.** The graft repairs part of the deficit. Static wins at the declared cost (ADR-0018), which is a negative on graft ≥ static at this horizon. |
+| 5 | both in {`reopen_static_wins`, `reopen_no_value`} | **No capture.** The ladder stops at rung 3 (PDR-0050). |
+| 6 | one in {`progress`, `partial_capture`}, the other in {`reopen_static_wins`, `reopen_no_value`} | **Seed-type dependent.** Rung 3 is met only for the capturing seed type. |
+| 7 | one conclusive, the other inconclusive | The verdict comes from the conclusive plan alone, labelled single-seed-type. A single-seed-type *no capture* does **not** stop the ladder: it holds until the inconclusive plan's own consequence (a new PDR) is resolved. |
+| 8 | both inconclusive | **Rung 3 unresolved**, no verdict. Each plan routes to its own consequence. |
 
 **Two decisions recorded with this one:**
 - **The static comparator is handled by policy, not fixed first.**

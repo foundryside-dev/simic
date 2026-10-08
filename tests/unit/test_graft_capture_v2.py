@@ -233,3 +233,8 @@ def test_launch_refuses_fit_or_dev_data_that_differ_from_the_pin(tmp_path: Path,
     with pytest.raises(RuntimeError, match="pinned"):
         screen.launch(tmp_path / "screen", tmp_path, 1, write_plan(tmp_path, plan))
     assert not (tmp_path / "screen").exists()  # refused before any directory or GPU time
+
+
+def test_with_no_lost_pairs_the_sensitivity_is_empty_and_robust(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root, plan = fake_screen(tmp_path, monkeypatch, capture_values(), plan=GC2_PLAN)
+    assert screen.analyze(root, plan)["sensitivity"] == {"lost_pairs": {}, "readings": {}, "robust": True}
