@@ -38,6 +38,20 @@ from experiments.bounded_data import RunSpec, file_hash, validated_spec
 COST_FIELDS = ("optimizer_parameter_steps", "seed_train_examples", "calibration_examples")
 DESCRIPTIVE_LEVEL = 0.95
 UNIT_FIELDS = ("seed", "data", "outer_size")  # Set per unit or fixed by the screen, never by plan config.
+PLAN_KEYS = {
+    "study",
+    "units",
+    "config",
+    "endpoint",
+    "analysis",
+    "decision",
+    "linked_plans",
+    "gated_by",
+    "predictions",
+    "disclosures",
+    "deviations",
+}
+DIVERGED_ARM_POLICIES = ("fail_unit",)  # A unit whose contrast arm diverged counts as a failed unit (PDR-0047).
 
 
 def analysis_module_hash() -> str:
@@ -50,6 +64,9 @@ def load_plan(path: Path) -> dict[str, Any]:
     for key in ("study", "units", "config", "endpoint", "analysis", "decision"):
         if key not in plan:
             raise ValueError(f"plan missing {key}")
+    if not set(plan) <= PLAN_KEYS:
+        raise ValueError(f"unknown plan keys {sorted(set(plan) - PLAN_KEYS)}")
+    validate_plan_fields(plan)
     contrasts = plan["analysis"].get("contrasts")
     if not isinstance(contrasts, dict) or not contrasts:
         raise ValueError("plan must declare contrasts")
@@ -79,6 +96,58 @@ def load_plan(path: Path) -> dict[str, Any]:
     return plan
 
 
+def _number(value: Any) -> bool:
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def validate_plan_fields(plan: dict[str, Any]) -> None:
+    """Numeric and structural plan fields are checked at load, before any unit runs (sweep C-1)."""
+    analysis, decision = plan["analysis"], plan["decision"]
+    if not _number(analysis.get("family_alpha")) or not 0 < analysis["family_alpha"] < 1:
+        raise ValueError("family_alpha must be in (0, 1)")
+    if (
+        type(analysis.get("bootstrap_resamples")) is not int
+        or analysis["bootstrap_resamples"] < 1
+        or type(analysis.get("bootstrap_seed")) is not int
+    ):
+        raise ValueError("bootstrap_resamples must be a positive int and bootstrap_seed an int")
+    if not _number(decision.get("delta_nats")) or decision["delta_nats"] <= 0:
+        raise ValueError("delta_nats must be positive")
+    if type(decision.get("max_failed_units")) is not int or decision["max_failed_units"] < 0:
+        raise ValueError("max_failed_units must be a non-negative int")
+    if decision.get("diverged_arm_policy") not in DIVERGED_ARM_POLICIES:
+        raise ValueError(f"diverged_arm_policy must be one of {DIVERGED_ARM_POLICIES}")
+    late = plan["endpoint"].get("late_epochs")
+    if not isinstance(late, list) or len(set(late)) != len(late):
+        raise ValueError("late_epochs must be a list of distinct epochs")
+    linked = plan.get("linked_plans", [])
+    if not isinstance(linked, list) or any(not Path(p).is_file() for p in linked):
+        raise ValueError("linked_plans must list existing plan files")
+    gate = plan.get("gated_by")
+    if gate is not None and (
+        not isinstance(gate, dict) or set(gate) != {"root", "plan", "reading"} or not all(isinstance(v, str) for v in gate.values())
+    ):
+        raise ValueError("gated_by must name root, plan and reading")
+
+
+def expected_spec(plan: dict[str, Any], seed: int) -> RunSpec:
+    """The exact specification every unit of this plan must have been trained under (sweep B-1)."""
+    return validated_spec({**RunSpec().__dict__, **plan["config"], "seed": seed, "data": "cifar"})
+
+
+def check_gate(plan: dict[str, Any], plan_path: Path) -> None:
+    """A gated study launches only on its gate's published reading, and only as the gate pinned it (sweep E-2)."""
+    gate = plan.get("gated_by")
+    if gate is None:
+        return
+    report = read_json(Path(gate["root"]) / "screen_report.json")
+    if report["reading"] != gate["reading"]:
+        raise RuntimeError(f"gate not satisfied: {gate['root']} read {report['reading']!r}, not {gate['reading']!r}")
+    pinned = read_json(Path(gate["root"]) / "launch.json")["linked_plan_sha256"]
+    if pinned.get(str(plan_path)) != file_hash(plan_path):
+        raise RuntimeError("gate not satisfied: this plan is not the one the gating study pinned")
+
+
 def unit_seeds(plan: dict[str, Any]) -> list[int]:
     units = plan["units"]
     seeds = list(range(units["first_seed"], units["first_seed"] + units["count"]))
@@ -97,9 +166,12 @@ def train_command(plan: dict[str, Any], seed: int, output: Path, data_root: Path
 
 def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
+    if type(workers) is not int or workers < 1:
+        raise ValueError("workers must be a positive int")
     git = git_identity()
     if git["status"]:
         raise RuntimeError("refusing to launch from a dirty tree: the commit must pin the frozen procedure")
+    check_gate(plan, plan_path)
     if (data_root / "cifar-10-batches-py" / "test_batch").exists():
         raise RuntimeError("data root exposes test_batch; use a training-only view")
     root.mkdir(parents=False, exist_ok=False)
@@ -137,32 +209,34 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
     return finished
 
 
-def late_ce(root: Path, epochs: list[int]) -> dict[str, float]:
-    """Mean development CE over the declared late epochs, per arm, from verified evidence."""
-    by_arm: dict[str, dict[int, float]] = {arm: {} for arm in ARMS}
+def _dev_ce_by_epoch(root: Path, arms: tuple[str, ...] | list[str]) -> dict[str, dict[int, float]]:
+    """Development CE per epoch for the requested arms only; sealed arms are never parsed for values."""
+    by_arm: dict[str, dict[int, float]] = {arm: {} for arm in arms}
     for line in (root / "training.jsonl").read_text().splitlines():
         record = json.loads(line)
-        if record["kind"] == "epoch":
+        if record["kind"] == "epoch" and record["arm"] in by_arm:
             by_arm[record["arm"]][record["epoch"]] = float(record["dev"]["ce"])
-    return {arm: sum(by_arm[arm][e] for e in epochs) / len(epochs) for arm in ARMS}
+    return by_arm
 
 
-def epoch_ce(root: Path) -> dict[str, list[float]]:
-    """Development CE at every epoch, per arm, from verified evidence."""
-    by_arm: dict[str, dict[int, float]] = {arm: {} for arm in ARMS}
-    for line in (root / "training.jsonl").read_text().splitlines():
-        record = json.loads(line)
-        if record["kind"] == "epoch":
-            by_arm[record["arm"]][record["epoch"]] = float(record["dev"]["ce"])
-    return {arm: [by_arm[arm][e] for e in sorted(by_arm[arm])] for arm in ARMS}
+def late_ce(root: Path, epochs: list[int], arms: tuple[str, ...] | list[str]) -> dict[str, float]:
+    """Mean development CE over the declared late epochs, per requested arm, from verified evidence."""
+    by_arm = _dev_ce_by_epoch(root, arms)
+    return {arm: sum(by_arm[arm][e] for e in epochs) / len(epochs) for arm in arms}
 
 
-def unit_costs(root: Path) -> dict[str, dict[str, float]]:
-    """Per-arm work from the verified completion record."""
+def epoch_ce(root: Path, arms: tuple[str, ...] | list[str]) -> dict[str, list[float]]:
+    """Development CE at every epoch, per requested arm, from verified evidence."""
+    by_arm = _dev_ce_by_epoch(root, arms)
+    return {arm: [by_arm[arm][e] for e in sorted(by_arm[arm])] for arm in arms}
+
+
+def unit_costs(root: Path, arms: tuple[str, ...] | list[str]) -> dict[str, dict[str, float]]:
+    """Per-arm work from the verified completion record, for the requested arms."""
     summaries = read_json(root / "complete.json")["summaries"]
     return {
         arm: {**{name: float(summaries[arm]["costs"][name]) for name in COST_FIELDS}, "wall_s": float(summaries[arm]["wall_s"])}
-        for arm in ARMS
+        for arm in arms
     }
 
 
@@ -316,10 +390,18 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     out = root / "screen_report.json"
     if out.exists():
         raise FileExistsError("screen report already published; the analysis runs once")
+    if not (root / "launch-finished.json").is_file():
+        raise ValueError("fleet not finished: launch-finished.json is missing, so analysis would be an interim look")
+    finished_seeds = {u["seed"] for u in read_json(root / "launch-finished.json")["units"]}
+    if finished_seeds != set(launched["seeds"]) or finished_seeds != set(unit_seeds(plan)):
+        raise ValueError("launched, finished and planned seeds disagree")
     epochs = plan["endpoint"]["late_epochs"]
     analysis = plan["analysis"]
     decision = plan["decision"]
     delta = decision["delta_nats"]
+    declared = [arm for arm in ARMS if any(arm in c["arms"] for c in analysis["contrasts"].values())]
+    diverged_by_arm = dict.fromkeys(declared, 0)  # Sealed arms' status is not reported either.
+    reference_data: tuple[str, str] | None = None
     units: dict[int, dict[str, float]] = {}
     costs: dict[int, dict[str, dict[str, float]]] = {}
     trajectories: dict[int, dict[str, list[float]]] = {}
@@ -327,14 +409,27 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     for seed in unit_seeds(plan):
         unit = root / f"seed-{seed}"
         try:
-            verify_run(unit)
-            units[seed] = late_ce(unit, epochs)
-            costs[seed] = unit_costs(unit)
-            trajectories[seed] = epoch_ce(unit)
+            manifest, complete, _ = verify_run(unit)
+            if manifest["spec"] != expected_spec(plan, seed).__dict__ or manifest["git"]["commit"] != launched["git"]["commit"]:
+                raise ValueError("unit identity: manifest spec or commit disagrees with the plan and launch")
+            data_identity = (manifest["data"]["fit_sha256"], manifest["data"]["dev_sha256"])
+            reference_data = reference_data or data_identity
+            if data_identity != reference_data:
+                raise ValueError("unit identity: fit/dev data differ from the other units")
+            for arm in declared:
+                diverged_by_arm[arm] += complete["arm_status"][arm] == "diverged"
+            lost = [arm for arm in declared if complete["arm_status"][arm] == "diverged"]
+            if lost:
+                raise ValueError(f"contrast arm diverged: {lost} (diverged_arm_policy fail_unit)")
+            units[seed] = late_ce(unit, epochs, declared)
+            costs[seed] = unit_costs(unit, declared)
+            trajectories[seed] = epoch_ce(unit, declared)
         except Exception as error:  # Any unit failure is recorded, never silently dropped (audit F8).
             failures.append({"seed": seed, "error": f"{type(error).__name__}: {error}", "traceback": traceback.format_exc()})
-    if failures and not units and len({f["error"] for f in failures}) == 1:
-        raise RuntimeError(f"every unit failed identically ({failures[0]['error']}); treating as an analysis-side error, nothing published")
+    if not units:
+        raise RuntimeError(
+            f"no unit is analysable ({len(failures)} failures); nothing published, treat as analysis-side until shown otherwise"
+        )
     report: dict[str, Any] = {
         "study": plan["study"]["id"],
         "plan_sha256": plan_sha,
@@ -344,15 +439,16 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
         "failures": failures,
         "delta_nats": delta,
         "reading_rule": decision["reading_rule"],
+        "diverged_units_by_arm": diverged_by_arm,
     }
     if len(failures) > decision["max_failed_units"] or len(units) < 3:
         report["reading"] = "instrument_failure"
+        report["observed_arm_late_ce_mean"] = {arm: float(np.mean([u[arm] for u in units.values()])) for arm in declared}
         out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         return report
     seeds = sorted(units)
     n = len(seeds)
     # Arms outside every declared contrast are sealed: trained for pairing, never summarised (audit F-G).
-    declared = [arm for arm in ARMS if any(arm in c["arms"] for c in analysis["contrasts"].values())]
     primaries = [name for name, c in analysis["contrasts"].items() if c["role"] == "co-primary"]
     alpha_each = analysis["family_alpha"] / len(primaries)  # Bonferroni over the co-primary family.
     level = 1 - alpha_each

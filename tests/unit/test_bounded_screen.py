@@ -29,7 +29,7 @@ BASE_PLAN: dict[str, Any] = {
         "bootstrap_resamples": 2000,
         "bootstrap_seed": 1,
     },
-    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "bounded-screen-v1"},
+    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "bounded-screen-v1", "diverged_arm_policy": "fail_unit"},
 }
 
 
@@ -45,26 +45,38 @@ def fake_screen(
     values: dict[int, dict[str, float]],
     plan: dict[str, Any] | None = None,
     broken: tuple[int, ...] = (),
+    diverged: dict[int, str] | None = None,
 ) -> tuple[Path, Path]:
     """Analyze controlled per-unit values; the runner contract itself is tested elsewhere."""
-    plan_path = write_plan(tmp_path, plan)
+    plan_dict = plan or BASE_PLAN
+    plan_path = write_plan(tmp_path, plan_dict)
     root = tmp_path / "screen"
     root.mkdir()
-    (root / "launch.json").write_text(
-        json.dumps({"prereg_sha256": file_hash(plan_path), "analysis_module_sha256": screen.analysis_module_hash()})
-    )
+    seeds = screen.unit_seeds(plan_dict)
+    launch = {
+        "prereg_sha256": file_hash(plan_path),
+        "analysis_module_sha256": screen.analysis_module_hash(),
+        "git": {"commit": "x"},
+        "seeds": seeds,
+    }
+    (root / "launch.json").write_text(json.dumps(launch))
+    (root / "launch-finished.json").write_text(json.dumps({"units": [{"seed": s, "returncode": 0} for s in seeds]}))
     monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    diverged = diverged or {}
 
-    def verify(unit: Path) -> None:
-        if int(unit.name.split("-")[1]) in broken:
+    def verify(unit: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
+        seed = int(unit.name.split("-")[1])
+        if seed in broken:
             raise RuntimeError("simulated unit crash")
+        spec = screen.expected_spec(plan_dict, seed)
+        manifest = {"spec": spec.__dict__, "data": {"fit_sha256": "f" * 64, "dev_sha256": "d" * 64}, "git": {"commit": "x"}}
+        status = {arm: ("diverged" if diverged.get(seed) == arm else "completed") for arm in runner.ARMS}
+        return manifest, {"arm_status": status}, spec
 
     monkeypatch.setattr(screen, "verify_run", verify)
-    monkeypatch.setattr(screen, "late_ce", lambda unit, epochs: values[int(unit.name.split("-")[1])])
-    monkeypatch.setattr(screen, "epoch_ce", lambda unit: {arm: [values[int(unit.name.split("-")[1])][arm]] * 7 for arm in runner.ARMS})
-    monkeypatch.setattr(
-        screen, "unit_costs", lambda unit: {arm: dict.fromkeys((*screen.COST_FIELDS, "wall_s"), 1.0) for arm in runner.ARMS}
-    )
+    monkeypatch.setattr(screen, "late_ce", lambda unit, epochs, arms: {a: values[int(unit.name.split("-")[1])][a] for a in arms})
+    monkeypatch.setattr(screen, "epoch_ce", lambda unit, arms: {a: [values[int(unit.name.split("-")[1])][a]] * 7 for a in arms})
+    monkeypatch.setattr(screen, "unit_costs", lambda unit, arms: {a: dict.fromkeys((*screen.COST_FIELDS, "wall_s"), 1.0) for a in arms})
     return root, plan_path
 
 
@@ -202,9 +214,12 @@ def test_late_ce_and_costs_read_a_real_verified_unit(tmp_path):
     unit = tmp_path / "seed-1"
     runner.train(RunSpec(epochs=7), unit)
     runner.verify_run(unit)
-    late = screen.late_ce(unit, [4, 5, 6])
+    late = screen.late_ce(unit, [4, 5, 6], runner.ARMS)
     assert set(late) == set(runner.ARMS) and all(np.isfinite(v) for v in late.values())
-    costs = screen.unit_costs(unit)
+    records = [json.loads(line) for line in (unit / "training.jsonl").read_text().splitlines()]
+    expected = np.mean([r["dev"]["ce"] for r in records if r["kind"] == "epoch" and r["arm"] == "static" and r["epoch"] in (4, 5, 6)])
+    assert late["static"] == pytest.approx(expected)  # T-3: epoch selection and dev CE, not train CE
+    costs = screen.unit_costs(unit, runner.ARMS)
     assert costs["static"]["optimizer_parameter_steps"] > costs["no_growth"]["optimizer_parameter_steps"]
 
 
@@ -254,7 +269,7 @@ POSITIVE_CONTROL = {
         **BASE_PLAN["analysis"],
         "contrasts": {"static_minus_no_growth": {"arms": ["static", "no_growth"], "role": "co-primary"}},
     },
-    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "positive-control-v1"},
+    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "positive-control-v1", "diverged_arm_policy": "fail_unit"},
 }
 
 
@@ -349,22 +364,22 @@ def test_identical_failure_in_every_unit_is_raised_not_published(tmp_path, monke
 
 
 @pytest.mark.parametrize("name", ["positive-control-v1", "graft-capture-v1"])
-def test_committed_round_two_plans_load_and_keep_their_seeds_disjoint(name):
-    plan = screen.load_plan(runner.REPO / "docs" / "prereg" / f"{name}.json")
-    assert plan["config"]["host"] == "under_normalized" and plan["config"]["seed_type"] == "norm"
-    assert not set(screen.unit_seeds(plan)) & {7, 999, 5001, 5002}
+def test_historical_round_two_plans_predate_the_divergence_policy(name):
+    # Frozen and hash-pinned; they declare no diverged-arm policy, so current tooling refuses them (PDR-0047).
+    with pytest.raises(ValueError, match="diverged_arm_policy"):
+        screen.load_plan(runner.REPO / "docs" / "prereg" / f"{name}.json")
 
 
 def test_graft_study_excludes_every_positive_control_seed():
-    control = screen.load_plan(runner.REPO / "docs" / "prereg" / "positive-control-v1.json")
-    graft = screen.load_plan(runner.REPO / "docs" / "prereg" / "graft-capture-v1.json")
+    control = json.loads((runner.REPO / "docs" / "prereg" / "positive-control-v1.json").read_text())
+    graft = json.loads((runner.REPO / "docs" / "prereg" / "graft-capture-v1.json").read_text())
     assert set(screen.unit_seeds(control)) <= set(graft["units"]["excluded_seeds"])
     assert "scheduled" not in json.dumps(control["analysis"]["contrasts"])
 
 
 GRAFT_PLAN: dict[str, Any] = {
     **BASE_PLAN,
-    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "graft-capture-v1"},
+    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "graft-capture-v1", "diverged_arm_policy": "fail_unit"},
 }
 
 
@@ -411,7 +426,7 @@ def test_positive_control_names_a_detected_deficit_below_the_floor(tmp_path, mon
 def test_report_carries_per_epoch_means_for_declared_arms_only(tmp_path):
     unit = tmp_path / "seed-1"
     runner.train(RunSpec(epochs=7), unit)
-    trajectory = screen.epoch_ce(unit)
+    trajectory = screen.epoch_ce(unit, runner.ARMS)
     assert set(trajectory) == set(runner.ARMS) and all(len(v) == 7 for v in trajectory.values())
 
 
@@ -429,3 +444,124 @@ def test_launch_records_linked_plan_hashes_and_seals_runner_stdout(tmp_path, mon
     assert record["linked_plan_sha256"] == {str(linked): file_hash(linked)}
     assert (tmp_path / "screen" / "seed-1.runner-stdout.sealed").exists()
     assert not (tmp_path / "screen" / "seed-1.stdout").exists()
+
+
+def test_analysis_refuses_an_unfinished_fleet(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    (root / "launch-finished.json").unlink()
+    with pytest.raises(ValueError, match="not finished"):
+        screen.analyze(root, plan)
+    assert not (root / "screen_report.json").exists()
+
+
+def test_no_analysable_unit_is_raised_even_with_differing_messages(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0), broken=tuple(range(1, 21)))
+    monkeypatch.setattr(screen, "verify_run", lambda unit: (_ for _ in ()).throw(FileNotFoundError(str(unit))))
+    with pytest.raises(RuntimeError, match="no unit"):
+        screen.analyze(root, plan)
+
+
+def test_unit_whose_manifest_spec_disagrees_with_the_plan_is_a_failure(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    good = vars(screen)["verify_run"]  # the fake installed by fake_screen
+
+    def impostor(unit: Path) -> Any:
+        manifest, complete, spec = good(unit)
+        if unit.name == "seed-3":
+            manifest = {**manifest, "spec": {**manifest["spec"], "seed": 2}}
+        return manifest, complete, spec
+
+    monkeypatch.setattr(screen, "verify_run", impostor)
+    report = screen.analyze(root, plan)
+    assert [f["seed"] for f in report["failures"]] == [3] and "identity" in report["failures"][0]["error"]
+
+
+@pytest.mark.parametrize(("failures", "reading_is_failure"), [(1, False), (2, True)])
+def test_max_failed_units_boundary(tmp_path, monkeypatch, failures, reading_is_failure):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0), broken=tuple(range(1, failures + 1)))
+    assert (screen.analyze(root, plan)["reading"] == "instrument_failure") is reading_is_failure
+
+
+def test_a_diverged_contrast_arm_fails_the_unit_but_a_diverged_sealed_arm_does_not(tmp_path, monkeypatch):
+    root, plan = fake_screen(
+        tmp_path, monkeypatch, unit_values(0.0, static_shift=-0.3), plan=POSITIVE_CONTROL, diverged={2: "static", 5: "scheduled"}
+    )
+    report = screen.analyze(root, plan)
+    assert [f["seed"] for f in report["failures"]] == [2]
+    assert report["n_units"] == 19
+    assert report["diverged_units_by_arm"] == {"no_growth": 0, "static": 1}  # sealed arm's status unreported
+
+
+def test_instrument_failure_still_reports_observed_arm_means(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0), broken=(1, 2, 3))
+    report = screen.analyze(root, plan)
+    assert report["reading"] == "instrument_failure"
+    assert set(report["observed_arm_late_ce_mean"]) == {"scheduled", "static", "no_growth"}
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda p: p["analysis"].update(family_alpha=1.5),
+        lambda p: p["analysis"].update(bootstrap_resamples=0),
+        lambda p: p["decision"].update(delta_nats=-0.1),
+        lambda p: p["decision"].update(max_failed_units=-1),
+        lambda p: p["decision"].update(diverged_arm_policy="drop_unit"),
+        lambda p: p["endpoint"].update(late_epochs=[5, 5, 6]),
+        lambda p: p.update(linked_plans=["does/not/exist.json"]),
+        lambda p: p.update(linked_plan=["typo.json"]),
+    ],
+)
+def test_plan_numeric_and_structural_fields_are_validated(tmp_path, mutate):
+    plan = copy.deepcopy(BASE_PLAN)
+    mutate(plan)
+    with pytest.raises(ValueError):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+def test_launch_validates_workers_before_creating_anything(tmp_path, monkeypatch):
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    with pytest.raises(ValueError, match="workers"):
+        screen.launch(tmp_path / "screen", tmp_path, 0, write_plan(tmp_path))
+    assert not (tmp_path / "screen").exists()
+
+
+def test_runner_stdout_really_lands_in_the_sealed_file(tmp_path, monkeypatch):
+    plan = copy.deepcopy(BASE_PLAN)
+    plan["units"]["count"] = 1
+    path = write_plan(tmp_path, plan)
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "train_command", lambda *a: ["echo", "scheduled-arm-secret"])
+    screen.launch(tmp_path / "screen", tmp_path, 1, path)
+    assert "scheduled-arm-secret" in (tmp_path / "screen" / "seed-1.runner-stdout.sealed").read_text()
+
+
+def gated_plan(tmp_path: Path, gate_root: Path, gate_plan: Path) -> Path:
+    plan = copy.deepcopy(BASE_PLAN)
+    plan["units"]["count"] = 1
+    plan["gated_by"] = {"root": str(gate_root), "plan": str(gate_plan), "reading": "control_passes"}
+    path = tmp_path / "gated.json"
+    path.write_text(json.dumps(plan))
+    return path
+
+
+@pytest.mark.parametrize(
+    ("reading", "pinned", "allowed"),
+    [("control_passes", True, True), ("instrument_failure", True, False), ("control_passes", False, False)],
+)
+def test_gated_launch_requires_the_gate_reading_and_its_own_pinned_hash(tmp_path, monkeypatch, reading, pinned, allowed):
+    gate_root = tmp_path / "gate"
+    gate_root.mkdir()
+    gate_plan = tmp_path / "gate-plan.json"
+    gate_plan.write_text("{}")
+    path = gated_plan(tmp_path, gate_root, gate_plan)
+    (gate_root / "screen_report.json").write_text(json.dumps({"reading": reading}))
+    (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(path): file_hash(path) if pinned else "0" * 64}}))
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
+    if allowed:
+        screen.launch(tmp_path / "screen", tmp_path, 1, path)
+    else:
+        with pytest.raises(RuntimeError, match="gate"):
+            screen.launch(tmp_path / "screen", tmp_path, 1, path)
+        assert not (tmp_path / "screen").exists()

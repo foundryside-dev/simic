@@ -120,3 +120,51 @@ def test_evaluate_rebuilds_the_selected_host_and_seed(starved_run, tmp_path):
 def test_cli_rejects_unknown_host_as_a_usage_error():
     with pytest.raises(SystemExit):
         runner.parse_arguments(["train", "--output", "x", "--host", "nonexistent"])
+
+
+@pytest.fixture(scope="module")
+def diverged_run(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The scheduled arm diverges in its germination epoch; the unit must still complete (PDR-0047)."""
+    root = tmp_path_factory.mktemp("diverged") / "run"
+    spec = RunSpec(epochs=7)
+    original = runner.train_epoch
+
+    def flaky(host: Any, slot: Any, opt: Any, spec_: RunSpec, future: Any, x: Any, y: Any, epoch: int) -> dict[str, Any]:
+        if slot.seed is not None and slot.alpha == 0.0 and epoch == spec_.graft_epoch:
+            raise runner.ArmDivergedError(epoch=epoch, step=3, reason="non-finite training objective")
+        return original(host, slot, opt, spec_, future, x, y, epoch)
+
+    import pytest as _pytest
+
+    with _pytest.MonkeyPatch.context() as mp:
+        mp.setattr(runner, "train_epoch", flaky)
+        runner.train(spec, root)
+    return root
+
+
+def test_a_diverged_arm_is_recorded_and_the_unit_completes(diverged_run: Path) -> None:
+    _manifest, complete, spec = runner.verify_run(diverged_run)
+    assert complete["arm_status"] == {"no_growth": "completed", "static": "completed", "scheduled": "diverged"}
+    scheduled = complete["summaries"]["scheduled"]
+    assert scheduled["status"] == "diverged" and scheduled["diverged_epoch"] == spec.graft_epoch
+    assert "final_dev" not in scheduled
+    assert not (diverged_run / "scheduled.pt").exists()
+    assert (diverged_run / "static.pt").exists()
+    records = [json.loads(line) for line in (diverged_run / "training.jsonl").read_text().splitlines()]
+    last = [r for r in records if r["arm"] == "scheduled"][-1]
+    assert last["kind"] == "diverged" and last["epoch"] == spec.graft_epoch
+
+
+def test_verify_run_refuses_a_diverged_summary_without_its_record(diverged_run: Path, tmp_path: Path) -> None:
+    def mutate(records: list[dict[str, Any]]) -> None:
+        records[:] = [r for r in records if r["kind"] != "diverged"]
+
+    with pytest.raises(ValueError):
+        runner.verify_run(_tamper(diverged_run, tmp_path, mutate))
+
+
+def test_evaluate_refuses_a_run_with_a_diverged_arm(diverged_run: Path, tmp_path: Path) -> None:
+    root = tmp_path / "eval"
+    shutil.copytree(diverged_run, root)
+    with pytest.raises(ValueError, match="diverged"):
+        runner.evaluate(root)

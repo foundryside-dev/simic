@@ -32,16 +32,20 @@ own modes. These are our own records: a `schema_version` mismatch, a duplicate
 `fan_id`, or a torn interior line **raises** rather than degrading, which is the
 correct Tier-1 posture (INV-38).
 
-**Known doctrine gap, not fixed here:** several manifest reads use
-`.get(key)` on this Tier-1 path — `manifest.get("n_train")`,
-`manifest.get("data_split_id")`, `manifest.get("gate8_outcome") or {}`,
-`certified.get("det_mode_cost")`. Absence silently satisfies the guard rather
-than failing it, and three of those are *refusal guards* (collect/eval/replay
-refusing a manifest calibrated against different data). ADR-0015 rule 1 bans
-this idiom on Tier-1 paths and ADR-0006 predates it; Simic declared a
-zero-allowlist posture, so this is a violation to be decided on, not a waiver
-to be written. Recorded for the owner rather than silently changed, because the
-file is a locked, pre-registered experiment.
+**Doctrine status (corrected 2026-10-08).** The four `.get(key)` manifest reads
+this docstring used to list (`n_train`, `data_split_id`, `gate8_outcome`,
+`det_mode_cost`) were converted to direct indexing in `2ffd651`. A code sweep
+on 2026-10-08 found other defaulting reads on Tier-1 paths that remain
+open (`simic-5f262ee23f`):
+
+- `decode_record` fills absent `FanRecord` fields with `None`;
+- an `extension_event` lacking `n` silently adds zero targets;
+- `results.get("manifest_hash")` lets a hashless `eval_results.json` bypass
+  the mixed-hash refusal;
+- the report builder prints `null` for corrupt fields.
+
+The kernel demo is parked (PDR-0043), so these are recorded for its DECIDE
+rather than silently changed. ADR-0006 and ADR-0015 rule 1 apply.
 
 ### Tier 2 — measured values in flight.
 
