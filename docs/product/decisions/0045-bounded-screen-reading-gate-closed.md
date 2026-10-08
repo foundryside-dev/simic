@@ -51,11 +51,12 @@ because the instrument itself resolves."*
 
 ## What the redesign should start from (exploratory, not a decision)
 
-Static extra capacity is *also* indistinguishable from no growth. So the
-likeliest reading is that the experiment had no deficit to repair: a host
-that is not capacity-limited cannot show a benefit from any growth
-intervention. The next bounded experiment should therefore establish a
-**measured, repairable deficit first**, then ask whether a graft repairs it
+Static extra capacity is *also* indistinguishable from no growth, at a
+borderline margin. The host is far from fitting its training data (training
+CE ~1.07), so it is not "deficit-free". What the data supports is narrower:
+an extra 6% of parameters at this slot, within ten epochs, does not move fit
+or dev CE. The next bounded experiment should therefore first establish a
+**configuration where added capacity measurably helps**, then ask whether a graft repairs it
 better than static capacity and cheaper than over-provisioning. Two starting
 points:
 
@@ -94,3 +95,17 @@ work reveals that the bounded instrument's matching contract differs
 materially from the HLD's (INV-06 common future, INV-15/16 no-op), the
 "resolves" reading applies to the bounded instrument only, and must be
 re-earned under Tolaria.
+
+## Audit addendum (2026-10-08)
+
+An independent statistical audit recomputed every number from the archived
+logs and confirmed the reading (details in the result note). Two
+qualifications attach to point 1 above:
+
+- **"Resolves" means precision, not power at δ.** Under the asymmetric verdict
+  table, a graft needs a true benefit of about 0.075 nats for an 80% chance of
+  the progress reading.
+- **Static credibility rests on the frozen late-epoch mean.** On the final
+  epoch alone, the static contrast's half-width would be 0.065.
+
+The "no deficit" wording in the redesign section was narrowed to match.

@@ -23,16 +23,20 @@ is **`reopen_no_value`**:
   - Against static capacity: −0.016 [−0.045, +0.013].
   - Both are equivalent within the floor, and the graft costs 5% more
     optimizer work.
-- **Static capacity is flat against no growth too.** This is exploratory,
-  but the plain reading is that the `mild` host at 4,096 examples had no
-  deficit to repair.
+- **Static capacity is flat against no growth too, at a borderline
+  margin.** The host is far from fitting its training data, so this is not
+  "no deficit". It means that +6% parameters at this slot, within ten epochs,
+  changes nothing (narrowed after the audit). Note also that "resolves" is
+  a precision claim: a graft would need ~0.075 nats of true benefit for an
+  80% chance of a progress reading.
 
 Write-up: `docs/results/2026-10-08-bounded-screen-v1.md`, with all per-unit
 evidence archived beside it.
 
 ## The bets now (roadmap Now)
-1. **Bounded comparison, round 2** (`simic-f73351380d`): find a measured,
-   repairable deficit *before* asking whether a graft repairs it.
+1. **Bounded comparison, round 2** (`simic-f73351380d`): find a configuration
+   where added capacity measurably helps *before* asking whether a graft
+   captures it.
    - Pre-register a positive control: static capacity must beat no growth
      beyond δ in the chosen configuration.
    - Candidates: Esper's degenerate-architecture fixtures (~10%→~40%
