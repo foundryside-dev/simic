@@ -1,0 +1,5 @@
+  File "/home/john/simic/experiments/bounded_comparison.py", line 625, in train
+    metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
+  File "/home/john/simic/experiments/bounded_comparison.py", line 497, in train_epoch
+    raise ValueError("non-finite training objective")
+ValueError: non-finite training objective
