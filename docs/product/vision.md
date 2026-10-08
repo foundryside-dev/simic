@@ -42,25 +42,29 @@ over-provisioning.
 
 ## Strategy now: the bounded ladder (PDR-0050)
 
-The bounded experiment ladder is the sequencing authority. Each rung is one
-pre-registered, reviewed experiment with a stop condition, and a failed rung
-is never answered by enlarging the controller (ADR-0018). HLD contracts and
+The bounded experiment ladder is the sequencing authority. Each rung is
+answered by pre-registered, reviewed studies under one stop condition. A
+failed rung is not answered merely by enlarging the controller (ADR-0018). HLD contracts and
 Phase A are pulled by rung 5, never pushed ahead of it. Evidence so far, as
 of 2026-10-09; details live in `current-state.md`:
 
 - **Rung 1 is met.** The instrument resolves.
 - **Rung 2 is met as a question.** A real deficit exists, but a benefit at
   the pre-registered floor was not established.
-- **Rung 3 is met as a partial capture.** A graft grown mid-training repairs
-  60% of the deficit with the `norm` seed and 31% with `conv_heavy`. That
-  is after a lifecycle fix that took its divergence from 14/48 to 0/240.
+- **Rung 3 is met as a partial capture.** On the `under_normalized` host, a
+  graft grown mid-training recovers about 60% [51, 72] of what static
+  capacity recovers with the `norm` seed, and 31% [19, 42] with
+  `conv_heavy` (descriptive, 95% paired bootstrap). The lifecycle fix took
+  graft divergence from 14/48 (v1) to 0/48 in validation (PDR-0051) and
+  0/192 at rung 3.
 
-Static over-provisioning beats the scheduled graft at the declared cost.
-That is a **recorded negative, at bounded scale and a 10-epoch horizon**,
-for the first claim's comparison against static over-provisioning (Purpose,
-above). It does not refute the claim: the claim is about generated,
-screened structure, and rung 4 asks whether the graft's timing or location
-changes the outcome. A clean negative remains a useful result.
+Static over-provisioning (the same capacity, trained from step zero, at its
+declared cost; ADR-0018) beats the scheduled graft. That is a **recorded
+negative, at bounded scale and a 10-epoch horizon, for the hand-built
+scheduled graft that stands in for generated structure.** It does not refute
+the first claim, which is about generated, screened structure. Rung 4 asks
+whether the graft's timing or location changes the outcome. A clean
+negative remains a useful result.
 
 ## Who it serves
 - **Primary:** john — researcher-owner. The product is defensible experimental
@@ -102,7 +106,7 @@ changes the outcome. A clean negative remains a useful result.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-09
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-08 (PDR-0050); amended 2026-10-09 (PDR-0053), read-back pending
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
 (/mnt/data/archive/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
@@ -139,7 +143,9 @@ execution profile. Opening outer/test data remains owner-gated.
 session: *"ok, please update the vision"*. Claude had surfaced that the
 carried-over line "Pre-registered acceptance gates stay owner-gated" read
 differently from the PDR-0050 window. The line is resolved under "Run
-authorization" below. Nothing else in the grant changed.
+authorization" below. The run-launch line's "once Tolaria exists"
+parenthetical now also covers the bounded ladder's runs. Nothing else in
+the grant changed.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
@@ -161,11 +167,17 @@ Autonomous within strategy — the agent MAY, without asking:
   the active research program, each recorded as a PDR with a pre-committed reading.
   **Acceptance gates (clarified 2026-10-09, PDR-0053).** The esper-lite line
   "pre-registered acceptance gates stay owner-gated" is split into two levels.
-  - **Programme-level gates stay owner-gated.** These are the success criteria
-    of `docs/design/01-claim.md#28-success-criteria` (headed by criterion 18),
-    the ladder's rungs and stop conditions (PDR-0050), and any reading that
-    would treat a stopped rung as passed or move a gate after its data is
-    seen.
+  - **Programme-level gates stay owner-gated.** These are:
+    - the success criteria of `docs/design/01-claim.md#28-success-criteria`
+      (headed by criterion 18);
+    - the ladder's rungs (PDR-0050);
+    - each rung's stop condition, recorded in the owner-signed DECIDE PDR
+      that opens the rung, not in a per-study plan;
+    - any reading that would treat a stopped rung as passed, or move a gate
+      after its data is seen.
+
+    Host, seed type and horizon are rung parameters. The floor and the
+    reading rule are plan parameters (PDR-0049).
   - **Per-study plans and reading rules inside an approved ladder rung are
     Claude's to author.** Each is recorded as a PDR. Before launch, each is
     reviewed by independent agents (statistics, product decision, and code

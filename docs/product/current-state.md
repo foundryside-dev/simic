@@ -67,10 +67,12 @@ Outer evaluation stays owner-gated.
 
 **For Claude, now:**
 - draft the rung-4 DECIDE PDR from rung 3's inputs: the narrowing
-  graft−static gap, the seed-type dependence, and the cost difference;
-  then pre-register, review, dry-run and run it inside the GPU window.
+  graft−static gap, the seed-type dependence, and the cost difference. Its
+  question and stop condition are owner-signed before any rung-4 plan is
+  pre-registered (vision, PDR-0053). Then pre-register, review, dry-run and
+  run inside the GPU window.
   Graft-capture v2 is merged (PR #32). The vision's acceptance-gate clause
-  is resolved (PDR-0053).
+  is split by level (PDR-0053, read-back pending).
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
