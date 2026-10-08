@@ -34,6 +34,8 @@ BASE_PLAN: dict[str, Any] = {
         "lam": 1.0,
         "host": "mild",
         "seed_type": "conv_light",
+        "lifecycle": "v1",
+        "trust_safety": 0.5,
     },
     "endpoint": {"late_epochs": [4, 5, 6]},
     "analysis": {

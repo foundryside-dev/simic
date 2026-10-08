@@ -173,7 +173,7 @@ def test_every_non_finite_detector_records_a_divergence_instead_of_aborting(
     """Induce real non-finite values at each detector, only in the scheduled arm after germination (review 60683c4)."""
     from experiments import kernel_demo
 
-    original_tr = kernel_demo.Slot.trust_region_loss
+    original_tr = runner.ScaleAwareSlot.trust_region_loss
     original_score = runner.score
 
     def nan_trust_region(self: Any, cfg: Any) -> Any:
@@ -193,8 +193,8 @@ def test_every_non_finite_detector_records_a_divergence_instead_of_aborting(
         return original_score(host, slot, x, y, batch_size)
 
     injected = {
-        "objective": ("experiments.kernel_demo.Slot.trust_region_loss", nan_trust_region),
-        "gradient": ("experiments.kernel_demo.Slot.trust_region_loss", nan_gradient_trust_region),
+        "objective": ("experiments.bounded_comparison.ScaleAwareSlot.trust_region_loss", nan_trust_region),
+        "gradient": ("experiments.bounded_comparison.ScaleAwareSlot.trust_region_loss", nan_gradient_trust_region),
         "scoring": ("experiments.bounded_comparison.score", nan_score),
     }[path]
     root = _train_with(monkeypatch, tmp_path / path, *injected)

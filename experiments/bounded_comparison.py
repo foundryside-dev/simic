@@ -46,7 +46,7 @@ from experiments.kernel_demo import (
 )
 
 ARMS = ("no_growth", "static", "scheduled")
-SCHEMA = 1
+SCHEMA = 2  # 2: lifecycle variant + recorded curvature witnesses (docs/bounded-lifecycle-v2.md)
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -188,12 +188,46 @@ def validate_diverged_summary(summary: Any, spec: RunSpec, arm: str) -> None:
     require_number(summary["wall_s"], arm + " wall time")
 
 
+def _number_or_tag(value: Any) -> bool:
+    return value in ("nan", "inf", "-inf") or (type(value) in (int, float) and math.isfinite(value))
+
+
+def validate_witness(witness: Any, spec: RunSpec, context: str) -> None:
+    """Recorded mechanism witnesses (docs/bounded-lifecycle-v2.md); v2's clamp is checked, not trusted."""
+    if witness == {"seed_present": False}:
+        return
+    witness = require_keys(witness, ("seed_present", "gain_min", "gain_max"), context + " witness")
+    if witness["seed_present"] is not True or not set(witness) <= {"seed_present", "gain_min", "gain_max", "ste", "rms_ratio_blend_entry"}:
+        raise ValueError(context + " witness carries unknown evidence")
+    if not all(_number_or_tag(witness[k]) for k in ("gain_min", "gain_max")):
+        raise ValueError(context + " witness gain range invalid")
+    if "rms_ratio_blend_entry" in witness and not _number_or_tag(witness["rms_ratio_blend_entry"]):
+        raise ValueError(context + " witness blend-entry ratio invalid")
+    if "ste" in witness:
+        table = require_keys(witness["ste"], ("kappa_live", "lam_t", "gain", "clamped"), context + " STE table")
+        widths = {len(column) if isinstance(column, list) else -1 for column in table.values()}
+        if set(table) != {"kappa_live", "lam_t", "gain", "clamped"} or len(widths) != 1 or widths == {0} or -1 in widths:
+            raise ValueError(context + " STE table must be four equal, non-empty columns")
+        cfg = spec.kernel_config()
+        bound = spec.trust_safety * c_star(cfg) * (1 + 1e-9)
+        for kappa, lam_t, gain, clamped in zip(table["kappa_live"], table["lam_t"], table["gain"], table["clamped"], strict=True):
+            if not (_number_or_tag(kappa) and _number_or_tag(gain) and type(lam_t) in (int, float) and type(clamped) is bool):
+                raise ValueError(context + " STE row invalid")
+            if spec.lifecycle == "v1" and (lam_t != cfg.lam or clamped):
+                raise ValueError(context + " v1 must never clamp lambda")
+            if spec.lifecycle == "v2" and (lam_t > cfg.lam or clamped != (lam_t < cfg.lam)):
+                raise ValueError(context + " v2 lambda clamp inconsistent")
+            if spec.lifecycle == "v2" and isinstance(kappa, float | int) and kappa * lam_t / cfg.lam > bound:
+                raise ValueError(context + " v2 effective curvature exceeds the declared bound")
+
+
 def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int | None) -> None:
     record = require_keys(record, ("schema_version", "arm", "kind", "birth"), "training record")
     if type(record["schema_version"]) is not int or record["schema_version"] != SCHEMA or record["arm"] != arm or record["kind"] != kind:
         raise ValueError("training evidence order/schema mismatch")
     if kind == "diverged":
-        require_keys(record, ("epoch", "step", "reason"), arm + " divergence")
+        require_keys(record, ("epoch", "step", "reason", "stage", "witness"), arm + " divergence")
+        validate_witness(record["witness"], spec, arm + " divergence")
         if type(record["epoch"]) is not int or record["epoch"] != epoch or not valid_divergence_step(record["step"], spec):
             raise ValueError("divergence record mismatch")
         if not isinstance(record["reason"], str) or not record["reason"]:
@@ -228,8 +262,10 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
             "host_state_sha256",
             "host_parameter_sha256",
             "training_state_sha256",
+            "witness",
         )
         require_keys(record, keys, arm + " epoch")
+        validate_witness(record["witness"], spec, arm + " epoch")
         if type(record["epoch"]) is not int or record["epoch"] != epoch:
             raise ValueError("epoch order mismatch")
         action = "GERMINATE" if arm == "scheduled" and epoch == spec.graft_epoch else "WAIT"
@@ -264,6 +300,7 @@ def validate_record(record: Any, spec: RunSpec, arm: str, kind: str, epoch: int 
                 "gain_at_birth",
                 "calibration_examples",
                 "calibration_inputs_sha256",
+                "realised_ratio_at_birth",
                 "calibration_prefix_forward_examples",
                 "calibration_seed_forward_examples",
                 "host_unchanged_sha256",
@@ -457,6 +494,24 @@ def score(host: nn.Module, slot: Slot, x: torch.Tensor, y: torch.Tensor, batch_s
             host.stage_stats = prior_stats
 
 
+def realised_ratio_at_birth(host: Any, seed: Any, calibration: torch.Tensor) -> float:
+    """Witness for tau: rms(delta)/rms(h) on TRAIN-mode features, all BN buffers restored (simic-e3803e8200)."""
+    modules = [host, seed]
+    saved = [(buffer, buffer.detach().clone()) for module in modules for buffer in module.buffers()]
+    modes = [(m, m.training) for module in modules for m in module.modules()]
+    try:
+        host.train()
+        seed.train()
+        with torch.no_grad():
+            h = host.forward_to_slot(normalize_u8(calibration))
+            return float(seed(h).pow(2).mean().sqrt() / h.pow(2).mean().sqrt().clamp_min(1e-12))
+    finally:
+        for buffer, value in saved:
+            buffer.copy_(value)
+        for m, mode in modes:
+            m.train(mode)
+
+
 def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_x: torch.Tensor, *, static: bool) -> dict[str, Any]:
     """Germinate once; the gain is calibrated on fit inputs, never development data."""
     if slot.seed is not None or slot.stage is not Stage.DORMANT:
@@ -474,6 +529,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
         gain = tau_init(seed, features, spec.kernel_config())
     finally:
         host.train(prior)
+    realised = realised_ratio_at_birth(host, seed, calibration)
     append_seed_group(opt, seed, spec.kernel_config())
     if state_hash(host) != host_before or optimizer_host_hash(opt) != opt_before:
         raise RuntimeError("germination changed host weights/buffers or optimizer history")
@@ -489,6 +545,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
         "gain_at_birth": gain,
         "calibration_examples": len(calibration),
         "calibration_inputs_sha256": tensor_hash(calibration),
+        "realised_ratio_at_birth": tagged(realised),
         "calibration_prefix_forward_examples": len(calibration),
         "calibration_seed_forward_examples": len(calibration),
         "host_unchanged_sha256": host_before,
@@ -506,9 +563,66 @@ class NonFiniteError(ValueError):
 class ArmDivergedError(ValueError):
     """An arm's training became non-finite. Recorded as a measured outcome, never a unit abort (PDR-0047)."""
 
-    def __init__(self, *, epoch: int, step: int, reason: str) -> None:
+    def __init__(self, *, epoch: int, step: int, reason: str, stage: str = "", witness: dict[str, Any] | None = None) -> None:
         super().__init__(f"{reason} (epoch {epoch}, step {step})")
         self.epoch, self.step, self.reason = epoch, step, reason
+        self.stage = stage
+        self.witness: dict[str, Any] = witness if witness is not None else {"seed_present": False}
+
+
+def c_star(cfg: Any) -> float:
+    """Nesterov momentum-SGD stability limit on curvature along one direction (dampening 0)."""
+    return float(2 * (1 + cfg.momentum) / (cfg.seed_lr * (1 + 2 * cfg.momentum)))
+
+
+def tagged(value: float) -> float | str:
+    """JSON-safe number: non-finite values become explicit tags, never null or a silent zero."""
+    return value if math.isfinite(value) else ("nan" if math.isnan(value) else ("inf" if value > 0 else "-inf"))
+
+
+class ScaleAwareSlot(Slot):
+    """Kernel Slot plus a recorded trust-region witness; v2 clamps lambda so kappa <= s*c* every STE step.
+
+    v1 returns exactly the kernel's trust term. The witness's extra seed forward restores any
+    BatchNorm buffers it touches, so recording never changes training.
+    """
+
+    def __init__(self, spec: RunSpec) -> None:
+        super().__init__()
+        self.lifecycle, self.trust_safety = spec.lifecycle, spec.trust_safety
+        self.last_witness: dict[str, Any] | None = None
+
+    def _raw_output_energy(self, h: torch.Tensor) -> torch.Tensor:
+        """mean(f(h)^2) from a throwaway copy of the seed.
+
+        Restoring buffers in place mid-step would invalidate tensors autograd saved. A copy has
+        its own buffers, and train-mode BatchNorm normalises with batch statistics, so the copy
+        computes the same f the step used.
+        """
+        assert self.seed is not None
+        with torch.no_grad():
+            return copy.deepcopy(self.seed).f(h).pow(2).mean()
+
+    def trust_region_loss(self, cfg: Any) -> torch.Tensor:
+        if self.stage is not Stage.TRAINING or self.seed is None or self.last_delta is None or self.last_h is None:
+            self.last_witness = None
+            return torch.zeros(())
+        if self.beta != 0.0:
+            raise RuntimeError("STE invariant: beta must be 0 during TRAINING")
+        h = self.last_h.detach()
+        denominator = h.pow(2).mean().clamp_min(1e-12)
+        energy = self._raw_output_energy(h)
+        kappa = float(2 * cfg.lam * energy / denominator)
+        lam_t = cfg.lam
+        if self.lifecycle == "v2" and math.isfinite(kappa):
+            lam_t = min(cfg.lam, float(self.trust_safety * c_star(cfg) * denominator / (2 * energy)))
+        self.last_witness = {"kappa_live": kappa, "lam_t": lam_t, "clamped": lam_t < cfg.lam, "gain": float(self.seed.gain.detach())}
+        loss: torch.Tensor
+        if lam_t == cfg.lam:  # Exactly the kernel's expression (v1, or v2 where v1 is safe).
+            loss = cfg.lam * self.last_delta.pow(2).mean() / self.last_h.detach().pow(2).mean().clamp_min(1e-12)
+        else:
+            loss = lam_t * self.last_delta.pow(2).mean() / denominator
+        return loss
 
 
 ARM_STATUSES = ("completed", "diverged")
@@ -535,14 +649,31 @@ def grad_norm(params: Iterable[torch.Tensor]) -> float:
 
 
 def train_epoch(
-    host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, future: CommonFuture, x: torch.Tensor, y: torch.Tensor, epoch: int
+    host: Any, slot: ScaleAwareSlot, opt: torch.optim.SGD, spec: RunSpec, future: CommonFuture, x: torch.Tensor, y: torch.Tensor, epoch: int
 ) -> dict[str, Any]:
+    if not isinstance(slot, ScaleAwareSlot):
+        raise TypeError("the bounded runner trains through ScaleAwareSlot so every STE step is witnessed")
     host.train()
     slot.train()
     start_stage = slot.stage.value
     ce_sum, objective_sum = 0.0, 0.0
     max_grads = {"host": 0.0, "seed_body": 0.0, "seed_gain": 0.0}
     used_alpha, used_beta = [], []
+    gains: list[float] = []
+    ste: dict[str, list[Any]] = {"kappa_live": [], "lam_t": [], "gain": [], "clamped": []}
+    blend_entry_before = slot.rms_ratio_blend_entry
+
+    def witness() -> dict[str, Any]:
+        if slot.seed is None:
+            return {"seed_present": False}
+        record: dict[str, Any] = {"seed_present": True, "gain_min": tagged(min(gains)) if gains else tagged(float(slot.seed.gain.detach()))}
+        record["gain_max"] = tagged(max(gains)) if gains else record["gain_min"]
+        if ste["kappa_live"]:
+            record["ste"] = {k: [tagged(v) if isinstance(v, float) else v for v in values] for k, values in ste.items()}
+        if blend_entry_before is None and slot.rms_ratio_blend_entry is not None:
+            record["rms_ratio_blend_entry"] = tagged(float(slot.rms_ratio_blend_entry))
+        return record
+
     order = future.order[epoch].reshape(-1, spec.batch_size)
     for step, idx in enumerate(order):
         used_alpha.append(slot.alpha)
@@ -550,8 +681,15 @@ def train_epoch(
         logits = host(augment(x[idx], future.crops[epoch, step], future.flips[epoch, step]), slot)
         ce = torch.nn.functional.cross_entropy(logits, y[idx])
         objective = ce + slot.trust_region_loss(spec.kernel_config())
+        if slot.seed is not None:
+            gains.append(float(slot.seed.gain.detach()))
+        if slot.last_witness is not None:
+            for key in ste:
+                ste[key].append(slot.last_witness[key])
         if not bool(torch.isfinite(objective)):
-            raise ArmDivergedError(epoch=epoch, step=step, reason="non-finite training objective")
+            raise ArmDivergedError(
+                epoch=epoch, step=step, reason="non-finite training objective", stage=slot.stage.value, witness=witness()
+            )
         opt.zero_grad(set_to_none=True)
         objective.backward()  # type: ignore[no-untyped-call]
         try:
@@ -560,11 +698,12 @@ def train_epoch(
                 max_grads["seed_body"] = max(max_grads["seed_body"], grad_norm(p for n, p in slot.seed.named_parameters() if n != "gain"))
                 max_grads["seed_gain"] = max(max_grads["seed_gain"], grad_norm([slot.seed.gain]))
         except NonFiniteError as error:
-            raise ArmDivergedError(epoch=epoch, step=step, reason=str(error)) from error
+            raise ArmDivergedError(epoch=epoch, step=step, reason=str(error), stage=slot.stage.value, witness=witness()) from error
         opt.step()
         slot.step_tick(spec.kernel_config(), len(order))
         ce_sum += float(ce.detach()) * len(idx)
         objective_sum += float(objective.detach()) * len(idx)
+    epoch_witness = witness()
     slot.epoch_tick(spec.kernel_config())
     return {
         "train_ce": ce_sum / len(y),
@@ -580,6 +719,7 @@ def train_epoch(
         "stage_after": slot.stage.value,
         "alpha_after": slot.alpha,
         "beta_after": slot.beta,
+        "witness": epoch_witness,
         "host_state_sha256": state_hash(host),
         "host_parameter_sha256": parameter_hash(host),
         "training_state_sha256": training_state_hash(host, slot, opt),
@@ -646,7 +786,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         for arm in ARMS:
             started = time.perf_counter()
             host = build_host(spec.host, manifest["host_init_seed"])
-            slot = Slot()
+            slot = ScaleAwareSlot(spec)
             opt = build_optimizer(host, spec.kernel_config())
             host_initial = parameter_hash(host)
             base_params = sum(p.numel() for p in host.parameters())
@@ -656,7 +796,17 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                 initial_dev: dict[str, Any] = score(host, slot, dx, dy, spec.batch_size)
             except NonFiniteError:  # Flush F1: a non-finite birth is a recorded divergence, not a unit abort.
                 initial_dev = dict(NON_FINITE_INITIAL)
-                birth_divergence = ArmDivergedError(epoch=0, step=0, reason=NON_FINITE_INITIAL_REASON)
+                birth_witness: dict[str, Any] = {"seed_present": False}
+                if slot.seed is not None:
+                    gain = tagged(float(slot.seed.gain.detach()))
+                    birth_witness = {"seed_present": True, "gain_min": gain, "gain_max": gain}
+                birth_divergence = ArmDivergedError(
+                    epoch=0,
+                    step=0,
+                    reason=NON_FINITE_INITIAL_REASON,
+                    stage=slot.stage.value,
+                    witness=birth_witness,
+                )
             append_record(
                 log,
                 {
@@ -690,6 +840,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                 params = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
                 fully_coupled = slot.seed is not None and slot.alpha == slot.beta == 1.0
                 epoch_started = time.perf_counter()
+                metrics = None
                 try:
                     metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
                     dev = score(host, slot, dx, dy, spec.batch_size)
@@ -697,7 +848,14 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                     diverged = stop
                     break
                 except NonFiniteError as error:  # Scoring after the epoch's last step (step == steps per epoch).
-                    diverged = ArmDivergedError(epoch=epoch, step=spec.train_size // spec.batch_size, reason=str(error))
+                    assert metrics is not None
+                    diverged = ArmDivergedError(
+                        epoch=epoch,
+                        step=spec.train_size // spec.batch_size,
+                        reason=str(error),
+                        stage=metrics["stage_after"],
+                        witness=metrics["witness"],
+                    )
                     break
                 costs["host_train_examples"] += len(ty)
                 costs["seed_train_examples"] += len(ty) if slot.seed is not None else 0
@@ -735,6 +893,8 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
                         "epoch": diverged.epoch,
                         "step": diverged.step,
                         "reason": diverged.reason,
+                        "stage": diverged.stage,
+                        "witness": diverged.witness,
                         "birth": birth if arm == "scheduled" and diverged.epoch == spec.graft_epoch else None,
                     },
                 )
@@ -967,7 +1127,7 @@ def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) 
         raise ValueError("checkpoint identity mismatch")
     host = build_host(spec.host, derive(spec.seed, "host-init"))
     host.load_state_dict(checkpoint["host"], strict=True)
-    slot = Slot()
+    slot = ScaleAwareSlot(spec)
     if arm != "no_growth":
         slot.seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
         slot.seed.load_state_dict(checkpoint["seed"], strict=True)
@@ -995,7 +1155,7 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
     models = {arm: restore_checkpoint(root, arm, complete["artifacts"]["manifest.json"], spec) for arm in ARMS}
     x, y, outer_identity = load_outer(spec, data_root, manifest["data"])
     started = time.perf_counter()
-    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")), Slot(), x, y, spec.batch_size)
+    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")), ScaleAwareSlot(spec), x, y, spec.batch_size)
     scores = {arm: score(host, slot, x, y, spec.batch_size) for arm, (host, slot) in models.items()}
     result = evaluation_record(
         verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")

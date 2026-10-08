@@ -65,7 +65,7 @@ def test_scoring_is_sample_weighted_and_preserves_state_rng_and_modes():
     torch.set_num_threads(1)
     spec = RunSpec(dev_size=65)
     x, y = smoke_split(spec, "dev")
-    host, slot = build_host("mild", 2), Slot()
+    host, slot = build_host("mild", 2), runner.ScaleAwareSlot(RunSpec())
     host.attach_stat_hooks()
     host.stage1[1].eval()  # Nonuniform submodule modes must survive.
     modes = [m.training for m in host.modules()]
@@ -86,7 +86,7 @@ def test_birth_preserves_momentum_and_pairs_body_initialization():
     tx, ty = smoke_split(spec, "fit")
     dx, _ = smoke_split(spec, "dev")
     host = build_host("mild", derive(spec.seed, "host-init"))
-    slot, opt = Slot(), build_optimizer(host, spec.kernel_config())
+    slot, opt = runner.ScaleAwareSlot(RunSpec()), build_optimizer(host, spec.kernel_config())
     future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
     runner.train_epoch(host, slot, opt, spec, future, tx, ty, 0)
     assert any("momentum_buffer" in value for value in opt.state.values())
@@ -94,7 +94,7 @@ def test_birth_preserves_momentum_and_pairs_body_initialization():
     scheduled = runner.attach_seed(host, slot, opt, spec, dx, static=False)
     assert runner.optimizer_host_hash(opt) == before
     fresh = build_host("mild", derive(spec.seed, "host-init"))
-    static_slot = Slot()
+    static_slot = runner.ScaleAwareSlot(RunSpec())
     static = runner.attach_seed(fresh, static_slot, build_optimizer(fresh, spec.kernel_config()), spec, dx, static=True)
     assert scheduled["body_init_sha256"] == static["body_init_sha256"]
     assert static["gain_at_birth"] != scheduled["gain_at_birth"]
@@ -110,7 +110,7 @@ def test_no_growth_matches_legacy_production_host_and_optimizer_exactly():
     dx, dy = smoke_split(spec, "dev")
     future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
     hosts = [build_host("mild", derive(spec.seed, "host-init")) for _ in range(2)]
-    slots = [Slot(), Slot()]
+    legacy_slot, bounded_slot = Slot(), runner.ScaleAwareSlot(spec)  # legacy kernel slot vs the bounded runner's slot
     opts = [build_optimizer(host, spec.kernel_config()) for host in hosts]
     hosts[0].attach_stat_hooks()
     legacy = EpisodeCtx(
@@ -122,14 +122,14 @@ def test_no_growth_matches_legacy_production_host_and_optimizer_exactly():
         future,
         hosts[0],
         opts[0],
-        slots[0],
+        legacy_slot,
         [],
         [],
         None,
         False,
     )
     train_one_epoch(legacy, 0)
-    runner.train_epoch(hosts[1], slots[1], opts[1], spec, future, tx, ty, 0)
+    runner.train_epoch(hosts[1], bounded_slot, opts[1], spec, future, tx, ty, 0)
     assert state_hash(hosts[0]) == state_hash(hosts[1])
     assert runner.optimizer_host_hash(opts[0]) == runner.optimizer_host_hash(opts[1])
 
@@ -140,7 +140,7 @@ def test_ce_alone_updates_seed_body_and_gain(stage, alpha, beta):
     runner.configure_cpu(spec)
     tx, ty = smoke_split(spec, "fit")
     dx, _ = smoke_split(spec, "dev")
-    host, slot = build_host("mild", derive(spec.seed, "host-init")), Slot()
+    host, slot = build_host("mild", derive(spec.seed, "host-init")), runner.ScaleAwareSlot(RunSpec())
     opt = build_optimizer(host, spec.kernel_config())
     runner.attach_seed(host, slot, opt, spec, dx, static=False)
     slot.stage, slot.alpha, slot.beta = stage, alpha, beta
@@ -162,7 +162,7 @@ def test_prefix_gradient_isolation_and_recoupling():
     spec = RunSpec()
     runner.configure_cpu(spec)
     dx, _ = smoke_split(spec, "dev")
-    host, slot = build_host("mild", 1), Slot()
+    host, slot = build_host("mild", 1), runner.ScaleAwareSlot(RunSpec())
     runner.attach_seed(host, slot, build_optimizer(host, spec.kernel_config()), spec, dx, static=False)
     for stage, alpha, beta in [(Stage.TRAINING, 0.0, 0.0), (Stage.BLENDING, 0.5, 0.0), (Stage.FOSSILIZED, 1.0, 1.0)]:
         slot.stage, slot.alpha, slot.beta = stage, alpha, beta
@@ -180,7 +180,7 @@ def test_full_state_identity_sees_seed_momentum_and_lifecycle():
     spec = RunSpec(epochs=7)
     runner.configure_cpu(spec)
     dx, _ = smoke_split(spec, "dev")
-    host, slot = build_host("mild", 1), Slot()
+    host, slot = build_host("mild", 1), runner.ScaleAwareSlot(RunSpec())
     opt = build_optimizer(host, spec.kernel_config())
     runner.attach_seed(host, slot, opt, spec, dx, static=False)
     assert slot.seed is not None
