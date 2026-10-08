@@ -9,13 +9,14 @@ embodied reversibly under warrant, and eventually retired.
 > **Status (2026-10-08): bounded experimental implementation.** The runnable
 > [bounded comparison](docs/bounded-comparison.md) trains one fixed host three
 > ways: no growth, static added capacity, and a scheduled graft. Outer
-> evaluation is a separate command. In a CPU pilot on CIFAR-10 development data,
-> all three arms learn; one seed cannot separate them
-> ([result](docs/results/2026-10-08-bounded-cpu-pilot.md)). No growth-superiority
-> or learned-controller result exists. The full HLD under
+> evaluation is a separate command. A pre-registered 48-seed screen on CIFAR-10
+> development data showed that the paired measurement resolves differences of
+> ±0.018 nats. At that scale the graft earns nothing, and neither does static
+> capacity ([result](docs/results/2026-10-08-bounded-screen-v1.md)). The next
+> round first establishes a host with a real deficit. No growth-superiority or
+> learned-controller result exists. The full HLD under
 > [`docs/design/`](docs/design/00-INDEX.md) remains a design, `src/simic/` is a
-> package scaffold, and the August kernel-demo campaign is parked with its code
-> intact.
+> package scaffold, and the August kernel-demo campaign is parked.
 
 ## The idea
 
@@ -91,7 +92,8 @@ docs/adr/                        Architecture decision records
 docs/product/                    Product workspace (vision, roadmap, decisions)
 docs/bounded-comparison.md       How to run the current experiment, and its contract
 docs/results/                    Dated result notes with archived run evidence
-experiments/                     Runnable code: bounded comparison, kernel demo
+docs/prereg/                     Frozen pre-registered analysis plans
+experiments/                     Runnable code: bounded comparison and screen, kernel demo
 docs/concept/archive/            Archived v4.1 monolith and superseded v2.0 — historical only
 ARCHITECTURE.md                  One-page digest of the system shape (start here)
 AGENTS.md / CLAUDE.md            Orientation digest for coding agents

@@ -117,21 +117,27 @@ Claude owns the project as of 2026-10-08
 resume brief is [`docs/product/current-state.md`](docs/product/current-state.md):
 read it first.
 
-The one active experiment is the [bounded comparison](docs/bounded-comparison.md)
-([ADR-0018](docs/adr/0018-bounded-structural-comparison.md)). It trains one
-fixed host and seed three ways: no growth, static extra capacity, and a
-scheduled graft. Outer evaluation is a separate command. The October 8 CPU
-pilot showed all three arms learning on CIFAR development data, but one seed
-cannot separate them ([result](docs/results/2026-10-08-bounded-cpu-pilot.md)).
-The next step is a predeclared multi-seed screen, which has to be proposed with
-a budget before it runs.
+The bounded comparison ([guide](docs/bounded-comparison.md),
+[ADR-0018](docs/adr/0018-bounded-structural-comparison.md)) trains one fixed
+host three ways: no growth, static extra capacity, and a scheduled graft. Its
+pre-registered 48-seed screen
+([result](docs/results/2026-10-08-bounded-screen-v1.md),
+[PDR-0045](docs/product/decisions/0045-bounded-screen-reading-gate-closed.md))
+showed two things:
+- the paired instrument resolves differences to ±0.018 nats;
+- the graft earns nothing at that scale, and neither does static capacity.
+
+Two bets are now active:
+- round 2 of the bounded comparison, which first finds a host with a measured
+  deficit (`simic-f73351380d`);
+- the resumed HLD programme: design hardening into Phase A, starting at
+  `simic-0bf2c40dec`.
 
 The production package under `src/simic/` remains a scaffold. The kernel demo
 (`experiments/kernel_demo.py`) is parked: its August preflight failed gates
 1–5 and never froze. Saved result-shaped synthetic charts are layout previews,
-not evidence. The HLD programme (design hardening, Phase A) is paused behind
-the bounded comparison, un-dated, and gated on the screen's result
-([PDR-0043](docs/product/decisions/0043-roadmap-rebased-on-bounded-reboot.md)).
+not evidence. Experiment reports live in `docs/results/`, and pre-registered
+plans in `docs/prereg/`.
 Keep existing history, design and old campaign artifacts intact. Licensed
 Apache-2.0.
 

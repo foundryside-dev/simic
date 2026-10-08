@@ -1,117 +1,103 @@
-# Current State — Simic        Checkpoint: 2026-10-08 (session 17)
+# Current State — Simic        Checkpoint: 2026-10-08 (session 17, second checkpoint)
 
 ## Who owns this now
-Claude, since 2026-10-08 (PDR-0040). John's words: *"you're taking over the
-project, merge it into main, and update all your findings - you have carriage
-to bring simic to green."* The authority grant in `vision.md` has a dated line
-for this handover. Everything on the escalate list stays reserved to John:
+Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
+green."* Reserved to John:
 - vision changes;
 - tags, releases and publication;
 - GPU or paid campaigns;
 - opening outer/test data;
 - deleting run data.
 
-## The bet right now
-**One Now bet: the bounded structural comparison** (ADR-0018, PDR-0043). One
-fixed host, the `conv_light` seed, three arms: no growth, static extra capacity
-from step zero, and a scheduled graft. Training and outer evaluation run as
-separate commands. The question: does the structural intervention earn its
-cost against *both* controls, before any controller exists?
+## Milestone reached this session
+**The PDR-0043 gate closed with a measured answer (PDR-0045).** The
+pre-registered bounded screen ran 48 paired units on CIFAR development data:
+CPU, ~4.7 CPU-hours, analysed once from clean commit `f5aeda2`. The reading
+is **`reopen_no_value`**:
 
-**First real reading (2026-10-08, PDR-0041):** CPU pilot, one paired seed,
-1,024 fit / 256 dev CIFAR-10, ten epochs, 59 s.
-- All three arms reduced development CE: no growth 2.306→1.691, static
-  →1.605, scheduled →1.722.
-- One seed cannot separate them. Arm differences are ≤0.12 CE, while a single
-  epoch swings by up to 0.47 within one arm.
-- The pairing machinery is verified: the scheduled and no-growth host hashes
-  match exactly through the end of the invisible STE epoch.
-- Write-up: `docs/results/2026-10-08-bounded-cpu-pilot.md`.
+- **The paired instrument resolves.** Scheduled − no growth is bounded to
+  ±0.018 nats, against a 0.05-nat floor. This is the first measured
+  criterion-18-shaped reading in the programme. It covers resolution only.
+- **The scheduled graft earns nothing at this scale.**
+  - Against no growth: +0.002 [−0.017, +0.020].
+  - Against static capacity: −0.016 [−0.045, +0.013].
+  - Both are equivalent within the floor, and the graft costs 5% more
+    optimizer work.
+- **Static capacity is flat against no growth too.** This is exploratory,
+  but the plain reading is that the `mild` host at 4,096 examples had no
+  deficit to repair.
 
-Two readings so far (the synthetic fixture and this pilot) both rank static
-capacity first. **Neither is evidence**, but ADR-0018's reopen trigger is
-"static control wins at the declared cost". The next screen has to be able to
-read that trigger.
+Write-up: `docs/results/2026-10-08-bounded-screen-v1.md`, with all per-unit
+evidence archived beside it.
 
-## Green status (the PDR-0040 guardrail)
-- **`main` carries all accepted work:** yes, after this session's merge PR. The
-  ten commits from 2026-08-11 to 2026-10-04 (PDR-0039, ADR-0016/0017/0018, the
-  concept panel, the related-work map, the bounded comparison) had never
-  reached `main`.
-- **Full `tests/` suite:** 205 passed, 3 skipped in 7 min on the pre-removal
-  code. The 3 skips were the Wardline scanner witnesses, since deleted. The
-  post-removal run is recorded in the merge PR. This is the first full pass
-  recorded since the reboot: Codex's 2026-10-04 broad run was interrupted. The
-  two collect tests take ~3 min of the 7.
-- **No tool points at a missing binary:** yes. Legis, Wardline and Warpline
-  were removed from `.mcp.json`, the SessionStart hooks, the skills, `weft.toml`
-  and `AGENTS.md`. The bounded comparison no longer depends on `weft-markers`
-  (PDR-0042).
+## The bets now (roadmap Now)
+1. **Bounded comparison, round 2** (`simic-f73351380d`): find a measured,
+   repairable deficit *before* asking whether a graft repairs it.
+   - Pre-register a positive control: static capacity must beat no growth
+     beyond δ in the chosen configuration.
+   - Candidates: Esper's degenerate-architecture fixtures (~10%→~40%
+     headroom; code under `/mnt/data/archive/esper-lite`) and an
+     under-provisioned `mild` host.
+   - Reuse `experiments/bounded_screen.py`.
+   - Per ADR-0018: do not enlarge the controller.
+2. **HLD programme resumed: design hardening into Phase A** (PDR-0043/0045).
+   - Start with the ~10 contract-blocking items, led by `simic-0bf2c40dec`.
+   - The burn-down is live again, at 31 open / 23 closed, un-dated.
+
+## Green status (PDR-0040 guardrail)
+- **`main` carries all accepted work:** yes once the `bounded-screen` PR
+  merges. This session's earlier work merged as PR #20.
+- **Full `tests/` suite:** recorded in the merge PR for this branch. The
+  last recorded result on `main` was 190 passed in 7m31s. Since then the
+  branch adds 14 restored contract tests and 14 screen tests.
+- **No configured tool points at a missing binary:** yes (PDR-0042).
 - **This file describes reality:** as of this checkpoint.
 
 ## DECISION QUEUE
-
 **For John (owner-gated):**
-- **Q1 — Outer evaluation** of any bounded run. This is the one-shot terminal
-  score, and it stays owner-gated. Nothing has asked for it yet: the pilot was
-  development-only, and the next screen should be too.
+- **Q1 — Outer evaluation.** Nothing needs it yet. The screen was
+  development-only, and the next round should be too.
 
-**For Claude (within the grant), in order:**
-1. **Propose the multi-seed development screen** (`simic-7486bc6929`). Record
-   the proposal as a PDR before running, with:
-   - seed count;
-   - endpoint, preferably the paired CE difference over the last k epochs,
-     given the single-epoch noise;
-   - budget: ~1 CPU-min per seed, so 16 seeds is ~16 min serial or ~2 min
-     parallel on nyx;
-   - the pre-committed reading against ADR-0018's reopen trigger.
-
-   Design it with the counterfactual-statistics skill. The grant's run
-   authorization covers running it once recorded.
-2. **The ready queue was re-triaged this session.** 35 pre-reboot HLD and
-   kernel-demo items now depend on the evidence gate `simic-6f4f111ec8`
-   ("the bounded screen reports"). They are paused, not closed, so `filigree
-   ready` shows only real next work. To unpark an item early, remove its
-   dependency and record why.
-3. **When Wardline returns:** `simic-2035316005` (re-mark the bounded seams;
-   reference `c40972d`).
+**For Claude, within the grant, in order:**
+1. Shape round 2 (`simic-f73351380d`). Choose the deficit configuration with
+   a cheap exploratory probe, then freeze a positive-control plan as a PDR.
+2. Start Phase A contract work at `simic-0bf2c40dec`.
+3. When Wardline returns: `simic-2035316005`.
 
 ## Parked, with re-entry conditions
-- **Design hardening and Phase A.** 31 open / 23 closed `hld-review` items,
-  unchanged since 2026-08-10. The fired 2026-09-30 date was un-dated, not
-  moved (PDR-0043). Re-entry: the bounded screen reports.
-- **Kernel demo campaign** (`simic-7c42fc9c0b`, Task 19B/19C
-  `simic-e3ad55344f` / `simic-0fd4fcb933`, PR #13's rev 6.2). Preflight failed
-  gates 1–5 in August and never froze. Re-entry: its own DECIDE.
-- **ADR-0002 regime** (`simic-357c92664c`). Plainweave seeding wants John
-  present. Rides with Phase A.
+- **Kernel demo campaign.** Its items depend on the parking issue
+  `simic-ae339f0555`. Re-entry: an explicit DECIDE recorded as a PDR.
+- **Learned structural timing.** Only after a round-2 graft earns its cost.
 
-## Session 17 did
-- Resumed from a four-day stall. Codex had built and reviewed the bounded
-  reboot on 2026-10-04 but withheld the approved pilot over an unenforceable
-  64 MiB OS quota. John lifted the cap; the pilot ran (PDR-0041).
-- Retired the three unavailable Weft tools and removed the `weft-markers`
-  runtime pin. That pin re-hashed a file inside the Wardline checkout at every
-  run, so the Wardline rebuild would have broken the experiment (PDR-0042).
-- Re-based the roadmap (PDR-0043); recorded the handover (PDR-0040).
-- Updated AGENTS.md, README, CHANGELOG, `metrics.md`, `vision.md` and the
-  bounded-comparison guide. AGENTS.md's esper paths now point at
-  `/mnt/data/archive/`.
+## Session 17 did (both checkpoints)
+- Took over from Codex (PDR-0040).
+- Lifted the pilot cap and ran the pilot (PDR-0041).
+- Retired Legis, Wardline and Warpline (PDR-0042). An independent review of
+  that change found that it had deleted 14 real runtime-contract tests. They
+  are restored, and PDR-0042 carries a correction.
+- Re-based the roadmap (PDR-0043).
+- Pre-registered the screen (PDR-0044). It was amended once before launch:
+  review found the gate would have read a noisy static comparator as a failing
+  instrument.
+- Ran the screen and applied its reading (PDR-0045).
 - Tracker:
-  - `simic-dda0d0188c` reclaimed from `codex-astra`;
-  - 35 paused items gated behind `simic-6f4f111ec8`;
-  - `simic-e2f56cfbae` closed with John's words;
-  - `simic-7486bc6929` (screen proposal) and `simic-2035316005` (re-mark
-    seams) opened.
+  - `simic-dda0d0188c`, `simic-7486bc6929`, `simic-6f4f111ec8` and
+    `simic-e2f56cfbae` are closed;
+  - `simic-f73351380d`, `simic-ae339f0555` and `simic-2035316005` are open;
+  - 30 HLD/Phase-A items were unblocked by the gate, and 5 kernel-demo items
+    were re-parked.
 
 ## Local-only state worth knowing
-- Pilot checkpoints: `runs/bounded-pilot-2026-10-08/*.pt` (gitignored;
-  checksums in the archived `complete.json`).
-- Training-only CIFAR view: `runs/cifar-fit-only/`, which holds symlinks to the
-  five training batches and the metadata, and no `test_batch`. Reuse it for
-  every development run so outer data stays physically absent.
-- `.weft/{legis,wardline,warpline}/` and `.wardline/`: ignored local state from
-  the retired tools. Left in place, because deleting what may be an audit trail
-  is owner-reserved.
+- Screen units: `runs/bounded-screen-v1/`, holding the per-unit manifests and
+  144 checkpoints. They are pinned by the archived `complete.json` files.
+  **Do not change `experiments/bounded_comparison.py`, `bounded_data.py`,
+  `kernel_demo.py`, `__init__.py`, `pyproject.toml` or `uv.lock` before
+  re-analysing them**: `verify_run` refuses on source drift.
+- Pilot checkpoints: `runs/bounded-pilot-2026-10-08/`.
+- Training-only CIFAR view: `runs/cifar-fit-only/`, which holds symlinks to
+  the training batches and no `test_batch`. Every development run uses it.
+- `.weft/{legis,wardline,warpline}/` and `.wardline/`: ignored local state
+  from the retired tools. Left in place, because deleting it is
+  owner-reserved.
 - Codex's October 4 reports and preservation archive:
   `/home/john/Documents/Codex/2026-10-04/task-7/`.
