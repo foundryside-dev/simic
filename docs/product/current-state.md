@@ -5,8 +5,8 @@ Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
 green."* Reserved to John:
 - vision changes;
 - tags, releases and publication;
-- GPU or paid campaigns, except PDR-0050's window: pre-registered, reviewed
-  ladder runs on the local 2× RTX 4060 Ti for about a week from 2026-10-08;
+- paid or off-nyx compute. Jobs on nyx need no permission (PDR-0056);
+  every launched fleet is recorded under "Running now" below;
 - opening outer/test data;
 - deleting run data.
 
@@ -67,15 +67,16 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- rung 4 is decided (PDR-0054, owner-signed): graft timing (epochs 0–5)
-  and horizon (10 against 20 epochs) on `under_normalized` × `norm`. The
-  ladder stops at rung 4 if neither changes the outcome. Next:
-  1. design the per-study plan, with a reading rule for "changes the
-     outcome" and "flat", and a host-instability policy;
-  2. sketch it to the owner in session;
-  3. review, dry-run, launch;
-- the vision's gate split is ratified (PDR-0053). Per-study plans need an
-  in-session sketch before launch.
+- rung 4 (PDR-0054, owner-signed; plan PDR-0055). The plan is reviewed and
+  amended, and the runner's common future is now prefix-stable. Next:
+  1. size from the re-pilot;
+  2. post the delta note against the sketch;
+  3. run the gating dry run;
+  4. launch.
+
+**Running now** (PDR-0056: every fleet on nyx is listed here when
+launched):
+- none.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

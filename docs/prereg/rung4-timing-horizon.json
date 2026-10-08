@@ -9,18 +9,19 @@
       "PDR-0050",
       "PDR-0053",
       "PDR-0054",
-      "PDR-0055"
+      "PDR-0055",
+      "PDR-0056"
     ],
     "stop_condition_owner_signed": "PDR-0054: if neither timing nor horizon changes the outcome (capture stays flat and static still wins), the ladder stops at rung 4; location or a different host proceeds only through a new owner decision.",
     "based_on": [
       "graft-capture-v2-norm (rung 3): graft at epoch 2 captures 0.60 [0.51, 0.72] of static's gain; graft - static +0.057 [+0.028, +0.086]; the gap narrowed toward the horizon (descriptive). Seen.",
-      "Two pilots (seeds 9301-9324, 24 seeds x 6 cells, 144 runs): read for spread and stability only. 0 graft divergences in any cell; 1 static divergence. Pooled sd: timing (T0 - T5) 0.070 (95% UCL 0.093), horizon (gap20 - gap10) 0.206 (UCL 0.276), per-cell graft - static about 0.15 (UCL about 0.20)."
+      "Three pilots read for spread and stability (sds, divergence counts, replay checks). Pilots 1-2 (seeds 9301-9324, 144 runs) predate the prefix-stable future; pilot 3 (seeds 9330-9353, 144 runs) is on the launch runner and sizes the study: timing T0 - T3 sd 0.079 (95% UCL 0.105); horizon (gap20 - gap10) sd 0.173 (UCL 0.230); per-cell graft - static sd 0.146-0.198. Graft divergences 2/288 pilot runs across all three (T0 1, T3 1, both in pilot 3); H20 replayed T2 bitwise over its first ten epochs on all 24 pilot-3 seeds."
     ]
   },
   "units": {
     "definition": "one training seed; every cell of a seed shares initialisation and the minibatch order prefix, and runs on one GPU",
     "first_seed": 8001,
-    "count": 384,
+    "count": 768,
     "excluded_seeds": [
       7,
       999,
@@ -499,9 +500,9 @@
       "T2"
     ],
     "lever_cell": "T0",
-    "max_graft_failures_per_cell": 12,
-    "max_static_failures": 40,
-    "max_failed_runs": 4,
+    "max_graft_failures_per_cell": 24,
+    "max_static_failures": 80,
+    "max_failed_runs": 8,
     "bootstrap_resamples": 20000,
     "bootstrap_seed": 20261013
   },
@@ -510,40 +511,83 @@
   "predictions": {
     "recorded_before_launch": true,
     "reading_probabilities": {
-      "method": "300 simulated 384-seed studies per row through the committed timing_study.evaluate (seed random effect shared across the 10-epoch cells, iid run noise, independent 20-epoch noise; sds from the pooled pilot at point and 95% UCL). timing = T0 - T5 effect on graft late CE; horizon = change in graft - static at 20 vs 10 epochs.",
-      "rows": {
-        "n=384 sd=point null": {
-          "flat_stop": 1.0
-        },
-        "n=384 sd=point timing-0.08": {
-          "lever_found": 1.0
-        },
-        "n=384 sd=point horizon-0.10": {
-          "lever_found": 1.0
-        },
-        "n=384 sd=UCL null": {
-          "flat_stop": 0.927,
-          "inconclusive": 0.073
-        },
-        "n=384 sd=UCL timing-0.08": {
-          "lever_found": 1.0
-        },
-        "n=384 sd=UCL horizon-0.10": {
-          "lever_found": 0.987,
-          "inconclusive": 0.013
+      "method": "200 simulated 768-seed studies per row through the committed timing_study.evaluate, using docs/prereg/rung4-timing-horizon-sizing.py.txt (seed effect shared across the 10-epoch cells; H20 continues T2 plus independent noise). Spreads from pilot 3 at its point estimate and its 95% UCL.",
+      "sd_ucl": {
+        "sd_timing": 0.1054,
+        "sd_horizon": 0.2297,
+        "sd_gap": 0.2111,
+        "rows": {
+          "null": {
+            "flat_stop": 0.97,
+            "inconclusive": 0.03
+          },
+          "timing earlier better 0.03 (T0-T3)": {
+            "lever_found": 0.585,
+            "inconclusive": 0.415
+          },
+          "timing earlier better 0.06 (T0-T3)": {
+            "lever_found": 1.0
+          },
+          "timing peak at T1 (-0.03)": {
+            "inconclusive": 1.0
+          },
+          "horizon gap shrinks 0.05": {
+            "inconclusive": 0.99,
+            "lever_found": 0.01
+          },
+          "horizon gap shrinks 0.10": {
+            "lever_found": 1.0
+          },
+          "horizon gap widens 0.10": {
+            "changes_adversely": 1.0
+          }
+        }
+      },
+      "sd_point": {
+        "sd_timing": 0.079,
+        "sd_horizon": 0.1733,
+        "sd_gap": 0.1592,
+        "rows": {
+          "null": {
+            "flat_stop": 1.0
+          },
+          "timing earlier better 0.03 (T0-T3)": {
+            "lever_found": 0.855,
+            "inconclusive": 0.145
+          },
+          "timing earlier better 0.06 (T0-T3)": {
+            "lever_found": 1.0
+          },
+          "timing peak at T1 (-0.03)": {
+            "inconclusive": 1.0
+          },
+          "horizon gap shrinks 0.05": {
+            "inconclusive": 0.99,
+            "lever_found": 0.01
+          },
+          "horizon gap shrinks 0.10": {
+            "lever_found": 1.0
+          },
+          "horizon gap widens 0.10": {
+            "changes_adversely": 1.0
+          }
         }
       }
     },
-    "expected_reading": "lever_found, if grafting earlier captures more (T0 nearer static) or static's lead shrinks with training; flat_stop if neither. The pilots were not read for means, so no direction is predicted from them; rung 3's narrowing gap is the only (descriptive) hint.",
-    "would_surprise": "graft_unstable (early grafts spend six epochs fully coupled, the regime where static diverges, but 0/48 pilot T0/T1 grafts diverged), instrument_failure, or a replay mismatch."
+    "expected_reading": "No direction is predicted: the pilots were not read for means. lever_found if timing or horizon moves capture favourably beyond its margin; flat_stop if both are flat everywhere and static still wins.",
+    "would_surprise": "graft_unstable, instrument_failure (including a prefix-replay mismatch between H20 and T2), or changes_adversely on timing (later grafting better)."
   },
   "disclosures": [
-    "Rung 3 numbers were seen; pilots were read for spread and stability only (sd, divergence counts, replay), never for cell means or contrasts.",
-    "n = 384 is chosen so a truly flat world reaches flat_stop with probability >= 0.9 at the pooled pilot's 95% UCL sd; compute is not a constraint (owner, 2026-10-09).",
-    "H20 is not 'T2 continued': CommonFuture draws all permutations, then crops, then flips, so H20 shares T2's minibatch order prefix but not its augmentations. The horizon contrast is paired by seed (same initialisation), with that extra noise declared.",
-    "The timing contrast uses the endpoints T0 and T5; T5 germinates at epoch 5 and is fully coupled only at epoch 9, so its late window is partly in blending. The per-seed slope over the 10-epoch cells is reported as a secondary, never gating.",
-    "Static and no growth do not depend on graft timing: their records must replay bitwise across the 10-epoch cells (a free instrument check; a mismatch reads instrument_failure).",
-    "Execution profile: GPU, Academy-exact per SKU (2x RTX 4060 Ti), one process per GPU, every cell of a seed on one device, units trained and analysed from one immutable snapshot; data identity pinned and checked at launch."
+    "Rung 3 numbers were seen. The pilots' analysis reports also contain cell means and contrasts; the author extracted only sds, divergence counts and replay checks from them, and no design choice was changed after seeing them.",
+    "Margins: delta_timing 0.02 nats is about 14% of static's 0.144-nat gain over no growth on this host (rung 3), so 'timing flat' means every 10-epoch cell's graft late CE lies within about 14 capture points of T2's; delta_horizon 0.05 nats (about 35 points) reflects the noisier 20-epoch arm. A 0.03 timing effect or a mid-range peak never reads flat_stop in simulation (statistics review).",
+    "n = 768 is chosen so a truly flat world reaches flat_stop with probability 0.97 at pilot 3's 95% UCL spreads (1.0 at the point spreads). Jobs on nyx need no permission (PDR-0056); the cost is about 16 h on two GPUs.",
+    "Per-contrast handling: a seed enters a contrast if and only if both of its arms finished; divergences are counted per cell (graft) and per seed-horizon (static) with exact bounds and gate the reading; no unit is re-run.",
+    "Caps (computed): graft 24 per cell of 768 (3.1%; pilot rate 2/288 = 0.7%, exact one-sided 95% upper 2.2%). graft_unstable is the maximum over six positively correlated cells, so its study-level probability is at most 0.08 at a true 2% per-cell rate and about 0.94 at 3%. Static 80 of 1,536 seed-horizons (5.2%): P(exceed) is 0.008 at a true 4% rate, 0.33 at 5%. Failed runs 8 of 4,608: P(exceed) 0.045 at a 0.1% crash rate.",
+    "The runner's common future is prefix-stable (bounded_comparison.draw_future): H20 continues T2 bitwise for ten epochs, a replay test the analysis enforces. The kernel's CommonFuture is untouched; runs from earlier studies are not reproducible at this runner (their source identity already differs).",
+    "Timing contrast T0 - T3: T5's late window lies in blending, so T5 enters only the flatness requirement and the descriptive slope.",
+    "Execution profile: GPU, Academy-exact per SKU (2x RTX 4060 Ti), one process per GPU, every cell of a seed on one device, from one immutable snapshot; data identity pinned and checked before launch; an interrupted fleet resumes from its own snapshot (timing_study launch --resume)."
   ],
-  "deviations": []
+  "deviations": [
+    "Pre-launch amendments after three Fable reviews of 3bdf81e (statistics, product, code): per-contrast margins (timing 0.02), timing contrast T0-T3, flat_stop requires every 10-epoch cell flat against T2, beyond_floor split by sign (changes_adversely), prefix-stable common future and its replay test, resume, stricter plan validation, n 384 -> 768 after a re-pilot on the launch runner."
+  ]
 }

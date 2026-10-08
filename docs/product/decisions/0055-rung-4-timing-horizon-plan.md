@@ -1,128 +1,149 @@
-# PDR-0055 — Rung 4 per-study plan: timing and horizon on `norm`, 384 seeds
+# PDR-0055 — Rung 4 per-study plan: timing and horizon on `norm`, 768 seeds
 
-Date: 2026-10-09   Status: proposed (pending pre-launch review)   Author: Claude (session 17)
+Date: 2026-10-09   Status: accepted for launch (after three pre-launch reviews and amendments)   Author: Claude (session 17)
 Owner sign-off: the question and stop condition are owner-signed in
-PDR-0054. This per-study plan is Claude's under PDR-0053, and the owner was
-sketched the design in session and answered "Proceed as sketched". On
-2026-10-09 the owner said *"you don't need to ask for permission to run a
-job/batch"* and *"go ahead, proceed autonomously"*. The size grew from the
-sketch's guess (~64 seeds, ~1.5 GPU-hours) to 384 seeds, about 8 h on two
-GPUs. That trade-off was brought to the owner, who chose "bigger pilot,
-then size".
-Related: PDR-0050, PDR-0052 (rung 3), PDR-0053 (gate split), PDR-0054 (rung
-4 DECIDE); plan [`rung4-timing-horizon`](../../prereg/rung4-timing-horizon.json);
+PDR-0054. This per-study plan is Claude's under PDR-0053, and a delta note
+against the sketch is posted in session before launch.
+
+**Owner touchpoints:**
+- the sketch, answered "Proceed as sketched";
+- the size trade-off, answered "Bigger pilot, then size";
+- the compute direction: *"you don't need to ask for permission to run a
+  job/batch"* (PDR-0056);
+- *"go ahead, proceed autonomously"*.
+
+Related: PDR-0050, PDR-0052 (rung 3), PDR-0053, PDR-0054, PDR-0056; plan
+[`rung4-timing-horizon`](../../prereg/rung4-timing-horizon.json); sizing
+script [`rung4-timing-horizon-sizing.py.txt`](../../prereg/rung4-timing-horizon-sizing.py.txt);
 `experiments/timing_study.py`; `simic-9c5c3a2acf`
+
+## The sketch shown to the owner, and what changed since
+
+**The sketch.** It covered six cells, `under_normalized` × `norm`,
+lifecycle v2, fresh seeds (~64, "sized at review"), GPU:
+
+| Cells | Graft starts before epoch | Horizon (epochs) |
+|---|---|---|
+| T0, T1, T2, T3, T5 | 0, 1, 2, 3, 5 | 10 |
+| H20 | 2 | 20 |
+
+It proposed three comparisons:
+1. the timing trend 0→5;
+2. the horizon gap, 20 against 10 epochs;
+3. whether static still wins in every cell.
+
+Its readings:
+- "timing or horizon matters", if an effect is beyond δ = 0.05;
+- "flat → stop", if both are within ±0.05 and static wins everywhere;
+- "inconclusive → new decision".
+
+Cost: about 1.5 GPU-hours.
+
+**Changes since, all from the reviews and pilots:**
+
+| | Sketch | Now | Why |
+|---|---|---|---|
+| Seeds | ~64 | **768**, about 16 h on two GPUs | The 20-epoch arm is noisy. Owner: "bigger pilot, then size"; nyx compute needs no permission |
+| Timing contrast | trend 0→5 | **T0 − T3**, endpoints. The slope is secondary; T5 enters only the flatness check | T5's late window is in blending (statistics review) |
+| Timing margin | 0.05 | **0.02** (about 14% of static's gain) | At 0.05, a real 0.03 effect (~21 capture points) could read "flat" and stop the ladder |
+| Horizon margin | 0.05 | 0.05 (about 35% of static's gain) | Unchanged; the arm is noisier |
+| "Flat" | the endpoints | **every 10-epoch cell flat against T2**, plus horizon flat, plus static winning everywhere | A mid-range peak must not read as flat (product review) |
+| "Matters" | either sign | **Split by sign:** `lever_found` (earlier better, gap shrinks, or T0 beats static) or `changes_adversely` (later better, or gap widens) | An adverse change is not a lever for rung 5 |
+| Horizon pairing | as drawn | **H20 continues T2 bitwise for 10 epochs** (runner: `draw_future`) | Augmentations were drawn differently; the pilot correlation was 0.11 |
+
+**What stopping now requires.** Every short-horizon cell's graft late CE
+must lie within ±0.02 nats of T2's (98.33% intervals). The 20-epoch gap
+must be within ±0.05 of the 10-epoch gap. Static must win in every cell.
+This is harder to reach than the sketch's version, in the direction that
+protects the owner's stop.
 
 ## The design
 
-**Cells.** All on `under_normalized` × `norm` with lifecycle v2, 384 fresh
-seeds (8001–8384), on the GPU profile. Every cell of a seed runs on one
-GPU from one snapshot.
+- **Endpoint:** dev CE, as the mean over the last three epochs of each
+  cell's horizon.
+- **Co-primaries:** α = 0.05, Bonferroni over three (98.33% paired t):
+  1. **timing:** graft T0 − T3;
+  2. **horizon:** gap(H20) − gap(T2);
+  3. **lever cell T0:** does the graft beat static?
+- **Readings**, in order of precedence:
+  1. `instrument_failure`: a replay mismatch (host arms across same-horizon
+     cells, or H20 against T2's first 10 epochs), any co-primary or
+     flatness contrast under three pairs, or more than 8 runs failing
+     verification.
+  2. `graft_unstable`: more than 24 graft divergences in any one cell of
+     768.
+  3. `static_not_credible`: more than 80 of 1,536 static seed-horizons
+     diverged.
+  4. `lever_found`
+  5. `changes_adversely`
+  6. **`flat_stop`**
+  7. `inconclusive`
+- **Failure rates** are reported per cell, apart from finite performance.
+  Each cell's capture fraction comes with a guarded paired bootstrap.
+- **Per-contrast policy:** a seed enters a contrast if and only if both of
+  its arms finished. Nothing is re-run.
 
-| Cell | Graft germinates before epoch | Horizon (epochs) |
-|---|---:|---:|
-| T0 | 0 | 10 |
-| T1 | 1 | 10 |
-| T2 | 2 | 10 |
-| T3 | 3 | 10 |
-| T5 | 5 | 10 |
-| H20 | 2 | 20 |
+## Sizing (committed script, through the committed rule)
 
-**Endpoint.** Dev cross-entropy, as the mean over the last three epochs of
-each cell's horizon.
+Pilot 3 was run on the launch runner (seeds 9330–9353, 144 runs), read for
+spread and stability only. The earlier pilots predate the prefix-stable
+future.
+- Spreads:
 
-**Co-primaries.** One family, α = 0.05, with Bonferroni over three
-(98.33% paired t intervals):
-1. **Timing:** graft late CE in T0 minus T5, paired by seed. The per-seed
-   slope over the 10-epoch cells is a reported secondary.
-2. **Horizon:** (graft − static) in H20 minus (graft − static) in T2,
-   paired by seed.
-3. **Lever cell T0:** does the graft beat static (interval upper < 0)?
+  | Contrast | sd | 95% UCL |
+  |---|---:|---:|
+  | Timing (T0 − T3) | 0.079 | 0.105 |
+  | Horizon | 0.173 | 0.230 |
 
-**Classification.** Timing and horizon are each read from their one
-interval against δ = 0.05:
-- `beyond_floor` (either sign);
-- `flat` (inside ±δ);
-- `inconclusive` (neither).
+- Graft divergences: 2/288 across all pilots.
+- H20 replayed T2 bitwise on 24/24 seeds.
 
-**Readings,** in order of precedence:
-1. `instrument_failure`: a replay mismatch, a co-primary under three
-   pairs, or more than 4 runs failing verification.
-2. `graft_unstable`: more than 12 graft divergences in any one cell (of
-   384).
-3. `static_not_credible`: more than 40 static divergences, counted once
-   per seed and horizon (of 768).
-4. **`lever_found`:** timing or horizon `beyond_floor`, or the T0 graft
-   beats static.
-5. **`flat_stop`:** both co-primaries `flat`, and static wins in every
-   cell (an intersection, so no correction is needed). **This is the
-   owner's stop condition: the ladder stops at rung 4.**
-6. `inconclusive`: otherwise. A new decision is needed (more seeds, or a
-   longer horizon); this reading does not stop the ladder.
+Results at n = 768, from `predictions` in the plan:
 
-**Failure rates.** Failure rates are reported per cell, apart from finite
-performance. Each cell's capture fraction is reported with a guarded
-paired bootstrap.
+| World | Reading, at UCL spreads | At point spreads |
+|---|---|---|
+| Flat | `flat_stop` 0.97 | 1.0 |
+| Timing −0.06 | `lever_found` 1.0 | 1.0 |
+| Timing −0.03 | `lever_found` 0.585, `inconclusive` 0.415 | `lever_found` 0.855 |
+| Mid-range peak at T1 | `inconclusive` 1.0 | 1.0 |
+| Horizon −0.10 | `lever_found` 1.0 | 1.0 |
+| Horizon −0.05 | `inconclusive` 0.99 | 0.99 |
+| Horizon widening +0.10 | `changes_adversely` 1.0 | 1.0 |
 
-## Sizing (rule 8: simulated through the committed rule)
+A 0.03 timing effect and a mid-range peak never read `flat_stop`.
 
-**Pilots.** Two pilots (seeds 9301–9324, 24 seeds × 6 cells) were read for
-spread and stability only:
-- graft divergences: 0/144;
-- static divergences: 1;
-- replay: clean.
+The caps' operating characteristics, computed, are in the plan's
+disclosures.
 
-Pooled sd:
+## Pre-launch order
 
-| Contrast | sd | 95% UCL |
-|---|---:|---:|
-| Timing | 0.070 | 0.093 |
-| Horizon | 0.206 | 0.276 |
-
-The 20-epoch arm is the noisy one.
-
-**Choice of n.** At n = 384 and the UCL sds:
-- a flat world reads `flat_stop` with probability 0.93;
-- a timing effect of 0.08 reads `lever_found` with probability 1.0;
-- a horizon shrink of 0.10 reads `lever_found` with probability 0.99.
-
-At the point sds every row is at least 0.99. The plan's `predictions`
-carry the full table.
-
-## Rationale
-
-Rung 3 left two hypotheses confounded at a single timing and horizon:
-- **Timing:** grafting earlier captures more.
-- **Head start:** static's lead is a head start.
-
-Endpoints T0 and T5 give the timing question its largest, most
-interpretable contrast. H20 separates timing from horizon. Using T0 as
-the lever cell tests the most favourable timing directly.
-
-The esper-lite archive (researched 2026-10-09) trained 150-epoch episodes
-on the full 50k images and never ran a static control. It gives no prior
-for this effect size, but suggests that 10 epochs on 4,096 examples may be
-short. The H20 arm is a first look at that, and the next rung-level
-decision, on horizon and host, is the owner's.
+1. Full suite, then commit.
+2. A gating 3-seed dry run on the launch commit, with analysis (seeds
+   9354–9356).
+3. The delta note to the owner, posted in session.
+4. Launch.
+5. Record the fleet in `current-state.md` and on `simic-f73351380d`
+   (PDR-0056).
+6. Analyse once, from the snapshot.
 
 ## Reading consequences
 
-- **`lever_found`:** rung 4 is met. Timing and/or horizon is a lever, so
-  rung 5 (can telemetry predict the best choice?) has something to predict.
-  A new DECIDE PDR shapes rung 5 or a horizon/host rung, and its question is
-  owner-signed.
-- **`flat_stop`:** the ladder stops at rung 4 (PDR-0054). The write-up is
-  a clean negative for the scheduled graft at this scale. Location or a new
-  host proceeds only through a new owner decision.
+- **`lever_found`:** rung 4 is met. Rung 5 (can telemetry predict the best
+  choice?) has something to predict. A new owner-signed DECIDE shapes rung 5
+  or a horizon/host rung. The esper-lite research (memory, 2026-10-09:
+  150-epoch runs on the full data) bears on that choice.
+- **`changes_adversely`:** the outcome moves, but the wrong way. Bring it
+  to the owner; it is not a lever.
+- **`flat_stop`:** the ladder stops at rung 4 (PDR-0054), written up as a
+  clean negative for the scheduled graft at this scale.
 - **`inconclusive`:** the owner decides between more seeds, a longer
   horizon, or stopping.
-- **`graft_unstable`:** diagnose the unstable cell (early grafts spend six
-  epochs fully coupled). Make no timing claim.
-- **`static_not_credible`:** the comparator needs `simic-9c5c3a2acf`
-  first.
+- **`graft_unstable`:** diagnose the cell. Make no timing claim.
+- **`static_not_credible`:** `simic-9c5c3a2acf` first.
 - **`instrument_failure`:** investigate, and re-run on fresh seeds.
 
 ## Reversal trigger
 
 Any change to the plan or `timing_study.py` after launch is an amendment,
-and the analysis refuses it.
+and the analysis refuses it. An interrupted fleet is resumed with
+`--resume` from its own snapshot, never relaunched on new code.

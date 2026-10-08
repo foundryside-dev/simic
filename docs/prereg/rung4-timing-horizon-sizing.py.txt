@@ -1,0 +1,79 @@
+"""Sizing simulation for docs/prereg/rung4-timing-horizon.json, through the committed rule.
+
+Reproduce from the repository root (the reading rule is imported, not re-implemented):
+    cp docs/prereg/rung4-timing-horizon-sizing.py.txt /tmp/sizing.py
+    .venv/bin/python /tmp/sizing.py SD_TIMING SD_HORIZON SD_GAP N [REPS]
+
+Generative model per seed (the pilot's spreads in, never its means):
+- the 10-epoch cells share a seed effect u on the graft - static gap; each run adds iid noise e
+  with Var(e) = SD_TIMING**2 / 2, so the paired timing contrast has sd SD_TIMING;
+- Var(u) = SD_GAP**2 - Var(e), so each cell's graft - static gap has sd SD_GAP;
+- H20 continues T2 bitwise for ten epochs (bounded_comparison.draw_future), so its gap is
+  T2's gap plus the true horizon change plus independent noise of sd SD_HORIZON.
+The base gap is rung 3's +0.057 (graft - static at graft epoch 2, `norm`).
+"""
+
+from __future__ import annotations
+
+import collections
+import json
+import math
+import sys
+
+import numpy as np
+
+sys.path.insert(0, ".")
+from experiments import timing_study as ts  # noqa: E402
+
+PLAN = json.load(open("docs/prereg/rung4-timing-horizon.json"))
+CELLS, CRITERIA = PLAN["cells"], {**PLAN["criteria"], "bootstrap_resamples": 20}
+BASE_GAP = 0.057
+
+
+def study(rng: np.random.Generator, n: int, sd_t: float, sd_h: float, sd_gap: float, shape: dict[str, float], horizon: float) -> str:
+    s_e = sd_t / math.sqrt(2)
+    s_u = math.sqrt(max(sd_gap**2 - s_e**2, 1e-9))
+    units = []
+    for seed in range(n):
+        u, static = rng.normal(0, s_u), 1.45 + rng.normal(0, 0.05)
+        gaps = {}
+        for cell, spec in CELLS.items():
+            if spec["epochs"] == 10:
+                gaps[cell] = BASE_GAP + shape.get(cell, 0.0) + u + rng.normal(0, s_e)
+        for cell, spec in CELLS.items():
+            ten = spec["epochs"] == 10
+            gap = gaps[cell] if ten else gaps["T2"] + horizon + rng.normal(0, sd_h)
+            st = static if ten else static - 0.05
+            units.append(
+                {
+                    "cell": cell,
+                    "seed": seed,
+                    "status": dict.fromkeys(("no_growth", "static", "scheduled"), "completed"),
+                    "late_ce": {"no_growth": st + 0.15, "static": st, "scheduled": st + gap},
+                    "replay_digest": {"no_growth": f"{spec['epochs']}-{seed}", "static": f"{spec['epochs']}-{seed}"},
+                    "prefix_digest": f"g{spec['graft_epoch']}-{seed}",
+                }
+            )
+    return ts.evaluate(units, CELLS, CRITERIA)["reading"]
+
+
+WORLDS = {
+    "null": ({}, 0.0),
+    "timing earlier better 0.03 (T0-T3)": ({"T0": -0.02, "T1": -0.01, "T3": 0.01, "T5": 0.03}, 0.0),
+    "timing earlier better 0.06 (T0-T3)": ({"T0": -0.04, "T1": -0.02, "T3": 0.02, "T5": 0.06}, 0.0),
+    "timing peak at T1 (-0.03)": ({"T1": -0.03}, 0.0),
+    "horizon gap shrinks 0.05": ({}, -0.05),
+    "horizon gap shrinks 0.10": ({}, -0.10),
+    "horizon gap widens 0.10": ({}, 0.10),
+}
+
+if __name__ == "__main__":
+    sd_t, sd_h, sd_gap, n = (float(a) for a in sys.argv[1:5])
+    reps = int(sys.argv[5]) if len(sys.argv) > 5 else 300
+    out = {}
+    for name, (shape, horizon) in WORLDS.items():
+        rng = np.random.default_rng(20261014)
+        c = collections.Counter(study(rng, int(n), sd_t, sd_h, sd_gap, shape, horizon) for _ in range(reps))
+        out[name] = {k: round(v / reps, 3) for k, v in c.most_common()}
+        print(name, out[name], flush=True)
+    print(json.dumps({"sd_timing": sd_t, "sd_horizon": sd_h, "sd_gap": sd_gap, "n": int(n), "reps": reps, "rows": out}))

@@ -129,11 +129,6 @@ have exclusive use to them for at least the next week or so."* Claude MAY
 run GPU experiments on both local RTX 4060 Ti cards for bounded-ladder work.
 Each run is a pre-registered, reviewed PDR, and each plan declares its
 execution profile. Opening outer/test data remains owner-gated.
-**COMPUTE, 2026-10-09 (owner, in session):** *"I'm willing to commit more
-compute to this - nyx is my hardware so you don't need to ask for
-permission to run a job/batch, If I want to stop it I will."* Jobs and
-batches on nyx need no permission. Size studies for the answer. The
-pre-launch sketch and the programme-level gates below are unchanged.
 **ACCEPTANCE-GATE CLAUSE CLARIFIED 2026-10-09 (PDR-0053), RATIFIED THE
 SAME DAY.** Owner, in session: *"ok, please update the vision"*. At
 read-back, the owner chose "Ratify; sketch before launch". Claude had surfaced that the
@@ -142,6 +137,14 @@ differently from the PDR-0050 window. The line is resolved under "Run
 authorization" below. The run-launch line's "once Tolaria exists"
 parenthetical now also covers the bounded ladder's runs. Nothing else in
 the grant changed.
+**COMPUTE, 2026-10-09 (PDR-0056; the owner, in session, after the
+ratification above):** *"I'm willing to commit more compute to this - nyx
+is my hardware so you don't need to ask for permission to run a job/batch,
+If I want to stop it I will."* Jobs and batches on nyx need no permission;
+the owner stops a job himself if he wants to. Every launched fleet is
+recorded in `current-state.md` and on the bet's tracker issue so he can see
+it. The pre-launch sketch, the programme-level gates, outer/test data and
+paid or off-nyx compute are unchanged.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
