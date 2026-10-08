@@ -167,3 +167,22 @@ not claim HLD conformance, and the full HLD contract registry is unseeded.
 |---|---|---|---|
 | 2026-10-04 | Synthetic acceptance and tiny CIFAR smoke (128 fit / 64 dev / 128 outer, 7 epochs) | Synthetic fixture; CIFAR-10 | Synthetic data: all arms learn. CIFAR: accuracy rose but CE worsened in every arm (Codex task-7 report) |
 | 2026-10-08 | [CPU development pilot](results/2026-10-08-bounded-cpu-pilot.md) (1,024 fit / 256 dev, 10 epochs, seed 7) | CIFAR-10 training files only | Dev CE fell in all three arms. Final dev CE: static 1.605, no growth 1.691, scheduled 1.722, within single-epoch noise. Outer data not opened |
+| 2026-10-08 | [Pre-registered screen v1](results/2026-10-08-bounded-screen-v1.md): 48 paired seeds (4,096 fit / 5,000 dev, 10 epochs) | CIFAR-10 training files only | Instrument resolves (±0.018 nats). Graft equivalent to no growth (+0.002) and to static capacity (−0.016) within δ = 0.05. Reading `reopen_no_value` (PDR-0045) |
+
+## Multi-seed screens
+
+`experiments/bounded_screen.py` runs a frozen plan from `docs/prereg/`. It
+launches one training run per declared seed as parallel single-thread CPU
+processes, refusing a dirty tree or a data root that exposes `test_batch`. It
+then analyses the completed units once:
+
+```bash
+PYTHONPATH=.:src .venv/bin/python -B -m experiments.bounded_screen launch \
+  --root runs/<screen> --data-root runs/cifar-fit-only --workers 8
+PYTHONPATH=.:src .venv/bin/python -B -m experiments.bounded_screen analyze --root runs/<screen>
+```
+
+The analysis checks every unit with `verify_run`, refuses a plan whose hash
+changed since launch, records failures rather than dropping them, and refuses
+to overwrite `screen_report.json`. The unit of inference is one training
+seed: the three arms within a seed are matched repeated measures.
