@@ -18,7 +18,10 @@ green."* Reserved to John:
     12/48 units, and the runner aborted those units. Root-caused (PDR-0047)
     and fixed in the runner.
   - `positive-control-v2` (fresh seeds) read **`control_fails_below_floor`**:
-    static − no growth −0.119 [−0.151, −0.088], 89% of units.
+    static − no growth −0.119 [−0.151, −0.088], 42/47 finite pairs. The
+    estimate exceeds 0.10; a benefit ≥ 0.10 is **not established**. That is
+    not "below". Seed 2142's static failure is a separate host-edge
+    mechanism.
   - PDR-0049 (**proposed**) applies that reading: no further positive-control
     runs, the next floor set in the graft redesign, and the line continues
     through the lifecycle fix.
