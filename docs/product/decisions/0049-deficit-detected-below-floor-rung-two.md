@@ -1,9 +1,9 @@
 # PDR-0049 — Rung 2: a real deficit is detected below the pre-registered floor; continue through the lifecycle redesign, set the next floor there
 
-Date: 2026-10-08   Status: **proposed**   Author: Claude (session 17)
-Owner sign-off: **pending.** The applied reading is within the grant. The
-continuation commits the next working sessions to the graft lifecycle, so
-it is the owner's call.
+Date: 2026-10-08   Status: **accepted**   Author: Claude (session 17)
+Owner sign-off: **RECEIVED 2026-10-08**: "1. Approved". The applied reading
+was within the grant. The owner ratified the continuation through the graft
+lifecycle redesign.
 Related: PDR-0046 (δ_pc), PDR-0047, PDR-0048, result
 [`docs/results/2026-10-08-positive-control-v2.md`](../../results/2026-10-08-positive-control-v2.md),
 `simic-75be93e372`, `simic-f73351380d`
@@ -25,7 +25,7 @@ Both statements are true, and neither is re-read away.
 - The data are **not** re-analysed against any lower floor. That would be
   the post-hoc move the pre-registration exists to prevent.
 
-## The recommendation (proposed)
+## The recommendation (accepted)
 
 The plan's three options all assume the floor is a property of this host.
 It is not. PDR-0046 set δ_pc = 0.10 as **2 × δ_graft**, purely to leave room

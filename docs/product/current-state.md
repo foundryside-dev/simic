@@ -27,12 +27,12 @@ green."* Reserved to John:
   curvature violates the kernel's comment-only bound). The kernel stability
   sweep left a concrete fix set on that issue.
 
-## The bets now (roadmap Now; unchanged pending the owner's answer on Phase A)
-1. **Bounded comparison, round 2 and beyond** (`simic-f73351380d`): the
-   deficit is established; the graft lifecycle redesign is next
-   (`simic-75be93e372`, PDR-0049 proposed).
-2. **HLD programme, design hardening into Phase A** (PDR-0045): unblocked but
-   not worked this session. Recommended back to Later (decision 2).
+## The bets now (PDR-0050)
+1. **The bounded ladder.** Rung 3 is next: redesign the graft lifecycle
+   (`simic-75be93e372`), then a graft-capture study with its floor set from
+   the measured deficit. GPU is authorised for an exclusive window of about
+   a week from 2026-10-08.
+2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
 - **`main` carries all accepted work:** yes once this checkpoint's PR
@@ -44,22 +44,22 @@ green."* Reserved to John:
   `tests/unit/test_doc_references.py`.
 - **This file describes reality:** as of this checkpoint.
 
-## DECISION QUEUE — owner decisions, all pending
-1. **Ratify PDR-0049 (continue the bounded line through a lifecycle
-   redesign).** Recommended: yes. The deficit is real, and the graft
-   instability has a concrete, reviewed fix set.
-2. **Phase A back to Later, with the ladder as the plan** (asked earlier this
-   session). Recommended: yes. Draft contracts only when a rung needs one.
-   Until answered, the ladder takes precedence in practice and the roadmap is
-   unchanged.
-3. **GPU authorization for rung 4** (asked earlier). Recommended: approve as
-   a bounded line item. Rungs 2–3 run on CPU.
-4. **Outer evaluation** stays owner-gated. Nothing needs it yet.
+## DECISION QUEUE
+The owner answered all three on 2026-10-08:
+- PDR-0049 is ratified;
+- the ladder is the plan, and Phase A moves to Later (PDR-0050);
+- GPU is approved for an exclusive window (PDR-0050).
 
-**For Claude, once 1 is answered:** pre-register the lifecycle fix (a
-scale-aware trust region, a frozen trust denominator, a separate gain lr,
-host-edge stability), have it reviewed, test it on exploratory seeds, then
-design graft-capture v2 with its floor set from the measured deficit.
+Outer evaluation stays owner-gated.
+
+**For Claude, now:**
+- pre-register the graft lifecycle fix (a scale-aware trust region, a frozen
+  trust denominator, a separate gain lr, host-edge stability) as a new
+  lifecycle variant in the bounded layer, without silently changing the
+  kernel demo's `@semantic` code;
+- review it;
+- test it on exploratory seeds, using GPU where it helps;
+- then pre-register graft-capture v2.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

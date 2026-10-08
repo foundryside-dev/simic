@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-10-08 (session 17; PDR-0045 — screen read, gate closed)
+# Roadmap — Simic            Updated: 2026-10-08 (session 17; PDR-0050 — the ladder is the plan, Phase A to Later, GPU window)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -19,42 +19,33 @@
 > a real deficit.
 
 ## Now  (committed, in-flight)
-- **Bounded comparison, round 2: find a measured, repairable deficit**
-  (`simic-f73351380d`, ADR-0018, PDR-0045).
-  - Why: screen v1 found no growth effect in *either* added-capacity arm, so
-    the experiment had nothing to repair. Before asking whether a graft
-    repairs a deficit, establish one.
-  - Next step: pre-register a configuration in which static capacity beats
-    no growth beyond δ (the positive control). Candidates are Esper's
-    degenerate-architecture fixtures (~10%→~40% headroom) and an
-    under-provisioned `mild` host. Then the graft question, frozen as
-    PDR-0044 was.
-  - Reuses `experiments/bounded_comparison.py` and
-    `experiments/bounded_screen.py`. About 5 CPU-hours per 48-unit screen.
-  - Metric: the bounded-comparison rows in `metrics.md`.
-  - Kill / reopen: ADR-0018. Do not respond by enlarging the controller. If no
-    configuration within bounded scale shows a positive control, record that
-    as a result and stop the bounded line.
-- **HLD programme resumed: design hardening into Phase A** (PDR-0043/0045).
-  - Why: the counterfactual instrument has now been shown to resolve at
-    bounded scale, which is the gate PDR-0043 set.
-  - Start with the ~10 contract-blocking items, led by `simic-0bf2c40dec`
-    (§9 contract shapes).
-  - Design-debt burn-down: 31 open / 23 closed `hld-review` items. Live
-    again, and un-dated (PDR-0043): paced by session, not calendar.
-  - Phase A also needs the Wardline trust gate re-wired once the tool returns
-    (`simic-8db0b87ed6`, `simic-2035316005`).
-  - Caveat (PDR-0045): "resolves" is a property of the bounded instrument. It
-    has to be re-earned under Tolaria (INV-06, INV-15/16).
+- **The bounded experiment ladder** (PDR-0050; ADR-0018). This is the
+  sequencing authority for experimental work. Each rung is one
+  pre-registered, reviewed experiment with a stop condition.
+  - Rung 1, the instrument resolves: **met** (PDR-0045).
+  - Rung 2, a repairable deficit: **met as a question, below the floor**.
+    −0.119 nats on `under_normalized`/`norm` (PDR-0049).
+  - Rung 3, does a graft capture the deficit: **next**. It needs the graft
+    lifecycle redesign first (`simic-75be93e372`), because the current
+    lifecycle diverges in ~25% of units on this host. Its floor is set from
+    the measured deficit.
+  - Tracker: `simic-f73351380d`.
+  - Kill / reopen: each rung's stop condition. Per ADR-0018, do not respond
+    to a failed rung by enlarging the controller.
 
 ## Next (shaped, decreasing certainty)
-- **Information-management regime (ADR-0002)** (`simic-357c92664c`): the
-  plainweave seeding still wants the owner present, and the Legis drift gate
-  needs a replacement mechanism (PDR-0042). Rides with Phase A.
-- **Learned structural timing** (random → heuristic → learned): only after the
-  round-2 bounded experiment shows a graft that earns its cost.
+- **Rung 4: does the timing or location of the graft change the outcome?**
+  This fans K grafts plus a no-op from snapshots at several decision points.
+  It is the parked kernel demo's design and its re-entry route. GPU is
+  authorised (PDR-0050, exclusive window from 2026-10-08).
+- **Rung 5: can telemetry predict the label better than a fixed schedule?**
+  This is the first Tamiyo-shaped result. HLD contracts are drafted here,
+  only for what it touches.
 
 ## Later (directional bets, no order, no dates)
+- **HLD programme: design hardening and Phase A contracts** (moved to Later
+  by PDR-0050). Pulled by rung 5, never pushed ahead of it. The ~30 items
+  are parked behind the rung-5 gate `simic-e0bafbe10f`.
 - **Kernel demo campaign** (`experiments/kernel_demo.py`, spec rev 6.1/6.2) —
   **parked, not killed.**
   - The August preflight ran 60 fans and 12 refans, failed gates 1–5, and
