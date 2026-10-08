@@ -5,7 +5,8 @@ Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
 green."* Reserved to John:
 - vision changes;
 - tags, releases and publication;
-- GPU or paid campaigns;
+- GPU or paid campaigns, except PDR-0050's window: pre-registered, reviewed
+  ladder runs on the local 2× RTX 4060 Ti for about a week from 2026-10-08;
 - opening outer/test data;
 - deleting run data.
 
@@ -22,38 +23,35 @@ green."* Reserved to John:
     estimate exceeds 0.10; a benefit ≥ 0.10 is **not established**. That is
     not "below". Seed 2142's static failure is a separate host-edge
     mechanism.
-  - PDR-0049 (**proposed**) applies that reading: no further positive-control
+  - PDR-0049 (**accepted**) applies that reading: no further positive-control
     runs, the next floor set in the graft redesign, and the line continues
     through the lifecycle fix.
-- **Rung 3, does a graft capture the deficit:** unblocked. The lifecycle
-  fix is validated.
-  - Lifecycle v2 (a per-step trust-curvature clamp, `bounded_comparison.py`
-    `ScaleAwareSlot`) read **`accepted`** in a pre-registered GPU study
-    ([PDR-0051](decisions/0051-lifecycle-v2-validation.md),
-    [result](../results/2026-10-08-lifecycle-v2-validation.md)).
-  - On `under_normalized`, v1's graft diverged in 6/24 units with `norm` and
-    8/24 with `conv_heavy`; v2's diverged in 0/48 on the same seeds.
-  - Every v1 divergence crossed the derived limit c*, and v2 was identical
-    to v1 where v1 was safe.
-  - Descriptive, not a reading: the stable v2 graft beat no growth by 0.068
-    (`norm`) and 0.054 (`conv_heavy`), about 40% of static capacity's gain.
-  - Static-arm host instability is separate: 2/72 static `norm` arms on
-    this host (`simic-9c5c3a2acf`).
+- **Rung 3, does a graft capture the deficit:** **met as a partial
+  capture** (PDR-0052, [result](../results/2026-10-09-graft-capture-v2.md)).
+  - Both sibling plans read `partial_capture`. The graft beats no growth
+    with `norm` (−0.087) and with `conv_heavy` (−0.045). Static beats the
+    graft in both: static wins at the declared cost.
+  - Capture fractions: 0.60 [0.51, 0.72] with `norm`, 0.31 [0.19, 0.42]
+    with `conv_heavy`.
+  - The graft−static gap narrows toward the 10-epoch horizon, which is the
+    rung-4 timing question.
+  - Lifecycle v2 ([PDR-0051](decisions/0051-lifecycle-v2-validation.md),
+    accepted) diverged in 0/192 runs here.
+  - Static `norm` host instability is now 3/168 (`simic-9c5c3a2acf`).
 
 ## The bets now (PDR-0050)
-1. **The bounded ladder.** Rung 3 is next: a graft-capture v2 study on
-   lifecycle v2, covering `norm` and `conv_heavy`. Its floor is set from the
-   measured deficit, and it must declare its treatment of
-   `simic-9c5c3a2acf`. GPU is authorised for an exclusive window of about
-   a week from 2026-10-08.
+1. **The bounded ladder.** Rung 4 is next: does the timing or location of
+   the graft change the outcome? It starts with a rung-4 DECIDE PDR that
+   chooses the apparatus (by default the bounded runner's snapshot fan). GPU
+   is authorised for an exclusive window of about a week from 2026-10-08.
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
 - **`main` carries all accepted work:** yes. Lifecycle v2, the GPU profile,
   immutable snapshots and the validation study merged as PR #30
   (`9c5c63c`). Earlier work merged as PRs #20, #21, #26, #27, #28 and #29.
-- **Full `tests/` suite:** 391 passed at the source state of `a2d1062`.
-  Since then only plan, result and doc text has changed.
+- **Full `tests/` suite:** 417 passed at `37e5a5b`, the source state both
+  rung-3 fleets ran from. Since then only result and doc text has changed.
 - **No configured tool points at a missing binary:** yes (PDR-0042).
 - **Every cited tracker ID resolves:** enforced by
   `tests/unit/test_doc_references.py`.
@@ -68,10 +66,14 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- pre-register graft-capture v2 (rung 3): a full-sample contrast with the
-  failure rate reported apart, a host-instability policy, GPU, and a
-  real-configuration dry run first;
-- review it, then run it.
+- merge branch `graft-capture-v2` (PR);
+- draft the rung-4 DECIDE PDR from rung 3's inputs: the narrowing
+  graft−static gap, the seed-type dependence, and the cost difference;
+  then pre-register, review, dry-run and run it inside the GPU window;
+- for the owner (not edited by Claude): `vision.md` carries the esper-lite
+  clause "pre-registered acceptance gates stay owner-gated" beside
+  PDR-0050's reviewed-PDR window. Clarify which governs at the next grant
+  review.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

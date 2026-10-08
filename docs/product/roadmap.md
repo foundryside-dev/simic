@@ -26,11 +26,10 @@
   - Rung 2, a repairable deficit: **detected; a benefit ≥ the 0.10 floor not
     established** (estimate 0.119, 95% interval 0.088–0.151; conditional on 47
     finite pairs).
-    −0.119 nats on `under_normalized`/`norm` (PDR-0049).
-  - Rung 3, does a graft capture the deficit: **next**. It needs the graft
-    lifecycle redesign first (`simic-75be93e372`), because the current
-    lifecycle diverges in ~25% of units on this host. Its floor is set from
-    the measured deficit.
+  - Rung 3, does a graft capture the deficit: **met as a partial capture**
+    (PDR-0052, 2026-10-09). The graft repairs 60% [51, 72] of static's gain
+    with `norm` and 31% [19, 42] with `conv_heavy`. Static wins at the
+    declared cost. Lifecycle v2 was stable (0/192).
   - Tracker: `simic-f73351380d`.
   - Kill / reopen: each rung's stop condition. Per ADR-0018, do not respond
     to a failed rung by enlarging the controller.
@@ -38,8 +37,10 @@
 ## Next (shaped, decreasing certainty)
 - **Rung 4: does the timing or location of the graft change the outcome?**
   This fans K grafts plus a no-op from snapshots at several decision points.
-  It is the parked kernel demo's design and its re-entry route. GPU is
-  authorised (PDR-0050, exclusive window from 2026-10-08).
+  A rung-4 DECIDE PDR, drafted after rung 3 reads, chooses the apparatus.
+  The bounded runner's snapshot fan is the default, not the parked kernel
+  demo (PDR-0052). GPU is authorised (PDR-0050, exclusive window from
+  2026-10-08).
 - **Rung 5: can telemetry predict the label better than a fixed schedule?**
   This is the first Tamiyo-shaped result. HLD contracts are drafted here,
   only for what it touches.
