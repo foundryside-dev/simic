@@ -5,7 +5,8 @@ Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
 green."* Reserved to John:
 - vision changes;
 - tags, releases and publication;
-- GPU or paid campaigns;
+- GPU or paid campaigns, except PDR-0050's window: pre-registered, reviewed
+  ladder runs on the local 2× RTX 4060 Ti for about a week from 2026-10-08;
 - opening outer/test data;
 - deleting run data.
 
@@ -22,7 +23,7 @@ green."* Reserved to John:
     estimate exceeds 0.10; a benefit ≥ 0.10 is **not established**. That is
     not "below". Seed 2142's static failure is a separate host-edge
     mechanism.
-  - PDR-0049 (**proposed**) applies that reading: no further positive-control
+  - PDR-0049 (**accepted**) applies that reading: no further positive-control
     runs, the next floor set in the graft redesign, and the line continues
     through the lifecycle fix.
 - **Rung 3, does a graft capture the deficit:** unblocked. The lifecycle
@@ -41,11 +42,11 @@ green."* Reserved to John:
     this host (`simic-9c5c3a2acf`).
 
 ## The bets now (PDR-0050)
-1. **The bounded ladder.** Rung 3 is next: a graft-capture v2 study on
-   lifecycle v2, covering `norm` and `conv_heavy`. Its floor is set from the
-   measured deficit, and it must declare its treatment of
-   `simic-9c5c3a2acf`. GPU is authorised for an exclusive window of about
-   a week from 2026-10-08.
+1. **The bounded ladder.** Rung 3 is next: graft-capture v2 on lifecycle
+   v2, covering `norm` and `conv_heavy` (PDR-0052). δ = 0.05 is retained
+   from the pre-existing graft floor, and static-arm host instability
+   (`simic-9c5c3a2acf`) is handled by policy rather than fixed first. GPU is
+   authorised for an exclusive window of about a week from 2026-10-08.
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)

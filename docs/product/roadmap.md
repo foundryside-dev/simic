@@ -27,10 +27,9 @@
     established** (estimate 0.119, 95% interval 0.088–0.151; conditional on 47
     finite pairs).
     −0.119 nats on `under_normalized`/`norm` (PDR-0049).
-  - Rung 3, does a graft capture the deficit: **next**. It needs the graft
-    lifecycle redesign first (`simic-75be93e372`), because the current
-    lifecycle diverges in ~25% of units on this host. Its floor is set from
-    the measured deficit.
+  - Rung 3, does a graft capture the deficit: **next**. Lifecycle v2 is
+    validated (0/48 divergences, PDR-0051). `graft-capture-v2` runs both seed
+    types with δ = 0.05 retained (PDR-0052).
   - Tracker: `simic-f73351380d`.
   - Kill / reopen: each rung's stop condition. Per ADR-0018, do not respond
     to a failed rung by enlarging the controller.

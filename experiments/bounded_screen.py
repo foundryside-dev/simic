@@ -16,10 +16,12 @@ Outer/test data is never read: this module has no evaluate path.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 import os
 import queue
+import re
 import subprocess
 import sys
 import time
@@ -34,7 +36,7 @@ import numpy as np
 from scipy import stats
 
 from experiments.bounded_comparison import ARMS, REPO, git_identity, read_json, strict_json, verify_run
-from experiments.bounded_data import RunSpec, cifar_source_hashes, file_hash, validated_spec
+from experiments.bounded_data import RunSpec, cifar_source_hashes, file_hash, load_fit_dev, validated_spec
 
 COST_FIELDS = ("optimizer_parameter_steps", "seed_train_examples", "calibration_examples")
 DESCRIPTIVE_LEVEL = 0.95
@@ -58,6 +60,7 @@ PLAN_KEYS = {
 # per arm and never fail the unit (PDR-0052: a static failure must not drop the no-growth pair).
 DIVERGED_ARM_POLICIES = ("fail_unit", "per_contrast")
 DATA_IDENTITY_KEYS = {"source_files", "fit_sha256", "dev_sha256"}
+HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
 def analysis_module_hash() -> str:
@@ -88,12 +91,19 @@ def load_plan(path: Path) -> dict[str, Any]:
     if rule is None:
         raise ValueError(f"unknown reading rule; known: {sorted(READING_RULES)}")
     for key in rule.required_decision:
-        if type(plan["decision"].get(key)) is not int or plan["decision"][key] < 0:
-            raise ValueError(f"reading rule {plan['decision']['reading_rule']} requires decision.{key} as a non-negative int")
+        cap = plan["decision"].get(key)
+        if type(cap) is not int or not 0 <= cap < plan["units"]["count"]:
+            raise ValueError(f"reading rule {plan['decision']['reading_rule']} requires decision.{key} as an int in [0, units.count)")
     if rule.policy is not None and plan["decision"]["diverged_arm_policy"] != rule.policy:
         raise ValueError(f"reading rule {plan['decision']['reading_rule']} requires diverged_arm_policy {rule.policy}")
-    if "data_identity" in plan and (not isinstance(plan["data_identity"], dict) or set(plan["data_identity"]) != DATA_IDENTITY_KEYS):
-        raise ValueError(f"data_identity must pin exactly {sorted(DATA_IDENTITY_KEYS)}")
+    if "data_identity" in plan:
+        pin = plan["data_identity"]
+        if not isinstance(pin, dict) or set(pin) != DATA_IDENTITY_KEYS:
+            raise ValueError(f"data_identity must pin exactly {sorted(DATA_IDENTITY_KEYS)}")
+        files = pin["source_files"]
+        hashes = [pin["fit_sha256"], pin["dev_sha256"], *(files.values() if isinstance(files, dict) else [])]
+        if not isinstance(files, dict) or not files or not all(isinstance(h, str) and HEX64.fullmatch(h) for h in hashes):
+            raise ValueError("data_identity hashes must be sha256 hex digests over a non-empty source_files map")
     for name, arms in rule.required_coprimary.items():
         declared = contrasts.get(name, {})
         if declared.get("role") != "co-primary" or declared.get("arms") != list(arms):
@@ -220,8 +230,14 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
     check_gate(plan, plan_path)
     if (data_root / "cifar-10-batches-py" / "test_batch").exists():
         raise RuntimeError("data root exposes test_batch; use a training-only view")
-    if "data_identity" in plan and cifar_source_hashes(data_root) != plan["data_identity"]["source_files"]:
-        raise RuntimeError("data root does not hold the pinned source files")
+    if "data_identity" in plan:
+        pin = plan["data_identity"]
+        if cifar_source_hashes(data_root) != pin["source_files"]:
+            raise RuntimeError("data root does not hold the pinned source files")
+        # The fit/dev selection is checked too, before any GPU time is spent (code review, PDR-0052).
+        provenance = load_fit_dev(expected_spec(plan, unit_seeds(plan)[0]), data_root)[4]
+        if (provenance["fit_sha256"], provenance["dev_sha256"]) != (pin["fit_sha256"], pin["dev_sha256"]):
+            raise RuntimeError("data root does not yield the pinned fit/dev data")
     root.mkdir(parents=False, exist_ok=False)
     root = root.resolve()
     data_root = data_root.resolve()
@@ -433,18 +449,19 @@ def reading_graft_capture_v2(report: dict[str, Any]) -> tuple[str, dict[str, boo
     beyond the cap leave too few static pairs for the static comparison to be trusted.
     """
     diverged = report["diverged_units_by_arm"]
+    v1_reading, v1_gates = reading_graft_capture_v1(report)  # Published whatever the gates decide (review).
     gates = {
         "graft_failures_within_cap": diverged["scheduled"] <= report["max_graft_failures"],
         "static_failures_within_cap": diverged["static"] <= report["max_static_failures"],
+        **v1_gates,
     }
     if not gates["graft_failures_within_cap"]:
         return "graft_unstable", gates
     if not gates["static_failures_within_cap"]:
-        if report["contrasts"]["scheduled_minus_no_growth"]["t_interval"]["half_width"] > report["delta_nats"]:
+        if not v1_gates["gate_instrument_resolves"]:
             return "reopen_instrument_imprecise", gates
         return "reopen_static_not_credible", gates
-    reading, v1_gates = reading_graft_capture_v1(report)
-    return reading, {**gates, **v1_gates}
+    return v1_reading, gates
 
 
 @dataclass(frozen=True)
@@ -456,13 +473,19 @@ class ReadingRule:
 
 
 READING_RULES = {
+    # The older rules were frozen under fail_unit and run only under it (code review, PDR-0052).
     "bounded-screen-v1": ReadingRule(
-        reading_screen_v1, {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")}
+        reading_screen_v1,
+        {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")},
+        policy="fail_unit",
     ),
-    "positive-control-v1": ReadingRule(reading_positive_control_v1, {"static_minus_no_growth": ("static", "no_growth")}),
+    "positive-control-v1": ReadingRule(
+        reading_positive_control_v1, {"static_minus_no_growth": ("static", "no_growth")}, policy="fail_unit"
+    ),
     "graft-capture-v1": ReadingRule(
         reading_graft_capture_v1,
         {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")},
+        policy="fail_unit",
     ),
     "graft-capture-v2": ReadingRule(
         reading_graft_capture_v2,
@@ -492,15 +515,25 @@ def capture_fraction(units: dict[int, dict[str, float]], resamples: int, seed: i
     graft = np.array([units[s]["scheduled"] - units[s]["no_growth"] for s in full])
     static = np.array([units[s]["static"] - units[s]["no_growth"] for s in full])
     if static.mean() >= 0:
-        return {"n": len(full), "estimate": None, "note": "static does not beat no growth on these units: no deficit to capture"}
+        return {
+            "n": len(full),
+            "estimate": None,
+            "bootstrap_interval": None,
+            "note": "denominator (static - no growth) is >= 0 on these units: no deficit to capture",
+        }
     idx = np.random.default_rng(seed).integers(0, len(full), size=(resamples, len(full)))
-    ratios = graft[idx].mean(axis=1) / static[idx].mean(axis=1)
-    lo, hi = np.quantile(ratios, [0.025, 0.975])
-    return {
-        "n": len(full),
-        "estimate": float(graft.mean() / static.mean()),
-        "bootstrap_interval": {"lower": float(lo), "upper": float(hi), "level": 0.95},
-    }
+    denominators = static[idx].mean(axis=1)
+    estimate = float(graft.mean() / static.mean())
+    reached_zero = int((denominators >= 0).sum())
+    if reached_zero:  # A ratio whose denominator can reach zero has no meaningful interval (reviews).
+        return {
+            "n": len(full),
+            "estimate": estimate,
+            "bootstrap_interval": None,
+            "note": f"denominator (static - no growth) reached >= 0 in {reached_zero} of {resamples} resamples",
+        }
+    lo, hi = np.quantile(graft[idx].mean(axis=1) / denominators, [0.025, 0.975])
+    return {"n": len(full), "estimate": estimate, "bootstrap_interval": {"lower": float(lo), "upper": float(hi), "level": 0.95}}
 
 
 def contrast_entries(
@@ -649,11 +682,20 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
         {
             "confidence_level": level,
             "arm_finite_n": {arm: len(finite_seeds[arm]) for arm in declared},
-            "arm_late_ce_mean": {arm: float(np.mean([units[s][arm] for s in finite_seeds[arm]])) for arm in declared},
-            "arm_costs_mean": {
-                arm: {k: float(np.mean([costs[s][arm][k] for s in seeds])) for k in (*COST_FIELDS, "wall_s")} for arm in declared
+            # Every per-arm summary covers the same units: those where the arm finished (code review S4).
+            "arm_late_ce_mean": {
+                arm: float(np.mean([units[s][arm] for s in finite_seeds[arm]])) if finite_seeds[arm] else None for arm in declared
             },
-            "arm_epoch_dev_ce_mean": {arm: np.mean([trajectories[s][arm] for s in finite_seeds[arm]], axis=0).tolist() for arm in declared},
+            "arm_costs_mean": {
+                arm: {k: float(np.mean([costs[s][arm][k] for s in finite_seeds[arm]])) for k in (*COST_FIELDS, "wall_s")}
+                if finite_seeds[arm]
+                else None
+                for arm in declared
+            },
+            "arm_epoch_dev_ce_mean": {
+                arm: np.mean([trajectories[s][arm] for s in finite_seeds[arm]], axis=0).tolist() if finite_seeds[arm] else None
+                for arm in declared
+            },
             "contrasts": contrasts,
         }
     )
@@ -663,23 +705,36 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     report.update(gates)
     if policy == "per_contrast":
         # Declared sensitivity (PDR-0052): impute each lost co-primary pair at the observed extreme
-        # most favourable to either arm and re-read; the headline stays on finite pairs.
-        primaries = [name for name, c in analysis["contrasts"].items() if c["role"] == "co-primary"]
+        # favouring one arm, independently per contrast (every corner), and re-read. A heuristic,
+        # not a bound: a diverged arm may lie outside the observed range. The headline stays on finished pairs.
+        primaries = [name for name, c in analysis["contrasts"].items() if c["role"] == "co-primary" and lost_pairs[name]]
         readings = {}
-        for label, pick in (("impute_favour_first", np.min), ("impute_favour_second", np.max)):
-            imputed = {
-                name: (seeds_, np.concatenate([diffs, np.full(len(lost_pairs[name]), pick(diffs))]))
-                if name in primaries and lost_pairs[name]
-                else (seeds_, diffs)
-                for name, (seeds_, diffs) in pairs.items()
-            }
+        for corner in itertools.product((0, 1), repeat=len(primaries)):
+            imputed = dict(pairs)
+            labels = []
+            for name, side in zip(primaries, corner, strict=True):
+                seeds_, diffs = pairs[name]
+                fill = np.min(diffs) if side == 0 else np.max(diffs)  # Negative favours the first arm.
+                imputed[name] = (seeds_, np.concatenate([diffs, np.full(len(lost_pairs[name]), fill)]))
+                labels.append(f"{name}=favour_{analysis['contrasts'][name]['arms'][side]}")
             alternative, _ = contrast_entries(analysis, {n: (list(range(len(d))), d) for n, (_, d) in imputed.items()}, lost_pairs, delta)
-            readings[label] = rule.apply({**report, "contrasts": alternative})[0]
+            readings["|".join(labels)] = rule.apply({**report, "contrasts": alternative})[0]
         report["sensitivity"] = {
-            "lost_pairs": {name: len(lost_pairs[name]) for name in primaries if lost_pairs[name]},
+            "lost_pairs": {name: len(lost_pairs[name]) for name in primaries},
             "readings": readings,
             "robust": all(r == report["reading"] for r in readings.values()),
         }
+        if {"scheduled", "static", "no_growth"} <= set(declared):
+            # Are static losses selective? Graft - no growth is observable on the units that lost static.
+            def graft_gain(group: list[int]) -> dict[str, Any]:
+                gains = [units[s]["scheduled"] - units[s]["no_growth"] for s in group]
+                return {"n": len(gains), "scheduled_minus_no_growth_mean": float(np.mean(gains)) if gains else None}
+
+            both = [s for s in seeds if {"scheduled", "no_growth"} <= set(units[s])]
+            report["static_loss_diagnostic"] = {
+                "static_finished": graft_gain([s for s in both if "static" in units[s]]),
+                "static_diverged": graft_gain([s for s in both if "static" not in units[s]]),
+            }
     out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     return report
 

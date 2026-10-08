@@ -2,8 +2,13 @@
 
 Date: 2026-10-08   Status: proposed (pending pre-launch review)   Author: Claude (session 17)
 Owner sign-off: within the grant (PDR-0040 carriage, PDR-0050 ladder and
-GPU window). On 2026-10-08 the owner directed: "great, lets do it", then
-"go ahead, proceed autonomously with fable reviews".
+GPU window). On 2026-10-08 Claude proposed: "pre-register graft-capture v2
+(rung 3) on lifecycle v2, covering both seeds, with graft value measured
+over all units, the failure rate reported apart, and a host-instability
+policy; then review, dry-run, run". The owner replied "great, lets do it".
+After the design sketch (main contrast graft − no growth, static secondary
+with a declared failure policy, fresh seeds, review and dry run before
+launch), the owner said "go ahead, proceed autonomously with fable reviews".
 Related: PDR-0046 (graft-capture v1), PDR-0049 (floor deferred to here),
 PDR-0050 (ladder), PDR-0051 (lifecycle v2 accepted); plans
 [`graft-capture-v2-norm`](../../prereg/graft-capture-v2-norm.json) and
@@ -48,8 +53,9 @@ deviations:
 - **δ = 0.05 is retained**, as the graft floor from PDR-0044 and PDR-0046.
   PDR-0049 deferred the floor to this redesign. It is kept because it
   predates every lifecycle-v2 estimate, so choosing it now cannot be fitted
-  to the seen numbers. The capture-fraction readings do not need a hard
-  δ_pc.
+  to the seen numbers. **δ gates precision and `progress` only.**
+  `partial_capture` has no value floor by design (PDR-0046 F1). What this
+  study measures is the capture-fraction interval, not a 0.05 threshold.
 - **`diverged_arm_policy: per_contrast`** (new in `bounded_screen`). A unit
   enters each contrast if and only if both of its arms finished. A static
   divergence therefore costs only the pairs that need static.
@@ -61,13 +67,45 @@ deviations:
 
   The rationale for both caps is in each plan's `decision.caps_rationale`.
 - **declared sensitivity**: each lost co-primary pair is imputed at the
-  observed extreme favouring each arm in turn, and the report states
-  whether the reading moves;
+  observed extreme favouring one arm, independently per co-primary (every
+  corner), and the report states whether the reading moves. This is a
+  heuristic, not a bound. Beside it, a **selection diagnostic** reports
+  graft − no growth separately for units that lost static and units that
+  did not;
 - **capture fraction**: reported descriptively, with a 95% paired
-  bootstrap interval.
+  bootstrap interval. The interval is withheld if any resampled deficit
+  reaches zero.
 
-For `conv_heavy`, the descriptive static − no growth contrast is that seed
-type's first deficit measurement, because rung 2 was met with `norm` only.
+**Ladder deviation, named.** Rung 2 was met with `norm` only. `conv_heavy`
+enters rung 3 without its own rung-2 study, because the validation measured
+its deficit descriptively: static − no growth −0.142 over 24 units. Its
+descriptive static − no growth contrast here is that seed type's first
+pre-registered deficit measurement.
+
+**Rung-3 verdict, composed from the two plans before launch.** Both plans
+carry this table in `decision.rung_composition`, so it is hash-pinned.
+
+| `norm` reads | `conv_heavy` reads | Rung-3 verdict |
+|---|---|---|
+| `graft_unstable` in either | — | Lifecycle v2 is unstable at scale. No capture claim for either seed type. Diagnose before rung 4. |
+| `instrument_failure` in either | — | That seed type is unresolved. Investigate, and re-run on fresh seeds. No rung verdict until it is resolved. |
+| `progress` | `progress` | **Capture.** |
+| `progress` or `partial_capture` | `progress` or `partial_capture` (not both `progress`) | **Partial capture.** The graft repairs part of the deficit. Static wins at the declared cost (ADR-0018), which is a negative on graft ≥ static at this horizon. |
+| `reopen_static_wins` or `reopen_no_value` | `reopen_static_wins` or `reopen_no_value` | **No capture.** The ladder stops at rung 3 (PDR-0050). |
+| capture or partial on one seed type | `reopen_static_wins` or `reopen_no_value` on the other | **Seed-type dependent.** Rung 3 is met only for the capturing seed type, and any continuation uses only that seed type. |
+| `reopen_static_not_credible` or `reopen_instrument_imprecise` on one | a conclusive reading on the other | The verdict comes from the conclusive plan alone, labelled single-seed-type. The other plan routes to its own consequence. |
+
+**Two decisions recorded with this one:**
+- **The static comparator is handled by policy, not fixed first.**
+  `simic-9c5c3a2acf` is handled by `per_contrast`, a cap and a
+  sensitivity check. The static arm *is* ADR-0018's comparator (the same
+  capacity, trained normally from step zero). Stabilising it would change
+  the question, and the GPU window is time-limited.
+- **The window plan after rung 3.** The next step is a rung-4 DECIDE PDR,
+  drafted only after both plans read. It covers whether timing or location
+  changes the outcome, fanned from snapshots by the bounded runner, not the
+  parked kernel demo. If the window closes first, rung 4 waits for the next
+  GPU window.
 
 **Order:**
 1. Tests, then the full suite, then commit.
@@ -80,15 +118,51 @@ type's first deficit measurement, because rung 2 was met with `norm` only.
    result cannot inform the other's plan.
 6. Analyse each fleet from its snapshot, and write up.
 
+## Pre-launch reviews
+
+Three Fable reviews of `e63a1e3` (statistics, product decision, and code)
+returned GO / PROCEED with changes:
+
+- **Statistics.** All numbers reproduced. The sensitivity covered only two
+  of its four corners, the static losses needed a selection diagnostic,
+  and the capture interval needed a guard.
+- **Product.**
+  - The two plans had no pre-committed way to combine split readings into
+    a rung verdict; the table above was added.
+  - The reversal trigger softened PDR-0050's stop rule; it was aligned.
+  - `partial_capture` had been framed as progress.
+  - `metrics.md`, `roadmap.md` and `current-state.md` carried stale lines.
+- **Code.** `fail_unit` output was byte-identical to `main` across 10
+  cases. It found that:
+  - the fit/dev pin was checked only after a fleet had run;
+  - older rules could be run under `per_contrast`;
+  - costs mixed diverged and finished arms;
+  - a cap reading hid the v1 gates.
+
+All of these were fixed before launch, with tests. Both 3-seed dry runs are
+re-run on the amended commit, analysis included.
+
 ## Rationale
 
-The graft is the first growth mechanism on this ladder that is both stable
-and measurable on a host with a real deficit. A confirmatory reading on
-fresh seeds turns the validation's descriptive capture estimate (about 40%)
-into a pre-registered answer for rung 3, at low cost: about 40 minutes of
-GPU. `partial_capture` would mean "a graft repairs part of the deficit, but
-adding the same capacity later loses most of its value". That would point
-rung 4 at timing and location, not at the controller.
+The likely reading is `partial_capture`, predicted at ≥ 0.97 from seen
+numbers, so the categorical label is not the point. What the study buys:
+
+- **Graft stability at scale.** The graft gate runs on 192 v2 graft arms,
+  four times the validation. Zero divergences would bound the rate per
+  seed type at about 3.1% (0/96, exact one-sided 95%), against 11.7%
+  (0/24) now. That matters
+  because rung 4 fans from this lifecycle.
+- **Precision.** The capture-fraction interval comes out about twice as
+  narrow as the validation's, on fresh seeds and pre-registered.
+- **New measurements.** It gives `conv_heavy`'s first pre-registered
+  deficit measurement, and a static-arm failure count over 192 static arms
+  for `simic-9c5c3a2acf`.
+
+Under ADR-0018, `partial_capture` means **static wins at the declared
+cost**. That is a negative on graft ≥ static at this horizon, not progress
+toward it. The ladder's response is to reopen the design at rung 4 (timing
+and location), never to enlarge the controller. The cost is about 40
+minutes of GPU.
 
 ## Reading consequences
 
@@ -106,10 +180,10 @@ These are each plan's `decision.readings`, unchanged. In short:
 ## Reversal trigger
 
 Any change to either plan, or to `bounded_screen.py`, after launch is an
-amendment, and the analysis refuses a changed plan or module. If both plans
-read `reopen_static_wins` or `reopen_no_value`, the bounded line records
-rung 3 as "no capture at this horizon". A new PDR then decides between a
-horizon or timing probe (rung 4's question asked early) and stopping.
+amendment, and the analysis refuses a changed plan or module. If the
+composed rung-3 verdict is **no capture**, the ladder stops at rung 3 and
+records that as its result, as PDR-0050 requires. Any continuation, such as
+a horizon or timing probe, is a new owner-signed decision.
 
 ## Re-analysis note
 

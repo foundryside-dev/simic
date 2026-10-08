@@ -343,10 +343,12 @@
     "test": "paired t intervals at 98.75% (Bonferroni over two co-primaries within a family_alpha of 0.025; the rung's four co-primaries across both sibling plans share 0.05), percentile bootstrap check",
     "multiplicity": "One family of four co-primaries across the two sibling plans (alpha 0.0125 each), because rung 3 is answered by both seed types together and the cells share host trajectories.",
     "exclusions": "diverged_arm_policy per_contrast: a unit enters each contrast iff both of its arms finished. Divergences are counted per arm with exact bounds and gate the reading (max_graft_failures, max_static_failures); they never silently drop a unit. A unit that fails verification is recorded with its traceback. No unit is re-run.",
-    "sensitivity": "Each co-primary pair lost to a divergence is imputed at the observed difference most favourable to each arm in turn, and the reading is recomputed; the report states whether it moves. The headline stays on finished pairs.",
-    "capture_fraction": "Reported descriptively: mean(graft - no growth) / mean(static - no growth) over units with all three arms finished, with a 95% paired bootstrap interval. No verdict.",
-    "deficit_note": "static_minus_no_growth is descriptive here. For norm it re-measures rung 2's deficit; for conv_heavy it is that seed type's first deficit measurement (rung 2 was met with norm only). If static does not beat no growth, there is no deficit to capture and partial_capture/progress readings must be read in that light.",
-    "interim_looks": "None. Analysis refuses an unfinished fleet. Both sibling fleets are launched before either is analysed."
+    "sensitivity": "Each co-primary pair lost to a divergence is imputed at the observed difference favouring one arm, independently per co-primary (every corner: 4 when both co-primaries lose pairs), and the reading is recomputed; the report states whether it moves. A declared heuristic, not a bound: a diverged arm may lie outside the observed range (validation: diverging seeds carried larger deficits). The headline stays on finished pairs.",
+    "capture_fraction": "Reported descriptively: mean(graft - no growth) / mean(static - no growth) over units with all three arms finished, with a 95% paired bootstrap interval. The interval is withheld (with a note) if the resampled denominator reaches >= 0 in any resample. No verdict.",
+    "deficit_note": "static_minus_no_growth is descriptive here. For norm it re-measures rung 2's deficit; for conv_heavy it is that seed type's first deficit measurement (rung 2 was met with norm only). If static does not beat no growth, there is no deficit to capture; the rule does not consult this contrast, but the two co-primaries imply it, and the capture fraction is then withheld.",
+    "interim_looks": "None. Analysis refuses an unfinished fleet. Both sibling fleets are launched before either is analysed.",
+    "selection_diagnostic": "Units whose static arm diverged still have graft and no-growth results; graft - no growth is reported separately for static-finished and static-diverged units, the only direct evidence on whether static losses are selective.",
+    "per_arm_summaries": "Per-arm late CE, epoch trajectories and costs are averaged over the units where that arm finished (arm_finite_n), never mixing truncated diverged attempts with finished arms."
   },
   "decision": {
     "delta_nats": 0.05,
@@ -355,19 +357,20 @@
     "diverged_arm_policy": "per_contrast",
     "max_graft_failures": 3,
     "max_static_failures": 10,
-    "delta_rationale": "Retained from the pre-existing graft floor (PDR-0044, PDR-0046), which predates every lifecycle-v2 estimate. PDR-0049 said the next floor would be set in the graft redesign; PDR-0052 records this retention and its reason.",
+    "delta_rationale": "Retained from the pre-existing graft floor (PDR-0044, PDR-0046), which predates every lifecycle-v2 estimate. PDR-0049 said the next floor would be set in the graft redesign; PDR-0052 records this retention and its reason. delta gates precision and progress only; partial_capture has no value floor by design (PDR-0046 F1). The live quantity is the capture-fraction interval.",
     "caps_rationale": "max_graft_failures 3 of 96: lifecycle v2 diverged 0/48 in validation (exact one-sided 95% bound 6.05%); at a true 1% rate the cap reads graft_unstable with probability 0.017, at 3% 0.33, at 6% 0.84. max_static_failures 10 of 96: the static norm arm diverged 2/72 on this host (95% interval 0.3%-9.7%, simic-9c5c3a2acf); 10 is about the upper end. Beyond it the static comparison is not credible.",
     "readings": {
       "graft_unstable": "More than 3 of 96 graft arms diverged under lifecycle v2: v2 is not stable at this scale. Diagnose from the recorded stage and witness before any capture claim.",
       "reopen_instrument_imprecise": "The no-growth contrast does not resolve (half-width > delta): report the MDE; redesign.",
       "partial_capture": "Static beats the graft AND the graft beats no growth: lifecycle v2 repairs part of the deficit. Report the capture fraction. Rung 4 (timing and location) asks whether earlier or different grafting captures more.",
-      "reopen_static_wins": "Static beats the graft and the graft does not beat no growth: the graft captures none of the repair at this horizon. Check the trajectories: part of a static advantage may be a head start.",
+      "reopen_static_wins": "Static beats the graft and the graft does not beat no growth: the graft captures none of the repair at this horizon. Check the trajectories: part of a static advantage may be a head start. Composed with the sibling, no capture on both stops the ladder at rung 3 (PDR-0050).",
       "reopen_static_not_credible": "Static failures exceed the cap, or the static contrast does not resolve while static does not win: report; the graft-vs-static question needs a stable comparator or more units.",
       "progress": "The graft beats no growth beyond delta and static does not beat it: the lifecycle captures (nearly) all of the repair. Shape rung 4.",
       "reopen_no_value": "Precise, but the graft neither beats no growth beyond delta nor reaches partial capture.",
       "instrument_failure": "More than 2 units failed verification, fewer than 3 analysable, or a co-primary contrast has fewer than 3 pairs: investigate before any re-run; any re-run uses fresh seeds."
     },
-    "cost_note": "The conv_heavy seed's parameter count is identical in both arms that carry it; optimizer parameter-steps and wall time are reported from the run summaries."
+    "cost_note": "The conv_heavy seed's parameter count is identical in both arms that carry it; optimizer parameter-steps and wall time are reported from the run summaries.",
+    "rung_composition": "Rung-3 verdict composed from the two sibling plans (PDR-0052 table): graft_unstable in either -> lifecycle v2 unstable at scale, no capture claim, diagnose before rung 4; instrument_failure in either -> that seed type unresolved, re-run on fresh seeds, no rung verdict until resolved; progress + progress -> capture; both in {progress, partial_capture} and not both progress -> partial capture (static wins at the declared cost, ADR-0018); both in {reopen_static_wins, reopen_no_value} -> no capture, the ladder stops at rung 3 (PDR-0050); capture or partial on one and static_wins/no_value on the other -> seed-type dependent, rung 3 met only for the capturing seed type; reopen_static_not_credible or reopen_instrument_imprecise on one with a conclusive reading on the other -> the verdict is from the conclusive plan alone, labelled single-seed-type."
   },
   "linked_plans": [
     "docs/prereg/graft-capture-v2-norm.json"
@@ -446,6 +449,7 @@
     "Analysis must run promptly on this host with a GPU visible (verify_run compares each manifest's runtime with the analysing process)."
   ],
   "deviations": [
-    "From graft-capture-v1: lifecycle v2 (trust-curvature clamp, PDR-0051); GPU execution profile; 96 fresh seeds (7001-7096) instead of 48; a sibling plan for conv_heavy; diverged_arm_policy per_contrast instead of fail_unit; reading rule graft-capture-v2 (adds graft_unstable and a static-failure gate); family_alpha 0.025 per plan; pinned data identity; imputation sensitivity and capture-fraction interval added; max_failed_units 2 (verification failures only, divergences are counted separately)."
+    "From graft-capture-v1: lifecycle v2 (trust-curvature clamp, PDR-0051); GPU execution profile; 96 fresh seeds (7001-7096) instead of 48; a sibling plan for conv_heavy; diverged_arm_policy per_contrast instead of fail_unit; reading rule graft-capture-v2 (adds graft_unstable and a static-failure gate); family_alpha 0.025 per plan; pinned data identity; imputation sensitivity and capture-fraction interval added; max_failed_units 2 (verification failures only, divergences are counted separately).",
+    "Pre-launch review amendments (statistics, product and code reviews of e63a1e3): every-corner imputation sensitivity; static-loss selection diagnostic; capture-interval guard; v1 gates published under every reading; per-arm summaries over finished arms; fit/dev data pin checked at launch; malformed pins, unfireable caps and older rules under per_contrast refused at load; rung-3 composition pinned in decision.rung_composition."
   ]
 }
