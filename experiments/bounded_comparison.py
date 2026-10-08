@@ -553,7 +553,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
         with torch.no_grad():
             calibration = fit_x[: spec.batch_size]
             features = host.forward_to_slot(normalize_u8(calibration))
-        gain = tau_init(seed, features, spec.kernel_config())
+        tau_init(seed, features, spec.kernel_config())  # sets seed.gain; the birth record reads it back
     finally:
         host.train(prior)
     realised = realised_ratio_at_birth(host, seed, calibration)
@@ -569,7 +569,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
         "body_init_sha256": body_before,
         "seed_before_calibration_sha256": buffers_before,
         "seed_birth_sha256": state_hash(seed),
-        "gain_at_birth": gain,
+        "gain_at_birth": float(seed.gain.detach()),  # The stored float32 value, not tau_init's float64 (theory review).
         "calibration_examples": len(calibration),
         "calibration_inputs_sha256": tensor_hash(calibration),
         "realised_ratio_at_birth": tagged(realised),
@@ -645,6 +645,11 @@ class ScaleAwareSlot(Slot):
         lam_t = cfg.lam
         if self.lifecycle == "v2" and math.isfinite(kappa) and s_t > 0:
             lam_t = min(cfg.lam, self.trust_safety * c_star(cfg) * d_t / (2 * s_t))
+            if lam_t < cfg.lam:  # Record the float32 lambda the loss multiplies, rounded toward zero (theory review).
+                lam32 = torch.tensor(lam_t, dtype=torch.float32)
+                if float(lam32) > lam_t:
+                    lam32 = torch.nextafter(lam32, torch.zeros_like(lam32))
+                lam_t = float(lam32)
         self.last_witness = {"kappa_live": kappa, "lam_t": lam_t, "clamped": lam_t < cfg.lam, "gain": float(self.seed.gain.detach())}
         loss: torch.Tensor
         if lam_t == cfg.lam:  # Exactly the kernel's expression (v1, or v2 where v1 is safe).

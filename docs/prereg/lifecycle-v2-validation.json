@@ -232,7 +232,13 @@
       6013,
       6014,
       6015,
-      6016
+      6016,
+      9201,
+      9202,
+      9203,
+      9204,
+      9205,
+      9206
     ],
     "population_note": "Inference covers training randomness on one fixed data sample (data_seed 20261004) for the three declared host x seed cells."
   },
@@ -303,27 +309,32 @@
     "auc_min": 0.9,
     "max_failed_units": 0,
     "lr": 0.05,
-    "momentum": 0.9
+    "momentum": 0.9,
+    "bilinear_allowance": 0.1
   },
   "gated_by": null,
   "linked_plans": [],
   "deviations": [],
   "predictions": {
     "recorded_before_launch": true,
-    "c1": "Expected pass. Under v2, kappa_t <= 0.5 c* at every STE step by construction, and the witness validator rejects any run that breaks the bound. Probability of 0/48 at a true v2 lifecycle-divergence rate of 0.5% / 1% / 2% / 6.25%: 0.786 / 0.617 / 0.379 / 0.045 ((1-p)^48).",
-    "c2": "Expected testable and passing. v1 diverged in 12/48 (positive-control-v1) and 6/16 (reproduction) cell-A units; at a 25% rate, P(no v1 positive in cell A alone) = 0.75^24 = 0.001. Cell B's v1 rate is unmeasured. Sensitivity 1.0 is predicted because kappa > c* is the derived mechanism; AUC >= 0.9 is less certain, because amplification ignores how long the over-limit steps last relative to the seed's initial gain.",
+    "c1": "Expected pass. Under v2, the recorded trust curvature is <= 0.5 c* at every STE step, and the witness validator rejects any run that breaks it. P(0/48) at a true v2 lifecycle-divergence rate of 0.5% / 1% / 2% / 6.25%: 0.786 / 0.617 / 0.379 / 0.045 ((1-p)^48, assuming independence). Cells A and B share one host per seed, so the 48 units are 24 host trajectories x 2 seed types and these figures are optimistic; per-cell bounds (0/24: 12.5% rule of three, 11.7% exact one-sided) are the honest per-seed-type claim. Predicted residual v2 failure mode (theory review): where the clamp engages, the forced gain equilibrium scales as 1/rms(h), so any v2 failure should appear at blending entry (CE instability). C1 counts it.",
+    "c2": "Expected testable and passing. P(no v1 STE divergence in cell A alone) at a 25% rate = 0.75^24 = 0.001. C2a (falsification) is predicted to hold because kappa > c* is the derived mechanism, but it is a weak test: survivors cross c* too. C2b (intervention) is the mechanism evidence: v1-only divergences on seeds that v2 keeps. The within-cell ranking AUC of the rectified growth score is reported, not gated; it may fall below 0.9 because the linear limit does not decide which over-limit units diverge.",
     "c3": "Expected pass: shown bitwise on the 7-epoch smoke pair (test_variant_independent_arms_are_bitwise_equal_across_variants) and the GPU probe shows bitwise replay per device; both variants of one seed run on the same GPU.",
-    "c4": "Expected pass. conv_light's raw output scale is not known to put kappa above 0.5 c* on the mild host; if the clamp never engages, v2 equals v1 exactly and every difference is zero.",
+    "c4": "Expected pass with verdict 'equivalent' and v2_units_clamped = 0 (conv_light on the mild host, kappa ~0.3 in the pilot), in which case v2 equals v1 exactly and the guard is trivially met. The report states the clamp-engagement count so a trivial pass is visible.",
     "c5": "Not predicted. The static arm diverged once on this host in positive-control-v2 (seed 2142). C5 reports host-arm divergences; it does not decide acceptance.",
-    "would_surprise": "Any v2 lifecycle divergence in A or B; a v1 divergence with max kappa below c*; a replay mismatch."
+    "would_surprise": "Any v2 lifecycle divergence in A or B; a v1 STE-epoch divergence with pre-divergence max kappa below c*/1.1; a replay mismatch, within or across cells."
   },
   "disclosures": [
     "Exploratory engineering acceptance test (docs/bounded-lifecycle-v2.md), pre-registered so the criteria cannot move after the data. It is not a confirmatory study of graft value.",
-    "The divergence rate on cell A under v1 is already public (positive-control-v1 12/48; reproduction 6/16), and the mechanism was derived from those runs. C2 tests the derivation on fresh seeds.",
+    "The divergence rate on cell A under v1 is already public (positive-control-v1 12/48; reproduction 6/16), and the mechanism was derived from those runs.",
+    "PILOT-INFORMED AMENDMENTS. Two 3-seed GPU dry runs (seeds 9201-9203; docs/results/2026-10-08-lifecycle-v2-dryrun-1 and -2) preceded launch. Dry run 1 found the float32 witness defect (every clamped v2 run failed verification). Two pre-launch reviews (theory and statistics) read the pilot's per-step records and criteria output, and their findings, including pilot numbers, reached the author. C2 was then restructured (falsification on pre-divergence STE rows with a declared bilinear allowance of 0.1; an intervention gate; ranking reported, not gated; within-cell AUC on a rectified score), the runner was changed (float32 lambda recorded; gain_at_birth read back from the parameter), and reporting was added. Seeds 9201-9206 are excluded (9204-9206: a third dry run of the amended commit, mechanics only).",
     "data_identity was copied from positive-control-v2 manifests (same data_seed, train_size and dev_size).",
-    "Pre-germination scheduled divergences are host instability (the scheduled arm is the no-growth host until its seed exists). They are excluded from C1 and C2 and reported in C5. This rule is declared before launch.",
-    "C2 uses the strict reading: every germinated v1 divergence, in any stage, must have shown max kappa_live > c* during STE. The by-stage breakdown is reported.",
-    "Execution profile: GPU, Academy-exact per SKU (2x RTX 4060 Ti); GPU lineage only. Both variants of a seed run on the same GPU.",
-    "The criteria are computed by experiments/lifecycle_validation.py (evaluate_criteria), whose hash is pinned at launch; the PDR states them in prose."
+    "Pre-germination scheduled divergences are host instability (the scheduled arm is the no-growth host until its seed exists, enforced by verify_pairing). They are excluded from C1 and C2 and reported in C5. Post-germination divergences that coincide with a host-arm divergence of the same cell and seed are flagged, not reclassified.",
+    "STE-epoch divergence is identified by the divergence record carrying the STE table, not by its stage label: a divergence in the STE epoch's scoring is recorded with the stage after the epoch.",
+    "nan handling: a nan kappa is never ranked or compared. A positive with no finite pre-divergence kappa is a falsification miss; a negative with none is counted toward specificity and listed as unranked.",
+    "The recorded effective curvature satisfies <= s*c* in float64 using the float32 lambda the loss multiplies; the graph's own float32 arithmetic is exact to ~1e-7 relative.",
+    "Execution profile: GPU, Academy-exact per SKU (2x RTX 4060 Ti); GPU lineage only. Both variants of a seed run on the same GPU. max_failed_units = 0 with no retries: any non-divergence crash reads instrument_failure.",
+    "Analysis must run promptly on this host with a GPU visible: verify_run compares each manifest's runtime (hostname, platform, CPU count, GPU name) with the analysing process.",
+    "The criteria are computed by experiments/lifecycle_validation.py (evaluate_criteria), whose hash is pinned at launch; the snapshot and commit pin the rest of the rule (validate_witness, verify_run, interval). The PDR states them in prose."
   ]
 }

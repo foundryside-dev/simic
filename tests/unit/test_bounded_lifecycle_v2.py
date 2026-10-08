@@ -169,3 +169,28 @@ def test_v2_witness_satisfies_the_validator_bound_exactly_not_to_float32_roundin
         witness = ours.last_witness
         assert witness is not None and witness["clamped"] is True
         assert witness["kappa_live"] * witness["lam_t"] / cfg.lam <= bound
+
+
+def test_v2_records_the_float32_lambda_the_graph_multiplies_never_above_the_float64_clamp() -> None:
+    """Theory review 2026-10-08: the float64 lam_t was rounded (either way) into the float32 loss."""
+    import numpy as np
+
+    spec = RunSpec(lifecycle="v2", seed_type="norm")
+    cfg = spec.kernel_config()
+    for trial in range(40):
+        ours, _, h = _training_slot("v2", "norm", 0.02 + 0.005 * trial)
+        ours(h)
+        ours.trust_region_loss(cfg)
+        witness = ours.last_witness
+        assert witness is not None and witness["clamped"] is True
+        assert float(np.float32(witness["lam_t"])) == witness["lam_t"]
+        assert witness["kappa_live"] * witness["lam_t"] / cfg.lam <= spec.trust_safety * runner.c_star(cfg)
+
+
+def test_gain_at_birth_is_the_stored_float32_parameter(paired_runs: dict[str, Path]) -> None:
+    """Theory review 2026-10-08: tau_init's float64 return made seed_gain_changed vacuously True."""
+    records = _records(paired_runs["v1"])
+    spec = RunSpec(epochs=7)
+    ste = next(r for r in records if r["kind"] == "epoch" and r["arm"] == "scheduled" and r["epoch"] == spec.graft_epoch)
+    birth = ste["birth"]
+    assert ste["witness"]["ste"]["gain"][0] == birth["gain_at_birth"]  # no update before STE step 0's forward

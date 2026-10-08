@@ -26,10 +26,11 @@ def test_rho_crosses_one_exactly_at_the_nesterov_limit() -> None:
     assert lv.rho(1.0, lr, m) < 1
 
 
-def test_amplification_sums_log_rho_over_the_ste_steps() -> None:
-    kappas = [10.0, 30.0, 40.0]
-    expected = sum(math.log(lv.rho(k, 0.05, 0.9)) for k in kappas)
-    assert lv.amplification(kappas, 0.05, 0.9) == pytest.approx(expected)
+def test_growth_score_sums_only_the_expanding_steps() -> None:
+    """kappa = 1/lr = 20 is nearly nilpotent (log rho ~ -18); a plain sum would let it swamp the growth."""
+    expected = sum(math.log(lv.rho(k, 0.05, 0.9)) for k in (30.0, 40.0))
+    assert lv.growth_score([10.0, 20.0, 30.0, 40.0], 0.05, 0.9) == pytest.approx(expected)
+    assert lv.growth_score([0.3, 12.0, 20.0], 0.05, 0.9) == 0.0
 
 
 def test_auc_is_mann_whitney_with_ties_half() -> None:
@@ -59,8 +60,11 @@ def unit(
     static_div: bool = False,
     late: float = 1.0,
 ) -> dict[str, Any]:
+    trace = kappas if kappas is not None else [5.0, 6.0]
+    host = "mild" if cell == "C" else "under_normalized"
     return {
         "cell": cell,
+        "host": host,
         "variant": variant,
         "seed": seed,
         "status": {
@@ -69,9 +73,14 @@ def unit(
             "scheduled": "diverged" if sched_div else "completed",
         },
         "scheduled_divergence_stage": stage if sched_div else None,
-        "ste_kappa": kappas if kappas is not None else [5.0, 6.0],
+        "scheduled_divergence_epoch": 2 if sched_div else None,
+        "ste_kappa": trace,
+        "ste_gain": [0.02] * len(trace),
+        "ste_clamped_steps": 0,
+        # An STE-step divergence: every row but the diverging one precedes it.
+        "ste_rows_before_divergence": len(trace) - 1 if sched_div and stage == "training" else None,
         "late_ce": {"no_growth": 1.2, "static": None if static_div else 1.1, "scheduled": None if sched_div else late},
-        "replay_digest": {"no_growth": f"ng-{cell}-{seed}", "static": f"st-{cell}-{seed}"},
+        "replay_digest": {"no_growth": f"ng-{host}-{seed}", "static": f"st-{cell}-{seed}"},
     }
 
 
@@ -85,13 +94,24 @@ def accepted_world() -> list[dict[str, Any]]:
     return units
 
 
-PLAN = {"stable_cells": ["A", "B"], "regression_cell": "C", "tost_margin": 0.05, "alpha": 0.05, "auc_min": 0.9, "lr": 0.05, "momentum": 0.9}
+PLAN = {
+    "stable_cells": ["A", "B"],
+    "regression_cell": "C",
+    "tost_margin": 0.05,
+    "alpha": 0.05,
+    "auc_min": 0.9,
+    "bilinear_allowance": 0.1,
+    "lr": 0.05,
+    "momentum": 0.9,
+}
 
 
 def test_a_world_matching_the_mechanism_is_accepted() -> None:
     report = lv.evaluate_criteria(accepted_world(), PLAN)
     assert report["c1_v2_stable"]["pass"] is True and report["c1_v2_stable"]["rule_of_three_upper"] == pytest.approx(3 / 48)
-    assert report["c2_mechanism"]["sensitivity"] == 1.0 and report["c2_mechanism"]["auc"] >= 0.9 and report["c2_mechanism"]["pass"]
+    c2 = report["c2_mechanism"]
+    assert c2["falsification"]["sensitivity"] == 1.0 and c2["intervention"]["v1_only"] == 12 and c2["pass"] is True
+    assert c2["ranking"]["within_cell_auc"] == 1.0 and c2["ranking"]["within_cell_pairs"] == 2 * 6 * 18
     assert report["c3_replay"]["pass"] is True
     assert report["accepted"] is True
 
@@ -110,7 +130,7 @@ def test_a_v1_divergence_below_the_limit_breaks_necessity() -> None:
     units = accepted_world()
     next(u for u in units if u["cell"] == "A" and u["variant"] == "v1" and u["status"]["scheduled"] == "diverged")["ste_kappa"] = [5.0, 9.0]
     report = lv.evaluate_criteria(units, PLAN)
-    assert report["c2_mechanism"]["sensitivity"] < 1.0 and report["c2_mechanism"]["pass"] is False
+    assert report["c2_mechanism"]["falsification"]["sensitivity"] < 1.0 and report["c2_mechanism"]["pass"] is False
 
 
 def test_replay_mismatch_fails_c3() -> None:
@@ -151,13 +171,13 @@ def test_a_germinated_divergence_without_an_ste_trace_is_a_sensitivity_miss() ->
     units = accepted_world()
     next(u for u in units if u["variant"] == "v1" and u["status"]["scheduled"] == "diverged")["ste_kappa"] = ["nan"]
     report = lv.evaluate_criteria(units, PLAN)["c2_mechanism"]
-    assert report["sensitivity"] < 1.0 and report["pass"] is False
+    assert report["falsification"]["sensitivity"] < 1.0 and report["pass"] is False
     assert report["nan_kappa_entries"] == 1 and len(report["unranked_units"]) == 1
 
 
 def test_an_inf_kappa_counts_above_the_limit_with_infinite_amplification() -> None:
     assert lv.parse_kappa("inf") == math.inf and lv.parse_kappa("nan") is None
-    assert lv.amplification([1.0, math.inf], 0.05, 0.9) == math.inf
+    assert lv.growth_score([1.0, math.inf], 0.05, 0.9) == math.inf
 
 
 def test_a_v2_only_divergence_in_the_regression_cell_fails_c4() -> None:
@@ -271,6 +291,7 @@ def test_unit_summary_takes_the_ste_trace_from_a_divergence_record(tmp_path: Pat
     summary = lv.unit_summary(run, [4, 5, 6])
     assert summary["status"]["scheduled"] == "diverged" and summary["late_ce"]["scheduled"] is None
     assert summary["scheduled_divergence_stage"] == "training" and len(summary["ste_kappa"]) == 2
+    assert summary["ste_rows_before_divergence"] == 1 and len(summary["ste_gain"]) == 2
 
 
 def _small_plan(tmp_path: Path, device: str = "cuda") -> tuple[dict[str, Any], Path]:
@@ -344,8 +365,8 @@ def _fake_study(
     def summary(run: Path, late: list[int]) -> dict[str, Any]:
         variant, seed, cell = run.name, int(run.parent.name.split("-")[1]), run.parent.parent.name
         diverges = cell == "A" and variant == "v1" and seed == plan["units"]["first_seed"]
-        u = unit(cell, variant, seed, sched_div=diverges, kappas=[40.0] if diverges else [10.0])
-        return {k: u[k] for k in ("status", "scheduled_divergence_stage", "ste_kappa", "late_ce", "replay_digest")}
+        u = unit(cell, variant, seed, sched_div=diverges, kappas=[40.0, 1e24] if diverges else [10.0])
+        return {k: v for k, v in u.items() if k not in ("cell", "host", "variant", "seed")}
 
     monkeypatch.setattr(lv, "verify_run", verify)
     monkeypatch.setattr(lv, "unit_summary", summary)
@@ -393,3 +414,126 @@ def test_a_unit_with_the_wrong_data_fails_identity(tmp_path: Path, monkeypatch: 
     report = lv.analyze(root, path)
     assert report["reading"] == "instrument_failure" and len(report["failures"]) == 1
     assert "data identity" in report["failures"][0]["error"]
+
+
+# --- pre-launch review amendments (statistics and theory reviews, 2026-10-08) ---
+
+
+def _diverge(u: dict[str, Any], stage: str = "training", kappas: list[float] | None = None) -> None:
+    trace = kappas if kappas is not None else u["ste_kappa"]
+    u.update(
+        status={**u["status"], "scheduled": "diverged"},
+        scheduled_divergence_stage=stage,
+        scheduled_divergence_epoch=2 if stage == "training" else 4,
+        ste_kappa=trace,
+        ste_rows_before_divergence=len(trace) - 1 if stage == "training" else None,
+        late_ce={**u["late_ce"], "scheduled": None},
+    )
+
+
+def test_necessity_ignores_the_diverging_row_which_records_the_blow_up_itself() -> None:
+    units = accepted_world()
+    target = next(u for u in units if u["cell"] == "A" and u["variant"] == "v1" and u["status"]["scheduled"] == "diverged")
+    target["ste_kappa"] = [10.0, 1e24]
+    report = lv.evaluate_criteria(units, PLAN)["c2_mechanism"]
+    assert report["falsification"]["sensitivity"] < 1.0 and report["pass"] is False
+    assert report["falsification"]["positives_below_threshold"][0]["peak_over_c_star"] == pytest.approx(10.0 / report["c_star"])
+
+
+def test_the_bilinear_allowance_keeps_a_near_limit_positive_while_the_strict_rate_is_reported() -> None:
+    units = accepted_world()
+    target = next(u for u in units if u["cell"] == "B" and u["variant"] == "v1" and u["status"]["scheduled"] == "diverged")
+    target["ste_kappa"] = [26.0, 1e24]  # below c* = 27.14, above c*/1.1 = 24.68
+    report = lv.evaluate_criteria(units, PLAN)["c2_mechanism"]
+    assert report["falsification"]["sensitivity"] == 1.0 and report["pass"] is True
+    assert report["falsification"]["sensitivity_strict_c_star"] == pytest.approx(11 / 12)
+
+
+def test_a_post_ste_divergence_is_reported_with_its_host_flag_and_not_scored_as_mechanism() -> None:
+    units = accepted_world()
+    target = next(u for u in units if u["cell"] == "A" and u["variant"] == "v1" and u["seed"] == 20)
+    _diverge(target, stage="blending", kappas=[5.0, 6.0])
+    target["status"]["static"] = "diverged"
+    report = lv.evaluate_criteria(units, PLAN)
+    c2 = report["c2_mechanism"]
+    assert c2["falsification"]["positives"] == 12 and c2["pass"] is True
+    assert c2["post_ste_divergences"] == [{"cell": "A", "seed": 20, "stage": "blending", "epoch": 4, "host_coincident": True}]
+    assert ["A", 20, "v1"] in report["c5_host_instability"]["host_coincident_lifecycle_divergences"]
+
+
+def test_intervention_needs_a_seed_that_v1_loses_and_v2_keeps() -> None:
+    units = accepted_world()
+    for u in units:
+        if u["variant"] == "v2" and u["cell"] in ("A", "B") and u["seed"] < 6:
+            _diverge(u, stage="blending")
+    report = lv.evaluate_criteria(units, PLAN)
+    assert report["c2_mechanism"]["intervention"]["v1_only"] == 0 and report["c2_mechanism"]["pass"] is False
+    assert report["accepted"] is False
+
+
+def test_ranking_never_gates_and_pools_pairs_only_within_a_cell() -> None:
+    units = accepted_world()
+    for u in units:
+        if u["variant"] == "v1" and u["status"]["scheduled"] == "completed" and u["cell"] == "A":
+            u["ste_kappa"] = [80.0, 90.0]  # survivors that grew more than the divergers
+    report = lv.evaluate_criteria(units, PLAN)
+    assert report["c2_mechanism"]["ranking"]["ranks_at_auc_min"] is False and report["c2_mechanism"]["pass"] is True
+    assert report["accepted"] is True
+
+
+def test_no_growth_must_replay_across_cells_that_share_a_host() -> None:
+    units = accepted_world()
+    next(u for u in units if u["cell"] == "B" and u["variant"] == "v1" and u["seed"] == 3)["replay_digest"]["no_growth"] = "x"
+    report = lv.evaluate_criteria(units, PLAN)["c3_replay"]
+    assert report["pass"] is False and ["under_normalized", "v1", 3] in report["cross_cell_mismatches"]
+
+
+@pytest.mark.parametrize(("shift", "verdict"), [(0.0, "equivalent"), (0.2, "different"), (None, "inconclusive")])
+def test_c4_separates_inconclusive_from_different(shift: float | None, verdict: str) -> None:
+    units = accepted_world()
+    c_v2 = sorted((u for u in units if u["cell"] == "C" and u["variant"] == "v2"), key=lambda u: u["seed"])
+    for i, u in enumerate(c_v2):
+        u["late_ce"]["scheduled"] = 1.0 + (shift if shift is not None else (0.3 if i % 2 else -0.3))
+    report = lv.evaluate_criteria(units, PLAN)["c4_regression_guard"]
+    assert report["verdict"] == verdict and report["pass"] is (verdict == "equivalent")
+
+
+def test_per_cell_bounds_and_selection_split_are_reported() -> None:
+    report = lv.evaluate_criteria(accepted_world(), PLAN)
+    assert report["c1_v2_stable"]["per_cell"]["A"]["exact_bounds"]["upper_one_sided_95"] == pytest.approx(1 - 0.05 ** (1 / 24))
+    assert report["c1_v2_stable"]["v1_codivergence_seeds"] == list(range(6))
+    split = report["performance"]["A"]["v1"]["static_minus_no_growth_by_scheduled_outcome"]
+    assert (split["scheduled_completed"]["n"], split["scheduled_diverged"]["n"]) == (18, 6)
+
+
+def _synthetic_run(tmp_path: Path, step: int, rows: int) -> Path:
+    run = tmp_path / f"run-{step}"
+    run.mkdir()
+    status = {"no_growth": "completed", "static": "completed", "scheduled": "diverged"}
+    (run / "complete.json").write_text(json.dumps({"arm_status": status}))
+    table = {"kappa_live": [30.0] * rows, "lam_t": [1.0] * rows, "gain": [0.02] * rows, "clamped": [False] * rows}
+    records: list[dict[str, Any]] = [
+        {"arm": arm, "kind": "epoch", "epoch": e, "dev": {"ce": 1.0}, "witness": {"seed_present": False}}
+        for arm in ("no_growth", "static")
+        for e in range(4)
+    ]
+    records.append(
+        {
+            "arm": "scheduled",
+            "kind": "diverged",
+            "epoch": 2,
+            "step": step,
+            "stage": "blending",
+            "witness": {"seed_present": True, "ste": table},
+        }
+    )
+    (run / "training.jsonl").write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    return run
+
+
+def test_unit_summary_counts_rows_before_an_in_step_or_a_scoring_divergence(tmp_path: Path) -> None:
+    in_step = lv.unit_summary(_synthetic_run(tmp_path, step=5, rows=6), [3])
+    scoring = lv.unit_summary(_synthetic_run(tmp_path, step=128, rows=128), [3])
+    assert in_step["ste_rows_before_divergence"] == 5  # row 5 is the diverging step
+    assert scoring["ste_rows_before_divergence"] == 128  # every training step preceded the scoring failure
+    assert scoring["scheduled_divergence_epoch"] == 2 and scoring["late_ce"]["scheduled"] is None

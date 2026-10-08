@@ -61,7 +61,17 @@ PLAN_KEYS = {
     "deviations",
 }
 REQUIRED_PLAN_KEYS = PLAN_KEYS - {"predictions", "disclosures", "deviations"}
-CRITERIA_KEYS = {"stable_cells", "regression_cell", "tost_margin", "alpha", "auc_min", "max_failed_units", "lr", "momentum"}
+CRITERIA_KEYS = {
+    "stable_cells",
+    "regression_cell",
+    "tost_margin",
+    "alpha",
+    "auc_min",
+    "bilinear_allowance",
+    "max_failed_units",
+    "lr",
+    "momentum",
+}
 REPORT = "lifecycle_report.json"
 PERFORMANCE_LEVEL = 0.95  # Descriptive intervals only; no performance contrast is adjudicated here.
 
@@ -79,11 +89,16 @@ def rho(kappa: float, lr: float, m: float) -> float:
     return float(np.max(np.abs(np.linalg.eigvals(matrix))))
 
 
-def amplification(kappas: list[float], lr: float, m: float) -> float:
-    """Cumulative growth along the gain direction over the STE steps: the sum of log rho(kappa_t)."""
+def growth_score(kappas: list[float], lr: float, m: float) -> float:
+    """Rectified log growth along the gain over the given STE steps: the sum of max(0, log rho(kappa_t)).
+
+    Rectified because the gain is forced under STE: contraction floors at the forced equilibrium
+    rather than compounding, and kappa near 1/lr makes the map nearly nilpotent (log rho -> -inf),
+    which would swamp the sum (pre-launch reviews, 2026-10-08).
+    """
     if any(math.isinf(k) for k in kappas):
         return math.inf
-    return float(sum(math.log(rho(k, lr, m)) for k in kappas))
+    return float(sum(math.log(r) for r in (rho(k, lr, m) for k in kappas) if r > 1))
 
 
 def parse_kappa(value: Any) -> float | None:
@@ -146,87 +161,192 @@ def _lifecycle_divergence(unit: dict[str, Any]) -> bool:
     return _diverged(unit, "scheduled") and unit["scheduled_divergence_stage"] not in PRE_GERMINATION
 
 
+def _ste_divergence(unit: dict[str, Any]) -> bool:
+    """A lifecycle divergence whose record carries the STE table: in the STE epoch or its scoring.
+
+    Keyed on the table, not the stage label: post-epoch scoring records the stage after the epoch.
+    """
+    return _lifecycle_divergence(unit) and unit["ste_rows_before_divergence"] is not None
+
+
 def _pre_germination(unit: dict[str, Any]) -> bool:
     return _diverged(unit, "scheduled") and unit["scheduled_divergence_stage"] in PRE_GERMINATION
+
+
+def _pre_divergence_kappas(unit: dict[str, Any]) -> list[float]:
+    """STE kappas recorded before the diverging step; the diverging row records the blow-up itself."""
+    rows = unit["ste_rows_before_divergence"]
+    trace = unit["ste_kappa"] if rows is None else unit["ste_kappa"][:rows]
+    return [k for k in (parse_kappa(v) for v in trace) if k is not None]
+
+
+def _host_coincident(units: list[dict[str, Any]], unit: dict[str, Any]) -> bool:
+    """A host arm of the same cell and seed diverged too, in either variant (seed-2142 class)."""
+    return any(_diverged(u, arm) for u in units if (u["cell"], u["seed"]) == (unit["cell"], unit["seed"]) for arm in HOST_ARMS)
 
 
 def _by_seed(units: list[dict[str, Any]], cell: str, variant: str) -> dict[int, dict[str, Any]]:
     return {u["seed"]: u for u in units if u["cell"] == cell and u["variant"] == variant}
 
 
+def _discordance(units: list[dict[str, Any]], cell: str) -> dict[str, Any]:
+    """Paired v1 vs v2 lifecycle divergence on the same seeds: b = v1 only, c = v2 only."""
+    v1, v2 = _by_seed(units, cell, "v1"), _by_seed(units, cell, "v2")
+    seeds = sorted(set(v1) & set(v2))
+    b = sum(_lifecycle_divergence(v1[s]) and not _lifecycle_divergence(v2[s]) for s in seeds)
+    c = sum(not _lifecycle_divergence(v1[s]) and _lifecycle_divergence(v2[s]) for s in seeds)
+    return {"pairs": len(seeds), "v1_only": b, "v2_only": c, "mcnemar_p": mcnemar_p(b, c)}
+
+
 def _c1(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
-    """v2 is stable: zero lifecycle divergences in the stable cells."""
+    """v2 is stable: zero lifecycle divergences in the stable cells (pooled gate, per-cell bounds)."""
     stable = [u for u in units if u["variant"] == "v2" and u["cell"] in plan["stable_cells"]]
     failed = [u for u in stable if _lifecycle_divergence(u)]
     n, k = len(stable), len(failed)
-    paired: dict[str, Any] = {}
+    per_cell = {}
     for cell in plan["stable_cells"]:
-        v1, v2 = _by_seed(units, cell, "v1"), _by_seed(units, cell, "v2")
-        seeds = sorted(set(v1) & set(v2))
-        b = sum(_lifecycle_divergence(v1[s]) and not _lifecycle_divergence(v2[s]) for s in seeds)
-        c = sum(not _lifecycle_divergence(v1[s]) and _lifecycle_divergence(v2[s]) for s in seeds)
-        paired[cell] = {"pairs": len(seeds), "v1_only": b, "v2_only": c, "mcnemar_p": mcnemar_p(b, c)}
+        group = [u for u in stable if u["cell"] == cell]
+        hit = sum(_lifecycle_divergence(u) for u in group)
+        per_cell[cell] = {"n": len(group), "diverged": hit, "exact_bounds": binomial_bounds(hit, len(group)) if group else None}
+    v1_failed = {cell: {s for s, u in _by_seed(units, cell, "v1").items() if _lifecycle_divergence(u)} for cell in plan["stable_cells"]}
     return {
         "pass": n > 0 and k == 0,
         "n": n,
         "diverged": k,
         "stages": dict(Counter(u["scheduled_divergence_stage"] for u in failed)),
         "diverged_seeds": sorted((u["cell"], u["seed"]) for u in failed),
+        "host_coincident": sorted((u["cell"], u["seed"]) for u in failed if _host_coincident(units, u)),
         "rule_of_three_upper": 3 / n if n else None,
         "exact_bounds": binomial_bounds(k, n) if n else None,
-        "paired_v1_v2": paired,
+        "per_cell": per_cell,
+        # The stable cells share one host per seed, so their units are not independent (statistics review).
+        "v1_codivergence_seeds": sorted(set.intersection(*v1_failed.values())) if v1_failed else [],
+        "paired_v1_v2": {cell: _discordance(units, cell) for cell in plan["stable_cells"]},
     }
 
 
 def _c2(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
-    """The mechanism, on v1 units: max kappa > c* is necessary for divergence; amplification ranks it."""
+    """The mechanism, in the stable cells. Gates: (a) falsification, (b) intervention. Ranking is reported.
+
+    (a) Every v1 STE-epoch divergence showed kappa_live above c*/(1 + bilinear_allowance) before
+        its diverging step. This can only falsify: survivors cross c* too.
+    (b) v2 changes only lambda_t where kappa > s*c*, on the same seeds and minibatches, so a seed
+        that diverges under v1 and not under v2 attributes the divergence to the clamped curvature.
+        At least one such seed, and none the other way.
+    """
     lr, m = plan["lr"], plan["momentum"]
     limit = 2 * (1 + m) / (lr * (1 + 2 * m))
-    v1 = [u for u in units if u["variant"] == "v1"]
-    positives = [u for u in v1 if _lifecycle_divergence(u)]
+    threshold = limit / (1 + plan["bilinear_allowance"])
+    v1 = [u for u in units if u["variant"] == "v1" and u["cell"] in plan["stable_cells"]]
+    positives = [u for u in v1 if _ste_divergence(u)]
+    post_ste = [u for u in v1 if _lifecycle_divergence(u) and not _ste_divergence(u)]
     negatives = [u for u in v1 if u["status"]["scheduled"] == "completed"]
 
-    def kappas(unit: dict[str, Any]) -> list[float]:
-        return [k for k in (parse_kappa(v) for v in unit["ste_kappa"]) if k is not None]
+    def peak(unit: dict[str, Any]) -> float | None:
+        values = _pre_divergence_kappas(unit)
+        return max(values) if values else None
 
-    def over_limit(unit: dict[str, Any]) -> bool:
-        values = kappas(unit)
-        return bool(values) and max(values) > limit
+    def over(unit: dict[str, Any], level: float) -> bool:
+        value = peak(unit)
+        return value is not None and value > level
 
     def score(unit: dict[str, Any]) -> float | None:
-        values = kappas(unit)
-        return amplification(values, lr, m) if values else None
+        values = _pre_divergence_kappas(unit)
+        return growth_score(values, lr, m) if values else None
 
-    pos_scores = [s for s in map(score, positives) if s is not None]
-    neg_scores = [s for s in map(score, negatives) if s is not None]
-    sensitivity = sum(map(over_limit, positives)) / len(positives) if positives else None
-    specificity = sum(not over_limit(u) for u in negatives) / len(negatives) if negatives else None
-    area = auc(pos_scores, neg_scores)
-    testable = bool(positives) and bool(negatives)
+    sensitivity = sum(over(u, threshold) for u in positives) / len(positives) if positives else None
+    discordance = {cell: _discordance(units, cell) for cell in plan["stable_cells"]}
+    b = sum(d["v1_only"] for d in discordance.values())
+    c = sum(d["v2_only"] for d in discordance.values())
+    # Ranking: positive-negative pairs within a cell only; pooling cells would rank cells, not units.
+    wins = pairs = 0.0
+    for cell in plan["stable_cells"]:
+        pos = [s for s in (score(u) for u in positives if u["cell"] == cell) if s is not None]
+        neg = [s for s in (score(u) for u in negatives if u["cell"] == cell) if s is not None]
+        wins += sum(1.0 if p > q else 0.5 if p == q else 0.0 for p in pos for q in neg)
+        pairs += len(pos) * len(neg)
+    within_auc = wins / pairs if pairs else None
+    testable = bool(positives)
+    falsification = sensitivity == 1.0
+    intervention = b >= 1 and c == 0
     return {
-        "pass": (sensitivity == 1.0 and area is not None and area >= plan["auc_min"]) if testable else None,
+        "pass": (falsification and intervention) if testable else None,
         "c_star": limit,
-        "positives": len(positives),
-        "negatives": len(negatives),
-        "positive_stages": dict(Counter(u["scheduled_divergence_stage"] for u in positives)),
-        "positives_below_limit": sorted((u["cell"], u["seed"]) for u in positives if not over_limit(u)),
+        "threshold": threshold,
+        "falsification": {
+            "pass": falsification if testable else None,
+            "positives": len(positives),
+            "sensitivity": sensitivity,
+            "sensitivity_strict_c_star": sum(over(u, limit) for u in positives) / len(positives) if positives else None,
+            "positives_below_threshold": [
+                {"cell": u["cell"], "seed": u["seed"], "peak_over_c_star": None if peak(u) is None else peak(u) / limit}
+                for u in positives
+                if not over(u, threshold)
+            ],
+            "specificity": sum(not over(u, threshold) for u in negatives) / len(negatives) if negatives else None,
+            "negatives": len(negatives),
+        },
+        "intervention": {"pass": intervention, "v1_only": b, "v2_only": c, "mcnemar_p": mcnemar_p(b, c), "per_cell": discordance},
+        "ranking": {
+            "score": "sum of max(0, log rho) over pre-divergence STE steps",
+            "within_cell_auc": within_auc,
+            "within_cell_pairs": int(pairs),
+            "ranks_at_auc_min": None if within_auc is None else within_auc >= plan["auc_min"],
+            "gain_growth_spearman": _gain_check(positives + negatives, score),
+        },
+        "post_ste_divergences": [
+            {
+                "cell": u["cell"],
+                "seed": u["seed"],
+                "stage": u["scheduled_divergence_stage"],
+                "epoch": u["scheduled_divergence_epoch"],
+                "host_coincident": _host_coincident(units, u),
+            }
+            for u in post_ste
+        ],
         "unranked_units": sorted((u["cell"], u["seed"]) for u in positives + negatives if score(u) is None),
-        "nan_kappa_entries": sum(1 for u in positives + negatives for v in u["ste_kappa"] if parse_kappa(v) is None),
-        "sensitivity": sensitivity,
-        "specificity": specificity,
-        "auc": area,
+        "nan_kappa_entries": sum(
+            1
+            for u in positives + negatives
+            for v in (u["ste_kappa"] if u["ste_rows_before_divergence"] is None else u["ste_kappa"][: u["ste_rows_before_divergence"]])
+            if parse_kappa(v) is None
+        ),
     }
 
 
+def _gain_check(units: list[dict[str, Any]], score: Any) -> dict[str, Any] | None:
+    """Realised log(max|g| / |g_0|) before divergence against the predicted growth score."""
+    pairs = []
+    for unit in units:
+        rows = unit["ste_rows_before_divergence"]
+        gains = [abs(g) for g in (unit["ste_gain"] if rows is None else unit["ste_gain"][:rows]) if type(g) in (int, float)]
+        predicted = score(unit)
+        if len(gains) >= 1 and gains[0] > 0 and predicted is not None and math.isfinite(predicted):
+            pairs.append((math.log(max(gains) / gains[0]), predicted))
+    if len(pairs) < 3:
+        return None
+    if len({p[0] for p in pairs}) < 2 or len({p[1] for p in pairs}) < 2:  # Spearman is undefined, never NaN in the report.
+        return {"n": len(pairs), "rho": None, "p": None, "undefined": "constant input"}
+    result = stats.spearmanr([p[0] for p in pairs], [p[1] for p in pairs])
+    return {"n": len(pairs), "rho": float(result.statistic), "p": float(result.pvalue)}
+
+
 def _c3(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
-    """A free replay test: the host arms do not depend on the variant, so their records match bitwise."""
+    """Free replay tests: host arms do not depend on the variant, and no growth does not depend on the seed type."""
     pairs, mismatches = 0, []
     for cell in sorted({u["cell"] for u in units}):
         v1, v2 = _by_seed(units, cell, "v1"), _by_seed(units, cell, "v2")
         for seed in sorted(set(v1) & set(v2)):
             pairs += 1
             mismatches += [[cell, seed, arm] for arm in HOST_ARMS if v1[seed]["replay_digest"][arm] != v2[seed]["replay_digest"][arm]]
-    return {"pass": pairs > 0 and not mismatches, "pairs": pairs, "mismatches": mismatches}
+    cross: list[list[Any]] = []
+    for host in sorted({u["host"] for u in units}):
+        for variant in VARIANTS:
+            for seed in sorted({u["seed"] for u in units}):
+                digests = {u["replay_digest"]["no_growth"] for u in units if (u["host"], u["variant"], u["seed"]) == (host, variant, seed)}
+                if len(digests) > 1:
+                    cross.append([host, variant, seed])
+    return {"pass": pairs > 0 and not mismatches and not cross, "pairs": pairs, "mismatches": mismatches, "cross_cell_mismatches": cross}
 
 
 def _c4(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
@@ -238,13 +358,20 @@ def _c4(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
     finite = [s for s in seeds if v1[s]["late_ce"]["scheduled"] is not None and v2[s]["late_ce"]["scheduled"] is not None]
     diffs = [v2[s]["late_ce"]["scheduled"] - v1[s]["late_ce"]["scheduled"] for s in finite]
     equivalent = tost_equivalent(diffs, margin, alpha) if len(diffs) >= 3 else None
+    ci = interval(np.asarray(diffs), 1 - 2 * alpha) if len(diffs) >= 3 else None
+    verdict = None
+    if ci is not None:
+        # Inconclusive at this n is not "v2 changes the graft"; only an interval excluding 0 says that.
+        verdict = "equivalent" if equivalent else ("different" if ci["lower"] > 0 or ci["upper"] < 0 else "inconclusive")
     return {
         "pass": equivalent is True and not v2_only,
         "pairs": len(seeds),
         "v2_only_divergences": v2_only,
         "finite_pairs": len(finite),
         "tost_equivalent": equivalent,
-        "v2_minus_v1": interval(np.asarray(diffs), 1 - 2 * alpha) if len(diffs) >= 3 else None,
+        "verdict": verdict,
+        "v2_minus_v1": ci,
+        "v2_units_clamped": sum(v2[s]["ste_clamped_steps"] > 0 for s in seeds),  # 0 means v2 is v1 here, trivially
     }
 
 
@@ -261,6 +388,9 @@ def _c5(units: list[dict[str, Any]], plan: dict[str, Any]) -> dict[str, Any]:
     report["scheduled_pre_germination"] = {
         cell: sorted({u["seed"] for u in units if u["cell"] == cell and _pre_germination(u)}) for cell in cells
     }
+    report["host_coincident_lifecycle_divergences"] = sorted(
+        [u["cell"], u["seed"], u["variant"]] for u in units if _lifecycle_divergence(u) and _host_coincident(units, u)
+    )
     present = any(entry["diverged"] for arm in HOST_ARMS for entry in report[arm].values())
     return {**report, "present": present or any(report["scheduled_pre_germination"].values())}
 
@@ -296,7 +426,26 @@ def _performance(units: list[dict[str, Any]]) -> dict[str, Any]:
                     "excluded_pairs": len(group) - len(both),
                     "t_interval": interval(diffs, PERFORMANCE_LEVEL) if len(both) >= 3 else None,
                 }
-            table[cell][variant] = {"arms": arms, "finite_paired_contrasts": contrasts}
+            # What the excluded pairs would have contributed: the deficit split by the graft's outcome.
+            selection: dict[str, Any] = {}
+            for outcome in ("completed", "diverged"):
+                both = [
+                    u
+                    for u in group
+                    if u["status"]["scheduled"] == outcome and u["late_ce"]["static"] is not None and u["late_ce"]["no_growth"] is not None
+                ]
+                diffs = np.asarray([u["late_ce"]["static"] - u["late_ce"]["no_growth"] for u in both])
+                selection[f"scheduled_{outcome}"] = {
+                    "n": len(both),
+                    "t_interval": interval(diffs, PERFORMANCE_LEVEL) if len(both) >= 3 else None,
+                }
+            clamped = [u["ste_clamped_steps"] for u in group]
+            table[cell][variant] = {
+                "arms": arms,
+                "finite_paired_contrasts": contrasts,
+                "static_minus_no_growth_by_scheduled_outcome": selection,
+                "clamp_engagement": {"units_clamped": sum(c > 0 for c in clamped), "clamped_steps_mean": float(np.mean(clamped))},
+            }
     return table
 
 
@@ -324,18 +473,28 @@ def _replay_digest(records: list[dict[str, Any]], arm: str) -> str:
 
 
 def unit_summary(run: Path, late_epochs: list[int]) -> dict[str, Any]:
-    """Statuses, the scheduled arm's STE kappa trace and divergence stage, late CE and replay digests.
+    """Statuses, the scheduled arm's STE trace and divergence point, late CE and replay digests.
 
     Call only on a run that verify_run accepted. Late CE is None for an arm that diverged.
+    ste_rows_before_divergence is set only when the divergence record carries the STE table:
+    rows before the diverging step, or every row when it diverged in the epoch's scoring.
     """
     status = dict(read_json(run / "complete.json")["arm_status"])
     records = [json.loads(line) for line in (run / "training.jsonl").read_text().splitlines()]
     scheduled = [r for r in records if r["arm"] == "scheduled"]
     divergence = next((r for r in scheduled if r["kind"] == "diverged"), None)
     kappas: list[Any] = []
+    gains: list[Any] = []
+    clamped = 0
+    rows_before: int | None = None
     for record in scheduled:
         if record["kind"] in ("epoch", "diverged") and "ste" in record["witness"]:
-            kappas += record["witness"]["ste"]["kappa_live"]
+            table = record["witness"]["ste"]
+            if record["kind"] == "diverged":
+                rows_before = len(kappas) + min(record["step"], len(table["kappa_live"]))
+            kappas += table["kappa_live"]
+            gains += table["gain"]
+            clamped += sum(table["clamped"])
     late: dict[str, float | None] = {}
     for arm in ARMS:
         ce = {r["epoch"]: float(r["dev"]["ce"]) for r in records if r["arm"] == arm and r["kind"] == "epoch"}
@@ -343,7 +502,11 @@ def unit_summary(run: Path, late_epochs: list[int]) -> dict[str, Any]:
     return {
         "status": status,
         "scheduled_divergence_stage": None if divergence is None else divergence["stage"],
+        "scheduled_divergence_epoch": None if divergence is None else divergence["epoch"],
         "ste_kappa": kappas,
+        "ste_gain": gains,
+        "ste_clamped_steps": clamped,
+        "ste_rows_before_divergence": rows_before,
         "late_ce": late,
         "replay_digest": {arm: _replay_digest(records, arm) for arm in HOST_ARMS},
     }
@@ -402,10 +565,12 @@ def load_plan(path: Path) -> dict[str, Any]:
     stable, regression = criteria["stable_cells"], criteria["regression_cell"]
     if not isinstance(stable, list) or not stable or not set(stable) <= set(cells) or regression not in cells or regression in stable:
         raise ValueError("stable_cells must be declared cells; regression_cell a different declared cell")
-    if not all(_number(criteria[k]) for k in ("tost_margin", "alpha", "auc_min", "lr", "momentum")):
+    if not all(_number(criteria[k]) for k in ("tost_margin", "alpha", "auc_min", "bilinear_allowance", "lr", "momentum")):
         raise ValueError("criteria thresholds must be finite numbers")
     if criteria["tost_margin"] <= 0 or not 0 < criteria["alpha"] < 0.5 or not 0.5 < criteria["auc_min"] <= 1:
         raise ValueError("tost_margin > 0, alpha in (0, 0.5), auc_min in (0.5, 1]")
+    if not 0 <= criteria["bilinear_allowance"] < 1:
+        raise ValueError("bilinear_allowance must be in [0, 1)")
     if type(criteria["max_failed_units"]) is not int or criteria["max_failed_units"] < 0:
         raise ValueError("max_failed_units must be a non-negative int")
     for cell in cells:
@@ -555,7 +720,15 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
                     identity["dev_sha256"],
                 ):
                     raise ValueError("unit identity: data differ from the pinned data identity")
-                units.append({"cell": cell, "variant": variant, "seed": seed, **unit_summary(run, plan["endpoint"]["late_epochs"])})
+                units.append(
+                    {
+                        "cell": cell,
+                        "host": plan["cells"][cell]["host"],
+                        "variant": variant,
+                        "seed": seed,
+                        **unit_summary(run, plan["endpoint"]["late_epochs"]),
+                    }
+                )
             except Exception as error:  # Every failure is recorded, never silently dropped.
                 failures.append(
                     {

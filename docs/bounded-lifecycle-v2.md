@@ -90,7 +90,8 @@ Plan: [`lifecycle-v2-validation`](prereg/lifecycle-v2-validation.json).
 Decision: [PDR-0051](product/decisions/0051-lifecycle-v2-validation.md).
 Code: `experiments/lifecycle_validation.py` (`evaluate_criteria`).
 
-An exploratory engineering acceptance test on fresh seeds (4001–4024).
+An exploratory engineering acceptance test on fresh seeds (4001–4024),
+after two 3-seed GPU dry runs (9201–9203).
 Execution profile: **GPU, Academy-exact per SKU** (2× RTX 4060 Ti; GPU
 lineage only, never mixed with CPU). Both variants of one seed run on the
 same GPU, so the replay test never crosses devices. Units train, and the
@@ -107,30 +108,51 @@ is germinated is host instability: until germination, it is the no-growth
 host. Such divergences count toward C5, not toward C1 or C2.
 
 Acceptance needs C1–C4. C5 and the performance table are reported but
-never decide acceptance.
+never decide acceptance. The criteria below were amended before launch,
+informed by the pilot and two reviews (PDR-0051).
 
 1. **v2 is stable.** Zero germinated scheduled-arm divergences in A and B,
-   out of 48. The report states the rule-of-three bound (3/48 = 6.25%) and
-   the exact one-sided 95% bound (6.05%). A per-cell paired McNemar on
-   v1-vs-v2 discordant seeds is reported.
-2. **The mechanism, in the v1 units.** Strict reading: every germinated v1
-   divergence, in any stage, must have shown max κ_live > c* during STE.
-   Sensitivity must be 1.0. The cumulative amplification `Σ_t log ρ(κ_t)`
-   must rank divergence with AUC ≥ 0.9. Specificity and the by-stage
-   breakdown are reported. With no v1 divergence the criterion is
-   untestable, and that is not a pass.
+   out of 48. A and B share one host per seed, so the report gives:
+   - the pooled bounds: rule of three 6.25%, exact one-sided 6.05%;
+   - per-cell bounds: 0/24 gives 12.5% and 11.7%.
+
+   A per-cell paired McNemar on v1-vs-v2 discordant seeds is reported.
+2. **The mechanism, in the stable cells.**
+   - *(a) Falsification.* Every v1 divergence whose record carries the STE
+     table showed κ_live > c*/1.1 before its diverging step. The 10% is
+     the cross-entropy bilinear allowance above; the strict-c* rate is
+     reported. This can only falsify, because survivors cross c* too.
+   - *(b) Intervention.* At least one seed diverges under v1 but not v2,
+     and none the other way. v2 changes nothing else, so this is causal
+     evidence.
+
+   With no v1 STE divergence the criterion is untestable, and that is not a
+   pass. Reported only: a within-cell AUC of the rectified growth score
+   `Σ max(0, log ρ(κ_t))`, and realised gain growth against it. The plain
+   sum `Σ log ρ` was rejected because κ ≈ 1/lr makes the map nearly
+   nilpotent (log ρ ≈ −18) and swamps it.
 3. **A free replay test.** The no-growth and static arms do not depend on
-   the variant. Their records (wall time excepted) must hash identically
-   between the v1 and v2 runs of the same seed.
+   the variant, and no growth does not depend on the seed type. Their
+   records (wall time excepted) must hash identically between the v1 and
+   v2 runs of a seed, and no growth must hash identically across the cells
+   that share a host.
 4. **Regression guard, cell C.** Two parts:
    - failure rate: no seed may diverge under v2 and not under v1;
    - finite performance: on the seeds where both finished, a paired TOST
      must show the scheduled arm's late dev CE equivalent within ±0.05 at
      α = 0.05.
-5. **Host instability (reported).** No-growth and static divergences, and
-   pre-germination scheduled divergences, per cell. This is the class of
-   positive-control-v2's seed-2142 static divergence. It is a separate
-   problem and is not patched here.
+
+   The verdict separates `inconclusive` (the 90% CI contains 0 but exceeds
+   the margin) from `different` (the CI excludes 0). The clamp-engagement
+   count shows whether the pass is trivial.
+5. **Host instability (reported).** Per cell:
+   - no-growth and static divergences;
+   - pre-germination scheduled divergences;
+   - lifecycle divergences coinciding with a host-arm divergence of the
+     same seed.
+
+   This is the class of positive-control-v2's seed-2142 static divergence.
+   It is a separate problem and is not patched here.
 
 **Failure rate and finite performance are reported apart.** For every
 cell × variant × arm, the report gives:
@@ -140,5 +162,5 @@ cell × variant × arm, the report gives:
 Paired contrasts use finite pairs only, and the excluded pairs are counted.
 A survivor mean is never presented as an arm's performance.
 
-If criterion 2 fails, the derivation is wrong. Return to diagnosis, and do
-not proceed to a graft study.
+If criterion 2(a) fails, the derivation is wrong for the listed units.
+Return to diagnosis, and do not proceed to a graft study.
