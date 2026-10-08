@@ -40,6 +40,28 @@ integrate a useful constrained growth more quickly and reliably than comparable
 online construction, retrieval, random search, analytic construction, or static
 over-provisioning.
 
+## Strategy now: the bounded ladder (PDR-0050)
+
+The bounded experiment ladder is the sequencing authority. Each rung is one
+pre-registered, reviewed experiment with a stop condition, and a failed rung
+is never answered by enlarging the controller (ADR-0018). HLD contracts and
+Phase A are pulled by rung 5, never pushed ahead of it. Evidence so far, as
+of 2026-10-09; details live in `current-state.md`:
+
+- **Rung 1 is met.** The instrument resolves.
+- **Rung 2 is met as a question.** A real deficit exists, but a benefit at
+  the pre-registered floor was not established.
+- **Rung 3 is met as a partial capture.** A graft grown mid-training repairs
+  60% of the deficit with the `norm` seed and 31% with `conv_heavy`. That
+  is after a lifecycle fix that took its divergence from 14/48 to 0/240.
+
+Static over-provisioning beats the scheduled graft at the declared cost.
+That is a **recorded negative, at bounded scale and a 10-epoch horizon**,
+for the first claim's comparison against static over-provisioning (Purpose,
+above). It does not refute the claim: the claim is about generated,
+screened structure, and rung 4 asks whether the graft's timing or location
+changes the outcome. A clean negative remains a useful result.
+
 ## Who it serves
 - **Primary:** john — researcher-owner. The product is defensible experimental
   evidence (positive *or* negative) about generative morphogenesis; HLD §28 notes a
@@ -80,7 +102,7 @@ over-provisioning.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-08
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-09
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
 (/mnt/data/archive/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
@@ -113,10 +135,16 @@ have exclusive use to them for at least the next week or so."* Claude MAY
 run GPU experiments on both local RTX 4060 Ti cards for bounded-ladder work.
 Each run is a pre-registered, reviewed PDR, and each plan declares its
 execution profile. Opening outer/test data remains owner-gated.
+**ACCEPTANCE-GATE CLAUSE CLARIFIED 2026-10-09 (PDR-0053).** Owner, in
+session: *"ok, please update the vision"*. Claude had surfaced that the
+carried-over line "Pre-registered acceptance gates stay owner-gated" read
+differently from the PDR-0050 window. The line is resolved under "Run
+authorization" below. Nothing else in the grant changed.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
-  training or experiment runs within the active bet** (once Tolaria exists), run
+  training or experiment runs within the active bet** (today the bounded
+  ladder's pre-registered runs; Tolaria-hosted runs once it exists), run
   analysis, accept against criteria, reprioritize, kill a failing bet per
   metrics.md, and **commit to the workspace at checkpoint**.
   **Git remote, within the active bet (widened 2026-08-10, session 15):** the
@@ -131,7 +159,19 @@ Autonomous within strategy — the agent MAY, without asking:
   agent may CREATE NEW EXPERIMENTS, EXTEND runs, or ADD runs at its own discretion
   whenever it judges that previous runs did not give us everything we need — within
   the active research program, each recorded as a PDR with a pre-committed reading.
-  Pre-registered acceptance gates stay owner-gated.
+  **Acceptance gates (clarified 2026-10-09, PDR-0053).** The esper-lite line
+  "pre-registered acceptance gates stay owner-gated" is split into two levels.
+  - **Programme-level gates stay owner-gated.** These are the success criteria
+    of `docs/design/01-claim.md#28-success-criteria` (headed by criterion 18),
+    the ladder's rungs and stop conditions (PDR-0050), and any reading that
+    would treat a stopped rung as passed or move a gate after its data is
+    seen.
+  - **Per-study plans and reading rules inside an approved ladder rung are
+    Claude's to author.** Each is recorded as a PDR. Before launch, each is
+    reviewed by independent agents (statistics, product decision, and code
+    where code changes), gated by a real-configuration dry run, and frozen by
+    hash at launch. A published reading is never re-read. The owner may veto
+    or amend any plan before launch, and may reverse any consequence after.
   **Experiment-value principle (owner, 2026-07-10; carried over):** prefer tossing
   a week and restarting with an experiment that answers the question 100% over
   salvaging a near-done run that answers 20%. The test for any run, salvage, or
