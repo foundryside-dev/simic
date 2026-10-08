@@ -9,7 +9,15 @@
   equivalent to no growth, and equivalent to static capacity, within the
   floor.
 - **ADR-0018's reopen trigger does not fire.** Static capacity does not win,
-  and both comparisons are precise.
+  and both comparisons are precise on the pre-registered late-epoch endpoint.
+  The no-op contrast stays precise at every horizon checked. The static
+  contrast does not: on the final epoch alone its half-width is 0.065,
+  above δ.
+- **"Resolves" is a precision claim, not detection power at δ.** Because the
+  verdict table requires the whole interval beyond −δ, a graft would need a
+  true benefit of about **0.075 nats** for an 80% chance of the progress
+  reading. A true benefit of exactly 0.05 gives about a 1% chance (audit,
+  below).
 
 Under the frozen plan, this means:
 
@@ -27,7 +35,7 @@ Decision record: [PDR-0045](../product/decisions/0045-bounded-screen-reading-gat
 | Units | 48 training seeds (1001–1048). Each seed is one unit; its three arms share initialization, seed body and every minibatch |
 | Data | CIFAR-10 training files only, read through a view with no `test_batch`. 4,096 fit and 5,000 development examples; one fixed data sample (data seed 20261004) |
 | Training | 10 epochs, batch 32, graft before epoch 2, stages K1/M2/F1, CPU, one thread per unit |
-| Execution | 8 parallel workers, 366–435 s per unit, ~48 min wall time, **5.2 CPU-hours measured** (the plan estimated 4.7). 48/48 completed, 0 failures, no re-runs |
+| Execution | 8 parallel workers, 366–435 s per unit, 39.5 min wall time, **5.2 CPU-hours measured** (the plan estimated 4.7). 48/48 completed, 0 failures, no re-runs |
 | Analysis | Run once, at 97.5% confidence per co-primary contrast (Bonferroni, family α = 0.05). Every unit passed the runner's `verify_run` |
 
 ## Results
@@ -83,19 +91,21 @@ exactly the horizon degree of freedom the frozen late-epoch mean removes.
 | Progress | scheduled − no growth upper < −0.05 | +0.020 | no |
 
 The only reading consistent with the table is **`reopen_no_value`**. The
-graft pays 5% more optimizer work than no growth. The interval rules out a
-benefit larger than 0.017 nats, and an equal-sized harm larger than 0.020.
+graft pays 5% more optimizer work than no growth. At 97.5%, the interval
+excludes a benefit larger than 0.017 nats and a harm larger than 0.020 nats.
 
 ## Exploratory observations (not pre-registered; not claims)
 
-- **Neither added-capacity arm is distinguishable from no growth.** Static
-  capacity's interval against no growth also sits inside the floor. A plain
-  reading is that this host is not capacity-limited at 4,096 examples and
-  ten epochs. If so, *no* growth intervention could show a benefit in this
-  configuration, scheduled or not: the experiment had no deficit to repair.
-  This is a hypothesis for the redesign, not a result. It fits the Esper
-  record, whose clear wins came on degenerate-architecture fixtures with
-  large headroom (~10% → ~40%).
+- **Neither added-capacity arm is distinguishable from no growth.** Static −
+  no growth is +0.018 [−0.014, +0.050]. Its upper bound sits 0.0002 inside
+  the floor, on a descriptive contrast, so treat that as borderline. The host
+  is *not* near its fit limit: training CE is ~1.07 and dev accuracy is 55%
+  at epoch 9. So the supportable reading is narrow. An extra 6% of
+  parameters at this one slot, within this ten-epoch budget, does not move
+  fit or dev CE. Capacity, optimisation budget and slot placement are not
+  separated. The redesign should look for a configuration where added
+  capacity measurably helps. Esper's clear wins came on deliberately crippled
+  hosts with large headroom (~10% → ~40%), which is one route.
 - **The static arm is the noisiest:** its per-unit difference against no
   growth ranges from −0.25 to +0.22 nats. Its birth at step zero, with
   freshly calibrated gain, plausibly adds variance. The scheduled arm, born
@@ -125,3 +135,44 @@ benefit larger than 0.017 nats, and an equal-sized harm larger than 0.020.
 - On `nyx` only, under `runs/bounded-screen-v1/`: the per-unit
   `manifest.json` files (data indices) and the 144 inference checkpoints. They
   are pinned by the checksums in each `complete.json`.
+
+## Independent audit (2026-10-08)
+
+An independent statistical audit (experiment-statistics-reviewer) worked from
+the archived logs. It found no critical or high-severity issues.
+
+**Confirmed:**
+- Every reported number was recomputed independently, with a largest
+  per-unit gap of 4.4e-16.
+- Pairing is bitwise: identical initial host hashes within each unit, and
+  identical scheduled/no-growth training states before the graft, in 48 of
+  48 units.
+- The code did not change between launch and analysis.
+- The pre-launch amendment could not have seen results: it came 3 min 16 s
+  after the first plan, and a unit takes at least 366 s.
+- The pre-amendment gate rule would have given the same reading.
+- Scheduled − static is equivalent within δ by TOST at the Bonferroni level
+  (p = 0.005).
+
+**Corrections applied in this note:**
+- detection power at δ;
+- the "no deficit" overclaim;
+- horizon dependence of static credibility;
+- wall time.
+
+**Hardening queued for the next screen** (`simic-6cb47b3a06`):
+- emit the reading name with a stated precedence;
+- check cross-arm pairing in `verify_run`;
+- emit costs and the analysis provenance;
+- widen failure capture;
+- report the MDE against the floor, not against zero.
+
+**Disclosures:**
+- Seed 999 was a 40-second memory probe at screen configuration. It was
+  killed before its first epoch and nothing from it was read.
+- Seed 7 at screen configuration (the timing unit) was available when δ and
+  the endpoint were chosen. Its late-mean scheduled − no growth was −0.042.
+  δ = 0.05 sits above that, which is the conservative direction for the
+  graft.
+- The treatment arms calibrate the seed's gain on 32 unlabelled development
+  inputs, which is a negligible but asymmetric touch of dev data.
