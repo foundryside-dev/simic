@@ -40,10 +40,11 @@ green."* Reserved to John:
   - Static `norm` host instability is now 3/168 (`simic-9c5c3a2acf`).
 
 ## The bets now (PDR-0050)
-1. **The bounded ladder.** Rung 4 is next: does the timing or location of
-   the graft change the outcome? It starts with a rung-4 DECIDE PDR that
-   chooses the apparatus (by default the bounded runner's snapshot fan). GPU
-   is authorised for an exclusive window of about a week from 2026-10-08.
+1. **The bounded ladder.** Rung 4 is decided (PDR-0054): does graft
+   timing, or the training horizon, change how much of static's gain the
+   graft captures (`norm`)? If neither does, the ladder stops at rung 4.
+   GPU is authorised for an exclusive window of about a week from
+   2026-10-08.
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
@@ -66,13 +67,15 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- draft the rung-4 DECIDE PDR from rung 3's inputs: the narrowing
-  graft−static gap, the seed-type dependence, and the cost difference. Its
-  question and stop condition are owner-signed before any rung-4 plan is
-  pre-registered (vision, PDR-0053). Then pre-register, review, dry-run and
-  run inside the GPU window.
-  Graft-capture v2 is merged (PR #32). The vision's acceptance-gate clause
-  is split by level (PDR-0053, read-back pending).
+- rung 4 is decided (PDR-0054, owner-signed): graft timing (epochs 0–5)
+  and horizon (10 against 20 epochs) on `under_normalized` × `norm`. The
+  ladder stops at rung 4 if neither changes the outcome. Next:
+  1. design the per-study plan, with a reading rule for "changes the
+     outcome" and "flat", and a host-instability policy;
+  2. sketch it to the owner in session;
+  3. review, dry-run, launch;
+- the vision's gate split is ratified (PDR-0053). Per-study plans need an
+  in-session sketch before launch.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

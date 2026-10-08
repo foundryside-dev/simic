@@ -1,10 +1,11 @@
 # PDR-0053 — Vision update: the acceptance-gate clause is split by level; the ladder and its evidence are written into the vision
 
-Date: 2026-10-09   Status: accepted (owner-directed); **ratification pending**   Author: Claude (session 17)
+Date: 2026-10-09   Status: **accepted, ratified 2026-10-09**   Author: Claude (session 17)
 Owner sign-off: the owner directed the update (*"ok, please update the
 vision"*), replying to Claude's note that `vision.md`'s carried-over clause
-read differently from PDR-0050's window. The split text below has not yet
-been read back to the owner.
+read differently from PDR-0050's window. At read-back (2026-10-09), the
+owner chose: "Ratify; sketch before launch" for the split, and "Pointer
+only" for the evidence in the vision.
 Related: PDR-0038 (grant ratified), PDR-0040 (handover), PDR-0050 (ladder,
 GPU window), PDR-0051, PDR-0052; `docs/product/vision.md`
 
@@ -93,8 +94,13 @@ The critique returned SHIP-WITH-CHANGES. All ten text fixes were applied:
 - a pooled 0/240 that no record states;
 - precision and cost wording in the evidence paragraph.
 
-Three items go to the owner at read-back:
-- whether a live evidence summary belongs in the vision;
-- how much pre-launch visibility the owner wants;
-- ratification of the split, including that the rung-4 DECIDE PDR's stop
-  condition is owner-signed.
+## Owner read-back (2026-10-09)
+
+- **Split: ratified.** Pre-launch visibility is codified as a sketch in
+  session (question, comparisons, what each reading would mean) before
+  each launch.
+- **Evidence in the vision: pointer only.** Numbers stay in
+  `current-state.md` and `metrics.md`. The vision keeps one standing line,
+  changed only by an owner-signed update.
+- **Rung 4's question and stop condition** were owner-signed in the same
+  exchange: PDR-0054.

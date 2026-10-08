@@ -45,26 +45,16 @@ over-provisioning.
 The bounded experiment ladder is the sequencing authority. Each rung is
 answered by pre-registered, reviewed studies under one stop condition. A
 failed rung is not answered merely by enlarging the controller (ADR-0018). HLD contracts and
-Phase A are pulled by rung 5, never pushed ahead of it. Evidence so far, as
-of 2026-10-09; details live in `current-state.md`:
+Phase A are pulled by rung 5, never pushed ahead of it.
 
-- **Rung 1 is met.** The instrument resolves.
-- **Rung 2 is met as a question.** A real deficit exists, but a benefit at
-  the pre-registered floor was not established.
-- **Rung 3 is met as a partial capture.** On the `under_normalized` host, a
-  graft grown mid-training recovers about 60% [51, 72] of what static
-  capacity recovers with the `norm` seed, and 31% [19, 42] with
-  `conv_heavy` (descriptive, 95% paired bootstrap). The lifecycle fix took
-  graft divergence from 14/48 (v1) to 0/48 in validation (PDR-0051) and
-  0/192 at rung 3.
-
-Static over-provisioning (the same capacity, trained from step zero, at its
-declared cost; ADR-0018) beats the scheduled graft. That is a **recorded
-negative, at bounded scale and a 10-epoch horizon, for the hand-built
-scheduled graft that stands in for generated structure.** It does not refute
-the first claim, which is about generated, screened structure. Rung 4 asks
-whether the graft's timing or location changes the outcome. A clean
-negative remains a useful result.
+**Where the evidence stands** lives in `current-state.md` and `metrics.md`,
+with intervals. This file keeps one standing line, changed only by an
+owner-signed vision update: so far, static over-provisioning (the same
+capacity, trained from step zero, at its declared cost; ADR-0018) beats the
+hand-built scheduled graft at bounded scale (rung 3, PDR-0052). That is a
+negative for the stand-in, not a refutation of the first claim, which is
+about generated, screened structure. A clean negative remains a useful
+result.
 
 ## Who it serves
 - **Primary:** john — researcher-owner. The product is defensible experimental
@@ -106,7 +96,7 @@ negative remains a useful result.
   No Legacy Code policy).
 
 ## Authority grant
-Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-08 (PDR-0050); amended 2026-10-09 (PDR-0053), read-back pending
+Granted by: john (GitHub: tachyon-beep)     Last reviewed: 2026-10-09 (PDR-0053, ratified)
 Review cadence: on any vision change, or monthly — whichever first.
 Status: CONFIRMED — owner directed carryover of the esper-lite grant
 (/mnt/data/archive/esper-lite/docs/product/vision.md) adapted to Simic, 2026-08-08;
@@ -139,8 +129,9 @@ have exclusive use to them for at least the next week or so."* Claude MAY
 run GPU experiments on both local RTX 4060 Ti cards for bounded-ladder work.
 Each run is a pre-registered, reviewed PDR, and each plan declares its
 execution profile. Opening outer/test data remains owner-gated.
-**ACCEPTANCE-GATE CLAUSE CLARIFIED 2026-10-09 (PDR-0053).** Owner, in
-session: *"ok, please update the vision"*. Claude had surfaced that the
+**ACCEPTANCE-GATE CLAUSE CLARIFIED 2026-10-09 (PDR-0053), RATIFIED THE
+SAME DAY.** Owner, in session: *"ok, please update the vision"*. At
+read-back, the owner chose "Ratify; sketch before launch". Claude had surfaced that the
 carried-over line "Pre-registered acceptance gates stay owner-gated" read
 differently from the PDR-0050 window. The line is resolved under "Run
 authorization" below. The run-launch line's "once Tolaria exists"
@@ -179,11 +170,16 @@ Autonomous within strategy — the agent MAY, without asking:
     Host, seed type and horizon are rung parameters. The floor and the
     reading rule are plan parameters (PDR-0049).
   - **Per-study plans and reading rules inside an approved ladder rung are
-    Claude's to author.** Each is recorded as a PDR. Before launch, each is
-    reviewed by independent agents (statistics, product decision, and code
-    where code changes), gated by a real-configuration dry run, and frozen by
-    hash at launch. A published reading is never re-read. The owner may veto
-    or amend any plan before launch, and may reverse any consequence after.
+    Claude's to author.** Each is recorded as a PDR. Before launch:
+    - Claude sketches the study to the owner in session: its question, its
+      comparisons, and what each reading would mean;
+    - independent agents review it (statistics, product decision, and code
+      where code changes);
+    - a real-configuration dry run gates the launch;
+    - the plan is frozen by hash at launch.
+
+    A published reading is never re-read. The owner may veto or amend any
+    plan before launch, and may reverse any consequence after.
   **Experiment-value principle (owner, 2026-07-10; carried over):** prefer tossing
   a week and restarting with an experiment that answers the question 100% over
   salvaging a near-done run that answers 20%. The test for any run, salvage, or
