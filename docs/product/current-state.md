@@ -12,7 +12,7 @@ green."* Reserved to John:
 ## Milestone reached this session
 **The PDR-0043 gate closed with a measured answer (PDR-0045).** The
 pre-registered bounded screen ran 48 paired units on CIFAR development data:
-CPU, ~4.7 CPU-hours, analysed once from clean commit `f5aeda2`. The reading
+CPU, 5.2 CPU-hours measured, analysed once from clean commit `f5aeda2`. The reading
 is **`reopen_no_value`**:
 
 - **The paired instrument resolves.** Scheduled − no growth is bounded to
@@ -36,7 +36,9 @@ evidence archived beside it.
    - Pre-register a positive control: static capacity must beat no growth
      beyond δ in the chosen configuration.
    - Candidates: Esper's degenerate-architecture fixtures (~10%→~40%
-     headroom; code under `/mnt/data/archive/esper-lite`) and an
+     headroom). They are somewhere in the esper archives under
+     `/mnt/data/archive/`, but a quick search of esper-lite did not find them,
+     so locate them before shaping. The other candidate is an
      under-provisioned `mild` host.
    - Reuse `experiments/bounded_screen.py`.
    - Per ADR-0018: do not enlarge the controller.

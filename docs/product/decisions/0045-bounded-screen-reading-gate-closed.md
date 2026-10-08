@@ -31,7 +31,7 @@ because the instrument itself resolves."*
 
 1. **The PDR-0043 gate closes, on the "resolves" branch.** The paired
    counterfactual instrument bounds a matched-no-op difference to ±0.018 nats
-   with 48 units, at about 4.7 CPU-hours. This is the first measured,
+   with 48 units, at 5.2 CPU-hours measured (the plan estimated 4.7). This is the first measured,
    criterion-18-shaped reading in the programme. It concerns *resolution*
    only. No intervention has yet produced an effect that the instrument then
    detected.
@@ -81,9 +81,15 @@ not a growth result.
 
 ## Reversal trigger
 
-A re-analysis of the archived per-unit logs under the frozen plan that
-disagrees with `screen_report.json` would void this reading. The logs are
-in the repository, so that check is cheap. Separately: if Phase A contract
+A re-analysis that disagrees with `screen_report.json` would void this
+reading. Two levels are possible:
+- **From the repository alone:** recompute each unit's late-epoch CE and the
+  frozen intervals from the archived `training.jsonl` files. Those logs are
+  checksum-pinned by each unit's `complete.json`. This check is cheap, and it
+  is the one that matters.
+- **The full frozen `analyze` path:** this also calls `verify_run`, which
+  needs each unit's `manifest.json` and checkpoints. Those exist only on nyx
+  (`runs/bounded-screen-v1/`). Separately: if Phase A contract
 work reveals that the bounded instrument's matching contract differs
 materially from the HLD's (INV-06 common future, INV-15/16 no-op), the
 "resolves" reading applies to the bounded instrument only, and must be

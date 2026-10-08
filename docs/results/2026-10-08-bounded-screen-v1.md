@@ -27,7 +27,7 @@ Decision record: [PDR-0045](../product/decisions/0045-bounded-screen-reading-gat
 | Units | 48 training seeds (1001–1048). Each seed is one unit; its three arms share initialization, seed body and every minibatch |
 | Data | CIFAR-10 training files only, read through a view with no `test_batch`. 4,096 fit and 5,000 development examples; one fixed data sample (data seed 20261004) |
 | Training | 10 epochs, batch 32, graft before epoch 2, stages K1/M2/F1, CPU, one thread per unit |
-| Execution | 8 parallel workers, 366–435 s per unit, ~48 min wall time. 48/48 completed, 0 failures, no re-runs |
+| Execution | 8 parallel workers, 366–435 s per unit, ~48 min wall time, **5.2 CPU-hours measured** (the plan estimated 4.7). 48/48 completed, 0 failures, no re-runs |
 | Analysis | Run once, at 97.5% confidence per co-primary contrast (Bonferroni, family α = 0.05). Every unit passed the runner's `verify_run` |
 
 ## Results
@@ -58,6 +58,20 @@ capacity **1.3149**.
 
 Development CE fell in every arm of every unit. The final-epoch figures are
 descriptive. The endpoint is the late-epoch mean, declared in advance.
+
+The final epoch alone ranks static capacity *best* (1.297), while the
+pre-registered late-epoch mean ranks it *worst* (1.315). The per-epoch means
+across units for epochs 7, 8 and 9 show why:
+
+| Arm | Epoch 7 | Epoch 8 | Epoch 9 |
+|---|---:|---:|---:|
+| No growth | 1.306 | 1.253 | 1.332 |
+| Scheduled graft | 1.296 | 1.254 | 1.345 |
+| Static capacity | 1.331 | 1.316 | 1.297 |
+
+No growth and the graft both rise at epoch 9, while static falls. A
+final-epoch endpoint would have picked up that one-epoch swing, which is
+exactly the horizon degree of freedom the frozen late-epoch mean removes.
 
 ## Reading against the frozen rules
 
