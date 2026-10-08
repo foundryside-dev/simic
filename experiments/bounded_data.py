@@ -211,6 +211,7 @@ def load_fit_dev(spec: RunSpec, root: Path | None) -> tuple[torch.Tensor, torch.
     provenance.update(
         {
             "fit_sha256": tensor_hash(tx, ty),
+            "fit_calibration_prefix_sha256": tensor_hash(tx[: spec.batch_size]),
             "dev_sha256": tensor_hash(dx, dy),
             "fit_size": len(ty),
             "dev_size": len(dy),

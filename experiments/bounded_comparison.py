@@ -28,6 +28,8 @@ from torch import nn
 
 from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, load_outer, tensor_hash, validated_spec
 from experiments.kernel_demo import (
+    PATHOLOGIES,
+    SEED_NAMES,
     CommonFuture,
     Slot,
     Stage,
@@ -763,10 +765,23 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         raise ValueError("execution runtime mismatch")
     data = require_keys(
         manifest["data"],
-        ("kind", "source_files", "outer_identity", "fit_sha256", "dev_sha256", "fit_size", "dev_size", "data_seed"),
+        (
+            "kind",
+            "source_files",
+            "outer_identity",
+            "fit_sha256",
+            "dev_sha256",
+            "fit_size",
+            "dev_size",
+            "data_seed",
+            "fit_calibration_prefix_sha256",
+        ),
         "data provenance",
     )
     validate_hash(data["fit_sha256"], "fit data")
+    validate_hash(data["fit_calibration_prefix_sha256"], "fit calibration prefix")
+    if manifest["host"] != f"kernel-demo-{spec.host}" or manifest["seed_type"] != spec.seed_type:
+        raise ValueError("manifest host/seed type disagree with the specification")
     validate_hash(data["dev_sha256"], "development data")
     validate_hash(manifest["common_future_sha256"], "common future")
     if data["fit_size"] != spec.train_size or data["dev_size"] != spec.dev_size or data["data_seed"] != spec.data_seed:
@@ -789,6 +804,8 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
         strict_json(record)
         validate_record(record, spec, arm, kind, epoch)
         records[(arm, epoch)] = record
+        if record["birth"] is not None and record["birth"]["calibration_inputs_sha256"] != data["fit_calibration_prefix_sha256"]:
+            raise ValueError("seed calibration inputs are not the recorded fit prefix")
     verify_pairing(records, spec)
     return manifest, complete, spec
 
@@ -930,7 +947,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         if field.name == "data":
             training.add_argument("--data", choices=("smoke", "cifar"), default=default)
         else:
-            training.add_argument("--" + field.name.replace("_", "-"), type=type(default), default=default)
+            choices = {"host": PATHOLOGIES, "seed_type": SEED_NAMES}.get(field.name)
+            training.add_argument("--" + field.name.replace("_", "-"), type=type(default), default=default, choices=choices)
     evaluation = sub.add_parser("evaluate")
     evaluation.add_argument("--run", type=Path, required=True)
     evaluation.add_argument("--data-root", type=Path)

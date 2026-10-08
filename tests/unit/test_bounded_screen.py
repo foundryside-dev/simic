@@ -50,7 +50,10 @@ def fake_screen(
     plan_path = write_plan(tmp_path, plan)
     root = tmp_path / "screen"
     root.mkdir()
-    (root / "launch.json").write_text(json.dumps({"prereg_sha256": file_hash(plan_path)}))
+    (root / "launch.json").write_text(
+        json.dumps({"prereg_sha256": file_hash(plan_path), "analysis_module_sha256": screen.analysis_module_hash()})
+    )
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
 
     def verify(unit: Path) -> None:
         if int(unit.name.split("-")[1]) in broken:
@@ -107,7 +110,7 @@ def test_train_command_carries_host_and_seed_type(tmp_path):
     [
         (-0.2, -0.06, "first_better_beyond_floor"),
         (0.01, 0.2, "first_worse"),
-        (-0.1, -0.01, "first_better_below_floor"),
+        (-0.1, -0.01, "first_better_floor_not_cleared"),
         (-0.04, 0.04, "equivalent_within_floor"),
         (-0.2, 0.2, "inconclusive"),
     ],
@@ -202,3 +205,143 @@ def test_late_ce_and_costs_read_a_real_verified_unit(tmp_path):
     assert set(late) == set(runner.ARMS) and all(np.isfinite(v) for v in late.values())
     costs = screen.unit_costs(unit)
     assert costs["static"]["optimizer_parameter_steps"] > costs["no_growth"]["optimizer_parameter_steps"]
+
+
+def test_analysis_refuses_a_changed_analysis_module_or_dirty_tree(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    launch = json.loads((root / "launch.json").read_text())
+    launch["analysis_module_sha256"] = "0" * 64
+    (root / "launch.json").write_text(json.dumps(launch))
+    with pytest.raises(ValueError, match="analysis module changed"):
+        screen.analyze(root, plan)
+    launch["analysis_module_sha256"] = screen.analysis_module_hash()
+    (root / "launch.json").write_text(json.dumps(launch))
+    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": " M f"})
+    with pytest.raises(RuntimeError, match="dirty"):
+        screen.analyze(root, plan)
+
+
+def test_descriptive_contrasts_get_no_verdict_and_a_nominal_interval(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0))
+    descriptive = screen.analyze(root, plan)["contrasts"]["static_minus_no_growth"]
+    assert descriptive["verdict"] is None
+    assert "effect_for_80pct_progress" not in descriptive
+    assert descriptive["interval_level"] == 0.95
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda p: p["analysis"]["contrasts"].update({k: {**v, "role": "descriptive"} for k, v in p["analysis"]["contrasts"].items()}),
+            "co-primary",
+        ),
+        (lambda p: p["analysis"]["contrasts"].pop("scheduled_minus_static"), "requires contrast"),
+        (lambda p: p["endpoint"].update(late_epochs=[5, 6, 7]), "late_epochs"),
+    ],
+)
+def test_plan_is_validated_before_any_unit_runs(tmp_path, mutate, message):
+    plan = copy.deepcopy(BASE_PLAN)
+    mutate(plan)
+    with pytest.raises(ValueError, match=message):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+POSITIVE_CONTROL = {
+    **BASE_PLAN,
+    "analysis": {
+        **BASE_PLAN["analysis"],
+        "contrasts": {"static_minus_no_growth": {"arms": ["static", "no_growth"], "role": "co-primary"}},
+    },
+    "decision": {"delta_nats": 0.05, "max_failed_units": 1, "reading_rule": "positive-control-v1"},
+}
+
+
+def test_undeclared_arms_are_sealed_out_of_the_report(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(-0.3, static_shift=-0.2), plan=POSITIVE_CONTROL)
+    report = screen.analyze(root, plan)
+    assert set(report["arm_late_ce_mean"]) == set(report["arm_costs_mean"]) == {"static", "no_growth"}
+    assert "scheduled" not in json.dumps(report)
+
+
+@pytest.mark.parametrize(
+    ("static_shift", "static_sd", "reading"),
+    [
+        (-0.3, 0.02, "control_passes"),
+        (0.2, 0.02, "control_fails_static_worse"),
+        (-0.05, 0.4, "control_imprecise"),
+        (0.0, 0.02, "control_fails_no_effect"),
+        (-0.02, 0.02, "control_fails_no_effect"),
+    ],
+)
+def test_positive_control_readings_are_detection_first(tmp_path, monkeypatch, static_shift, static_sd, reading):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0, static_shift=static_shift, static_sd=static_sd), plan=POSITIVE_CONTROL)
+    assert screen.analyze(root, plan)["reading"] == reading
+
+
+def test_positive_control_readings_cover_every_verdict_and_precision_state():
+    for verdict in (
+        "first_better_beyond_floor",
+        "first_worse",
+        "first_better_floor_not_cleared",
+        "equivalent_within_floor",
+        "inconclusive",
+    ):
+        for half_width in (0.01, 0.5):
+            report = {
+                "delta_nats": 0.05,
+                "contrasts": {"static_minus_no_growth": {"verdict": verdict, "t_interval": {"half_width": half_width}}},
+            }
+            assert screen.reading_positive_control_v1(report)[0] in screen.POSITIVE_CONTROL_READINGS
+
+
+def test_paired_interval_and_mde_match_hand_computation():
+    diffs = np.array([0.1, -0.1, 0.2, 0.0])
+    ci = screen.interval(diffs, 0.95)
+    assert ci["mean"] == pytest.approx(0.05)
+    assert ci["half_width"] == pytest.approx(3.182446 * np.std(diffs, ddof=1) / 2, rel=1e-5)
+    assert screen.mde(0.1, 48, 0.025, 0.8) == pytest.approx(0.0457, abs=0.0005)
+
+
+@pytest.mark.parametrize(("lower", "upper"), [(-0.04, 0.0), (-0.01, 0.09)])
+def test_verdict_boundaries(lower, upper):
+    expected = "equivalent_within_floor" if upper < 0.05 else "inconclusive"
+    assert screen.contrast_verdict({"lower": lower, "upper": upper}, 0.05) == expected
+
+
+def test_coprimary_family_level_and_imprecise_reading(tmp_path, monkeypatch):
+    values = unit_values(0.0)
+    rng = np.random.default_rng(3)
+    for v in values.values():
+        v["scheduled"] = 1.10 + 0.4 * float(rng.standard_normal())
+    root, plan = fake_screen(tmp_path, monkeypatch, values)
+    report = screen.analyze(root, plan)
+    assert report["confidence_level"] == pytest.approx(0.975)
+    assert report["reading"] == "reopen_instrument_imprecise"
+
+
+def test_plan_with_swapped_arms_for_a_rule_contrast_is_refused(tmp_path):
+    plan = copy.deepcopy(BASE_PLAN)
+    plan["analysis"]["contrasts"]["scheduled_minus_no_growth"]["arms"] = ["no_growth", "scheduled"]
+    with pytest.raises(ValueError, match="in that order"):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+@pytest.mark.parametrize("config_change", [{"seed": 1}, {"data": "smoke"}, {"bogus": 3}, {"host": "nonexistent"}])
+def test_plan_config_cannot_override_unit_fields_or_name_unknown_ones(tmp_path, config_change):
+    plan = copy.deepcopy(BASE_PLAN)
+    plan["config"].update(config_change)
+    with pytest.raises(ValueError):
+        screen.load_plan(write_plan(tmp_path, plan))
+
+
+def test_unit_seed_comes_last_in_the_train_command(tmp_path):
+    command = screen.train_command(BASE_PLAN, 7, tmp_path / "u", tmp_path)
+    assert command[-2:] == ["--seed", "7"]
+
+
+def test_identical_failure_in_every_unit_is_raised_not_published(tmp_path, monkeypatch):
+    root, plan = fake_screen(tmp_path, monkeypatch, unit_values(0.0), broken=tuple(range(1, 21)))
+    with pytest.raises(RuntimeError, match="analysis-side"):
+        screen.analyze(root, plan)
+    assert not (root / "screen_report.json").exists()

@@ -83,3 +83,40 @@ def test_verify_run_refuses_divergence_before_the_graft(starved_run, tmp_path):
 
     with pytest.raises(ValueError, match="pairing"):
         runner.verify_run(_tamper(starved_run, tmp_path, mutate))
+
+
+def test_calibration_prefix_is_not_the_development_prefix(starved_run):
+    spec = RunSpec(epochs=7, host="channel_starved", seed_type="conv_heavy")
+    dx, _ = smoke_split(spec, "dev")
+    start = next(json.loads(line) for line in (starved_run / "training.jsonl").read_text().splitlines() if '"static"' in line)
+    assert start["birth"]["calibration_inputs_sha256"] != tensor_hash(dx[: spec.batch_size])
+
+
+def test_verify_run_refuses_a_birth_calibrated_on_other_inputs(starved_run, tmp_path):
+    def mutate(records: list[dict[str, Any]]) -> None:
+        start = next(r for r in records if r["kind"] == "arm_start" and r["arm"] == "static")
+        start["birth"]["calibration_inputs_sha256"] = "1" * 64
+
+    with pytest.raises(ValueError, match="calibration"):
+        runner.verify_run(_tamper(starved_run, tmp_path, mutate))
+
+
+def test_verify_run_refuses_a_non_fit_calibration_source(starved_run, tmp_path):
+    def mutate(records: list[dict[str, Any]]) -> None:
+        start = next(r for r in records if r["kind"] == "arm_start" and r["arm"] == "static")
+        start["birth"]["calibration_source"] = "dev"
+
+    with pytest.raises(ValueError, match="fit"):
+        runner.verify_run(_tamper(starved_run, tmp_path, mutate))
+
+
+def test_evaluate_rebuilds_the_selected_host_and_seed(starved_run, tmp_path):
+    root = tmp_path / "eval"
+    shutil.copytree(starved_run, root)
+    record = runner.evaluate(root)
+    assert set(record["scores"]) >= set(runner.ARMS)
+
+
+def test_cli_rejects_unknown_host_as_a_usage_error():
+    with pytest.raises(SystemExit):
+        runner.parse_arguments(["train", "--output", "x", "--host", "nonexistent"])

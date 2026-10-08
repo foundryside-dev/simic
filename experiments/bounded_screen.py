@@ -22,8 +22,10 @@ import os
 import subprocess
 import sys
 import time
+import traceback
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,9 +33,16 @@ import numpy as np
 from scipy import stats
 
 from experiments.bounded_comparison import ARMS, REPO, git_identity, read_json, strict_json, verify_run
-from experiments.bounded_data import file_hash
+from experiments.bounded_data import RunSpec, file_hash, validated_spec
 
 COST_FIELDS = ("optimizer_parameter_steps", "seed_train_examples", "calibration_examples")
+DESCRIPTIVE_LEVEL = 0.95
+UNIT_FIELDS = ("seed", "data", "outer_size")  # Set per unit or fixed by the screen, never by plan config.
+
+
+def analysis_module_hash() -> str:
+    """The reading rules live in this module; launch pins it and analysis refuses drift (audit F-A)."""
+    return file_hash(Path(__file__))
 
 
 def load_plan(path: Path) -> dict[str, Any]:
@@ -50,8 +59,23 @@ def load_plan(path: Path) -> dict[str, Any]:
             raise ValueError(f"contrast {name} must name two distinct known arms")
         if contrast.get("role") not in ("co-primary", "descriptive"):
             raise ValueError(f"contrast {name} needs role co-primary or descriptive")
-    if plan["decision"].get("reading_rule") not in READING_RULES:
+    if not any(c["role"] == "co-primary" for c in contrasts.values()):
+        raise ValueError("plan must declare at least one co-primary contrast")
+    rule = READING_RULES.get(plan["decision"].get("reading_rule"))
+    if rule is None:
         raise ValueError(f"unknown reading rule; known: {sorted(READING_RULES)}")
+    for name, arms in rule.required_coprimary.items():
+        declared = contrasts.get(name, {})
+        if declared.get("role") != "co-primary" or declared.get("arms") != list(arms):
+            raise ValueError(f"reading rule requires contrast {name} as co-primary with arms {list(arms)} in that order")
+    config = plan["config"]
+    allowed = {f for f in RunSpec.__dataclass_fields__ if f not in UNIT_FIELDS}
+    if not isinstance(config, dict) or not set(config) <= allowed:
+        raise ValueError(f"plan config may only set {sorted(allowed)}")
+    validated_spec({**RunSpec().__dict__, **config, "data": "cifar"})
+    late = plan["endpoint"]["late_epochs"]
+    if not late or any(type(e) is not int or not 0 <= e < plan["config"]["epochs"] for e in late):
+        raise ValueError("late_epochs must be epochs within the configured horizon")
     return plan
 
 
@@ -65,10 +89,10 @@ def unit_seeds(plan: dict[str, Any]) -> list[int]:
 
 def train_command(plan: dict[str, Any], seed: int, output: Path, data_root: Path) -> list[str]:
     command = [sys.executable, "-B", "-m", "experiments.bounded_comparison", "train", "--data", "cifar"]
-    command += ["--data-root", str(data_root), "--output", str(output), "--seed", str(seed)]
+    command += ["--data-root", str(data_root), "--output", str(output)]
     for name, value in plan["config"].items():
         command += ["--" + name.replace("_", "-"), str(value)]
-    return command
+    return [*command, "--seed", str(seed)]  # Last, so nothing can override the unit's seed.
 
 
 def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[str, Any]:
@@ -84,6 +108,7 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
         "study": plan["study"]["id"],
         "plan_path": str(plan_path),
         "prereg_sha256": file_hash(plan_path),
+        "analysis_module_sha256": analysis_module_hash(),
         "git": git,
         "seeds": seeds,
         "workers": workers,
@@ -160,38 +185,73 @@ def contrast_verdict(ci: dict[str, float], delta: float) -> str:
     if ci["lower"] > 0:
         return "first_worse"
     if ci["upper"] < 0:
-        return "first_better_below_floor"
+        return "first_better_floor_not_cleared"
     if -delta < ci["lower"] and ci["upper"] < delta:
         return "equivalent_within_floor"
     return "inconclusive"
 
 
-def reading_screen_v1(report: dict[str, Any]) -> str:
+def reading_screen_v1(report: dict[str, Any]) -> tuple[str, dict[str, bool]]:
     """Screen v1 readings with explicit precedence: imprecision, then static wins, then credibility, then value."""
     delta = report["delta_nats"]
     vs_none = report["contrasts"]["scheduled_minus_no_growth"]
     vs_static = report["contrasts"]["scheduled_minus_static"]
-    report["gate_instrument_resolves"] = vs_none["t_interval"]["half_width"] <= delta
-    report["static_comparison_credible"] = vs_static["t_interval"]["half_width"] <= delta
-    if not report["gate_instrument_resolves"]:
-        return "reopen_instrument_imprecise"
+    gates = {
+        "gate_instrument_resolves": vs_none["t_interval"]["half_width"] <= delta,
+        "static_comparison_credible": vs_static["t_interval"]["half_width"] <= delta,
+    }
+    if not gates["gate_instrument_resolves"]:
+        return "reopen_instrument_imprecise", gates
     if vs_static["t_interval"]["lower"] > 0:
-        return "reopen_static_wins"
-    if not report["static_comparison_credible"]:
-        return "reopen_static_not_credible"
+        return "reopen_static_wins", gates
+    if not gates["static_comparison_credible"]:
+        return "reopen_static_not_credible", gates
     if vs_none["verdict"] == "first_better_beyond_floor":
-        return "progress"
-    return "reopen_no_value"
+        return "progress", gates
+    return "reopen_no_value", gates
 
 
-READING_RULES: dict[str, Callable[[dict[str, Any]], str]] = {"bounded-screen-v1": reading_screen_v1}
+POSITIVE_CONTROL_READINGS = ("control_passes", "control_fails_static_worse", "control_imprecise", "control_fails_no_effect")
+
+
+def reading_positive_control_v1(report: dict[str, Any]) -> tuple[str, dict[str, bool]]:
+    """Detection first: does static capacity beat no growth beyond the floor on this host?"""
+    primary = report["contrasts"]["static_minus_no_growth"]
+    gates = {"control_precise": primary["t_interval"]["half_width"] <= report["delta_nats"]}
+    if primary["verdict"] == "first_better_beyond_floor":
+        return "control_passes", gates
+    if primary["verdict"] == "first_worse":
+        return "control_fails_static_worse", gates
+    if not gates["control_precise"]:
+        return "control_imprecise", gates
+    return "control_fails_no_effect", gates
+
+
+@dataclass(frozen=True)
+class ReadingRule:
+    apply: Callable[[dict[str, Any]], tuple[str, dict[str, bool]]]
+    required_coprimary: dict[str, tuple[str, str]]
+
+
+READING_RULES = {
+    "bounded-screen-v1": ReadingRule(
+        reading_screen_v1, {"scheduled_minus_no_growth": ("scheduled", "no_growth"), "scheduled_minus_static": ("scheduled", "static")}
+    ),
+    "positive-control-v1": ReadingRule(reading_positive_control_v1, {"static_minus_no_growth": ("static", "no_growth")}),
+}
 
 
 def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
     plan_sha = file_hash(plan_path)
-    if read_json(root / "launch.json")["prereg_sha256"] != plan_sha:
+    launched = read_json(root / "launch.json")
+    if launched["prereg_sha256"] != plan_sha:
         raise ValueError("pre-registration changed after launch")
+    if launched.get("analysis_module_sha256") != analysis_module_hash():
+        raise ValueError("analysis module changed since launch: the reading rule is not the one that was frozen")
+    git = git_identity()
+    if git["status"]:
+        raise RuntimeError("refusing to analyze from a dirty tree")
     out = root / "screen_report.json"
     if out.exists():
         raise FileExistsError("screen report already published; the analysis runs once")
@@ -209,11 +269,13 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
             units[seed] = late_ce(unit, epochs)
             costs[seed] = unit_costs(unit)
         except Exception as error:  # Any unit failure is recorded, never silently dropped (audit F8).
-            failures.append({"seed": seed, "error": f"{type(error).__name__}: {error}"})
+            failures.append({"seed": seed, "error": f"{type(error).__name__}: {error}", "traceback": traceback.format_exc()})
+    if failures and not units and len({f["error"] for f in failures}) == 1:
+        raise RuntimeError(f"every unit failed identically ({failures[0]['error']}); treating as an analysis-side error, nothing published")
     report: dict[str, Any] = {
         "study": plan["study"]["id"],
         "plan_sha256": plan_sha,
-        "analysis_git": git_identity(),
+        "analysis_git": git,
         "analyzed_unix": time.time(),
         "n_units": len(units),
         "failures": failures,
@@ -226,6 +288,8 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
         return report
     seeds = sorted(units)
     n = len(seeds)
+    # Arms outside every declared contrast are sealed: trained for pairing, never summarised (audit F-G).
+    declared = [arm for arm in ARMS if any(arm in c["arms"] for c in analysis["contrasts"].values())]
     primaries = [name for name, c in analysis["contrasts"].items() if c["role"] == "co-primary"]
     alpha_each = analysis["family_alpha"] / len(primaries)  # Bonferroni over the co-primary family.
     level = 1 - alpha_each
@@ -233,32 +297,39 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     for name, contrast in analysis["contrasts"].items():
         first, second = contrast["arms"]
         diffs = np.array([units[s][first] - units[s][second] for s in seeds])
-        ci = interval(diffs, level)
-        contrasts[name] = {
+        primary = contrast["role"] == "co-primary"
+        contrast_level = level if primary else DESCRIPTIVE_LEVEL
+        ci = interval(diffs, contrast_level)
+        entry: dict[str, Any] = {
             "arms": [first, second],
             "role": contrast["role"],
+            "interval_level": contrast_level,
             "per_unit": dict(zip(map(str, seeds), diffs.tolist(), strict=True)),
             "t_interval": ci,
-            "bootstrap_interval": bootstrap(diffs, level, analysis["bootstrap_resamples"], analysis["bootstrap_seed"]),
+            "bootstrap_interval": bootstrap(diffs, contrast_level, analysis["bootstrap_resamples"], analysis["bootstrap_seed"]),
             "wilcoxon_p": float(stats.wilcoxon(diffs).pvalue) if np.any(diffs != 0) else 1.0,
             "fraction_first_better": float(np.mean(diffs < 0)),
             "worst_decile": float(np.quantile(diffs, 0.9)),
-            "mde_vs_zero_80pct": mde(ci["sd"], n, alpha_each, 0.8),
-            "effect_for_80pct_progress": effect_for_progress(ci["sd"], n, alpha_each, 0.8, delta),
-            "verdict": contrast_verdict(ci, delta),
+            "verdict": None,  # Descriptive contrasts are described, never adjudicated (audit F-B).
         }
+        if primary:
+            entry["mde_vs_zero_80pct"] = mde(ci["sd"], n, alpha_each, 0.8)
+            entry["effect_for_80pct_progress"] = effect_for_progress(ci["sd"], n, alpha_each, 0.8, delta)
+            entry["verdict"] = contrast_verdict(ci, delta)
+        contrasts[name] = entry
     report.update(
         {
             "confidence_level": level,
-            "arm_late_ce_mean": {arm: float(np.mean([units[s][arm] for s in seeds])) for arm in ARMS},
+            "arm_late_ce_mean": {arm: float(np.mean([units[s][arm] for s in seeds])) for arm in declared},
             "arm_costs_mean": {
-                arm: {k: float(np.mean([costs[s][arm][k] for s in seeds])) for k in (*COST_FIELDS, "wall_s")} for arm in ARMS
+                arm: {k: float(np.mean([costs[s][arm][k] for s in seeds])) for k in (*COST_FIELDS, "wall_s")} for arm in declared
             },
             "contrasts": contrasts,
         }
     )
-    report["reading"] = READING_RULES[decision["reading_rule"]](report)
-    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    report["reading"], gates = READING_RULES[decision["reading_rule"]].apply(report)
+    report.update(gates)
+    out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")
     return report
 
 
