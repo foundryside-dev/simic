@@ -108,6 +108,11 @@ through a PR, repair tests and documentation, reconcile the tracker, and remove
 configuration for tools that no longer exist. Everything under "Escalate
 BEFORE acting" below still applies unchanged. GPU or paid campaigns and opening
 outer/test data are also reserved to the owner.
+**GPU WINDOW GRANTED 2026-10-08 (PDR-0050).** Owner: *"GPU approved, you
+have exclusive use to them for at least the next week or so."* Claude MAY
+run GPU experiments on both local RTX 4060 Ti cards for bounded-ladder work.
+Each run is a pre-registered, reviewed PDR, and each plan declares its
+execution profile. Opening outer/test data remains owner-gated.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill
