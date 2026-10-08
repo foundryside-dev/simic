@@ -154,3 +154,18 @@ def test_divergence_in_ste_keeps_its_partial_witness_and_stage(tmp_path: Path, m
     diverged = next(r for r in _records(root) if r["kind"] == "diverged")
     assert diverged["stage"] == "training"
     assert len(diverged["witness"]["ste"]["kappa_live"]) == 3  # steps 0..2, including the one that went non-finite
+
+
+@pytest.mark.parametrize("seed_type", ["norm", "conv_heavy"])
+def test_v2_witness_satisfies_the_validator_bound_exactly_not_to_float32_rounding(seed_type: str) -> None:
+    """GPU dry run 2026-10-08: kappa and lam_t rounded separately in float32 overshot s*c* by ~8e-8."""
+    spec = RunSpec(lifecycle="v2", seed_type=seed_type)
+    cfg = spec.kernel_config()
+    bound = spec.trust_safety * runner.c_star(cfg) * (1 + 1e-9)  # validate_witness's tolerance
+    for trial in range(40):
+        ours, _, h = _training_slot("v2", seed_type, 0.02 + 0.005 * trial)
+        ours(h)
+        ours.trust_region_loss(cfg)
+        witness = ours.last_witness
+        assert witness is not None and witness["clamped"] is True
+        assert witness["kappa_live"] * witness["lam_t"] / cfg.lam <= bound

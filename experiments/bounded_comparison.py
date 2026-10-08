@@ -638,11 +638,13 @@ class ScaleAwareSlot(Slot):
             raise RuntimeError("STE invariant: beta must be 0 during TRAINING")
         h = self.last_h.detach()
         denominator = h.pow(2).mean().clamp_min(1e-12)
-        energy = self._raw_output_energy(h)
-        kappa = float(2 * cfg.lam * energy / denominator)
+        # The witness and the clamp derive from the same two float64 scalars, so the recorded
+        # effective curvature meets the bound exactly; float32 rounded each separately (dry run).
+        d_t, s_t = float(denominator), float(self._raw_output_energy(h))
+        kappa = 2 * cfg.lam * s_t / d_t  # d_t >= 1e-12; a non-finite s_t stays non-finite and is tagged
         lam_t = cfg.lam
-        if self.lifecycle == "v2" and math.isfinite(kappa):
-            lam_t = min(cfg.lam, float(self.trust_safety * c_star(cfg) * denominator / (2 * energy)))
+        if self.lifecycle == "v2" and math.isfinite(kappa) and s_t > 0:
+            lam_t = min(cfg.lam, self.trust_safety * c_star(cfg) * d_t / (2 * s_t))
         self.last_witness = {"kappa_live": kappa, "lam_t": lam_t, "clamped": lam_t < cfg.lam, "gain": float(self.seed.gain.detach())}
         loss: torch.Tensor
         if lam_t == cfg.lam:  # Exactly the kernel's expression (v1, or v2 where v1 is safe).
