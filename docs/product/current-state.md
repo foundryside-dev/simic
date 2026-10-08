@@ -49,8 +49,9 @@ green."* Reserved to John:
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
-- **`main` carries all accepted work:** yes once this checkpoint's PR
-  merges. This session's earlier work merged as PRs #20, #21, #26, #27, #28 and #29.
+- **`main` carries all accepted work:** yes. Lifecycle v2, the GPU profile,
+  immutable snapshots and the validation study merged as PR #30
+  (`9c5c63c`). Earlier work merged as PRs #20, #21, #26, #27, #28 and #29.
 - **Full `tests/` suite:** 391 passed at the source state of `a2d1062`.
   Since then only plan, result and doc text has changed.
 - **No configured tool points at a missing binary:** yes (PDR-0042).
@@ -67,8 +68,6 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For Claude, now:**
-- merge branch `lifecycle-v2` to `main` (lifecycle v2, the GPU profile,
-  immutable snapshots, the validation study);
 - pre-register graft-capture v2 (rung 3): a full-sample contrast with the
   failure rate reported apart, a host-instability policy, GPU, and a
   real-configuration dry run first;
