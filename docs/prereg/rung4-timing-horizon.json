@@ -391,7 +391,37 @@
       9324,
       9325,
       9326,
-      9327
+      9327,
+      9330,
+      9331,
+      9332,
+      9333,
+      9334,
+      9335,
+      9336,
+      9337,
+      9338,
+      9339,
+      9340,
+      9341,
+      9342,
+      9343,
+      9344,
+      9345,
+      9346,
+      9347,
+      9348,
+      9349,
+      9350,
+      9351,
+      9352,
+      9353,
+      9354,
+      9355,
+      9356,
+      9357,
+      9358,
+      9359
     ],
     "population_note": "Inference covers training randomness on one fixed data sample (data_seed 20261004), the under_normalized host and the norm seed."
   },
@@ -456,12 +486,14 @@
     "dev_sha256": "19c7bf0f74c76a2db37295510cbb3b36b30c0fef7ee45181509d834665535a20"
   },
   "criteria": {
-    "delta_nats": 0.05,
+    "delta_timing": 0.02,
+    "delta_horizon": 0.05,
     "family_alpha": 0.05,
     "timing_contrast": [
       "T0",
-      "T5"
+      "T3"
     ],
+    "timing_reference": "T2",
     "horizon_contrast": [
       "H20",
       "T2"
@@ -469,7 +501,7 @@
     "lever_cell": "T0",
     "max_graft_failures_per_cell": 12,
     "max_static_failures": 40,
-    "max_failed_units": 4,
+    "max_failed_runs": 4,
     "bootstrap_resamples": 20000,
     "bootstrap_seed": 20261013
   },

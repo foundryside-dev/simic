@@ -27,14 +27,16 @@ CELLS = {
     "H20": {"graft_epoch": 2, "epochs": 20},
 }
 CRITERIA = {
-    "delta_nats": 0.05,
+    "delta_timing": 0.02,
+    "delta_horizon": 0.05,
     "family_alpha": 0.05,
-    "timing_contrast": ["T0", "T5"],
+    "timing_contrast": ["T0", "T3"],
+    "timing_reference": "T2",
     "horizon_contrast": ["H20", "T2"],
     "lever_cell": "T0",
     "max_graft_failures_per_cell": 3,
     "max_static_failures": 10,
-    "max_failed_units": 2,
+    "max_failed_runs": 2,
     "bootstrap_resamples": 500,
     "bootstrap_seed": 1,
 }
@@ -50,12 +52,14 @@ def unit(
     }
     late = {"no_growth": ng, "static": None if static_div else static, "scheduled": None if graft_div else graft}
     horizon = "h20" if cell == "H20" else "h10"
+    prefix = f"p-g2-{seed}" if cell in ("T2", "H20") else f"p-{cell}-{seed}"  # H20 continues T2
     return {
         "cell": cell,
         "seed": seed,
         "status": status,
         "late_ce": late,
         "replay_digest": {"no_growth": f"ng-{horizon}-{seed}", "static": f"st-{horizon}-{seed}"},
+        "prefix_digest": prefix,
     }
 
 
@@ -75,6 +79,11 @@ def world(timing_slope: float, horizon_shrink: float, n: int = 40, noise: float 
                 graft = base + timing_slope * spec["graft_epoch"] + noise * float(rng.standard_normal())
                 units.append(unit(cell, seed, graft))
     return units
+
+
+def test_three_way_classification_uses_the_given_margin() -> None:
+    assert ts.classify({"lower": -0.04, "upper": -0.025}, 0.02) == "beyond_floor"
+    assert ts.classify({"lower": -0.04, "upper": -0.025}, 0.05) == "flat"
 
 
 def test_three_way_classification() -> None:
@@ -106,7 +115,7 @@ def test_flat_timing_and_horizon_with_static_winning_everywhere_stops_the_ladder
 def test_a_cell_where_static_does_not_clearly_win_blocks_the_stop() -> None:
     units = world(timing_slope=0.0, horizon_shrink=0.0)
     for u in units:
-        if u["cell"] == "T3":  # graft and static indistinguishable here
+        if u["cell"] == "T5":  # outside the timing contrast  # graft and static indistinguishable here
             u["late_ce"]["scheduled"] = u["late_ce"]["static"] + (0.02 if u["seed"] % 2 else -0.02)
     report = ts.evaluate(units, CELLS, CRITERIA)
     assert report["static_wins_every_cell"] is False and report["reading"] == "inconclusive"
@@ -154,6 +163,40 @@ def test_capture_fraction_is_described_per_cell() -> None:
     assert report["capture_fraction"]["T0"]["estimate"] > report["capture_fraction"]["T5"]["estimate"]
 
 
+def test_beyond_floor_in_the_adverse_direction_is_not_a_lever() -> None:
+    later_better = ts.evaluate(world(timing_slope=-0.03, horizon_shrink=0.0), CELLS, CRITERIA)
+    assert later_better["timing"]["favourable"] is False and later_better["reading"] == "changes_adversely"
+    widening = ts.evaluate(world(timing_slope=0.0, horizon_shrink=-0.08), CELLS, CRITERIA)
+    assert widening["horizon"]["favourable"] is False and widening["reading"] == "changes_adversely"
+
+
+def test_a_timing_effect_peaking_mid_range_blocks_the_stop() -> None:
+    units = world(timing_slope=0.0, horizon_shrink=0.0)
+    for u in units:
+        if u["cell"] == "T1":
+            u["late_ce"]["scheduled"] -= 0.04  # T0 and T3 equal; T1 clearly better
+    report = ts.evaluate(units, CELLS, CRITERIA)
+    assert report["timing"]["classification"] == "flat"
+    assert report["timing_shape"]["cells"]["T1"]["classification"] == "beyond_floor"
+    assert report["reading"] == "inconclusive"
+
+
+def test_a_long_cell_that_does_not_continue_its_short_twin_is_an_instrument_failure() -> None:
+    units = world(timing_slope=0.03, horizon_shrink=0.0)
+    next(u for u in units if u["cell"] == "H20")["prefix_digest"] = "different"
+    report = ts.evaluate(units, CELLS, CRITERIA)
+    assert report["replay"]["mismatches"][0][0] == "prefix" and report["reading"] == "instrument_failure"
+
+
+def test_a_lever_cell_without_three_pairs_is_an_instrument_failure() -> None:
+    units = world(timing_slope=0.0, horizon_shrink=0.0, n=40)
+    for u in units:
+        if u["cell"] in ("T0", "T1", "T2", "T3", "T5") and u["seed"] > 1:
+            u["status"]["static"] = "diverged"
+            u["late_ce"]["static"] = None
+    assert ts.evaluate(units, CELLS, {**CRITERIA, "max_static_failures": 50})["reading"] == "instrument_failure"
+
+
 # --- plan, launch and analysis ---
 
 PLAN_PATH = runner.REPO / "docs" / "prereg" / "rung4-timing-horizon.json"
@@ -170,7 +213,7 @@ def base_plan() -> dict[str, Any]:
         "config": config,
         "endpoint": {"late_window": 3},
         "data_identity": validated["data_identity"],
-        "criteria": {**CRITERIA, "max_graft_failures_per_cell": 2, "max_static_failures": 2},
+        "criteria": {**CRITERIA, "max_graft_failures_per_cell": 2, "max_static_failures": 2, "max_failed_runs": 2},
         "gated_by": None,
         "linked_plans": [],
     }
@@ -194,6 +237,13 @@ def test_plan_loads_and_derives_late_windows(tmp_path: Path) -> None:
         lambda p: p["cells"].update(T9={"graft_epoch": 9, "epochs": 10}),  # cannot fossilize inside the horizon
         lambda p: p["config"].update(epochs=10),  # a cell field set in config
         lambda p: p["criteria"].update(timing_contrast=["T0", "T7"]),
+        lambda p: p["criteria"].update(timing_contrast=["T3", "T0"]),  # earlier graft must come first
+        lambda p: p["criteria"].update(timing_contrast=["T0", "H20"]),  # across horizons
+        lambda p: p["criteria"].update(horizon_contrast=["H20", "T3"]),  # different graft timing
+        lambda p: p["criteria"].update(timing_reference="H20"),
+        lambda p: p["cells"].update({"../x": {"graft_epoch": 4, "epochs": 10}}),
+        lambda p: p["cells"].update(T2b={"graft_epoch": 2, "epochs": 10}),  # duplicate spec
+        lambda p: p["endpoint"].update(late_window=8),  # window before germination in T5
         lambda p: p["criteria"].update(lever_cell="H40"),
         lambda p: p["criteria"].update(max_graft_failures_per_cell=3),  # not below units.count
         lambda p: p["data_identity"].pop("dev_sha256"),
@@ -264,10 +314,10 @@ def _fake_study(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, broken: tuple[t
 
     def summary(run: Path, late: list[int]) -> dict[str, Any]:
         u = synthetic[(run.name, int(run.parent.name.split("-")[1]))]
-        return {k: u[k] for k in ("status", "late_ce", "replay_digest")}
+        return {k: u[k] for k in ("status", "late_ce", "replay_digest", "prefix_digest")}
 
     monkeypatch.setattr(ts, "verify_run", verify)
-    monkeypatch.setattr(ts, "unit_summary", summary)
+    monkeypatch.setattr(ts, "run_summary", lambda run, late, short: summary(run, late))
     return root, path
 
 
@@ -305,6 +355,45 @@ def test_the_committed_rung4_plan_matches_the_owner_signed_decide() -> None:
         "H20": (2, 20),
     }
     assert (plan["config"]["host"], plan["config"]["seed_type"], plan["config"]["lifecycle"]) == ("under_normalized", "norm", "v2")
-    assert plan["criteria"]["delta_nats"] == 0.05 and plan["criteria"]["lever_cell"] == "T0"
+    assert (plan["criteria"]["delta_timing"], plan["criteria"]["delta_horizon"]) == (0.02, 0.05)
+    assert plan["criteria"]["timing_contrast"] == ["T0", "T3"] and plan["criteria"]["lever_cell"] == "T0"
     used = set(range(7001, 7097)) | set(range(9301, 9328)) | set(range(4001, 4025))
     assert set(ts.unit_seeds(plan)).isdisjoint(used)
+
+
+def test_an_interrupted_fleet_resumes_from_its_own_snapshot_and_keeps_partial_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = base_plan()
+    path = write(tmp_path, plan)
+    snapshot = tmp_path / "snap"
+    snapshot.mkdir()
+    monkeypatch.setattr(ts, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(ts, "make_snapshot", lambda dest: snapshot)
+    monkeypatch.setattr(ts, "visible_gpus", lambda: [0, 1])
+    monkeypatch.setattr(ts, "cifar_source_hashes", lambda root: plan["data_identity"]["source_files"])
+    monkeypatch.setattr(
+        ts, "load_fit_dev", lambda spec, root: (None, None, None, None, {k: plan["data_identity"][k] for k in ("fit_sha256", "dev_sha256")})
+    )
+    trained: list[str] = []
+
+    def fake_run(command: list[str], **kwargs: Any) -> Any:
+        out = Path(command[command.index("--output") + 1])
+        out.mkdir(parents=True)
+        (out / "complete.json").write_text("{}")
+        trained.append(f"{out.parent.name}/{out.name}")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr("experiments.timing_study.subprocess.run", fake_run)
+    root = tmp_path / "study"
+    ts.launch(root, tmp_path, 2, path)
+    # Simulate an interruption: the fleet never finished and one run died mid-way.
+    (root / "launch-finished.json").unlink()
+    (ts.unit_dir(root, 9902, "T3") / "complete.json").unlink()
+    trained.clear()
+    finished = ts.launch(root, tmp_path, 2, path, resume=True)
+    assert trained == ["seed-9902/T3"]
+    assert sum(1 for u in finished["units"] if u.get("resumed")) == 17
+    assert list((root / "units" / "seed-9902").glob("T3.partial-*"))  # set aside, never deleted
+    (root / "launch-finished.json").unlink()
+    path.write_text(json.dumps({**plan, "study": {"id": "changed"}}))
+    with pytest.raises(RuntimeError, match="resume refused"):
+        ts.launch(root, tmp_path, 2, path, resume=True)

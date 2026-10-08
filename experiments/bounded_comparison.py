@@ -597,6 +597,31 @@ class ArmDivergedError(ValueError):
         self.witness: dict[str, Any] = witness if witness is not None else {"seed_present": False}
 
 
+def draw_future(seed: int, n_train: int, epochs: int, cfg: Any) -> CommonFuture:
+    """The run's common future, prefix-stable across horizons (rung-4 statistics review).
+
+    The kernel's CommonFuture.draw takes every epoch's order, then all crops, then all flips
+    from one generator, so a 20-epoch draw shares only the order prefix of a 10-epoch one and
+    a horizon contrast is paired in name only. Here each epoch draws from its own derived
+    generator, so a longer run replays a shorter one bitwise over their shared epochs.
+    """
+    bs = cfg.batch_size
+    steps = n_train // bs
+    if steps == 0:
+        raise ValueError(f"n_train={n_train} < batch_size={bs}: zero steps per epoch")
+    orders, crops, flips = [], [], []
+    for epoch in range(epochs):
+        g = make_generator(derive(seed, "epoch", epoch))
+        orders.append(torch.randperm(n_train, generator=g)[: steps * bs])
+        crops.append(torch.randint(0, 9, (steps, bs, 2), generator=g, dtype=torch.uint8))
+        flips.append(torch.rand(steps, bs, generator=g) < 0.5)
+    order, crop, flip = torch.stack(orders), torch.stack(crops), torch.stack(flips)
+    h = hashlib.sha256()
+    for t in (order, crop, flip):
+        h.update(t.numpy().tobytes())
+    return CommonFuture(order, crop, flip, epochs, h.hexdigest())
+
+
 def c_star(cfg: Any) -> float:
     """Nesterov momentum-SGD stability limit on curvature along one direction (dampening 0)."""
     return float(2 * (1 + cfg.momentum) / (cfg.seed_lr * (1 + 2 * cfg.momentum)))
@@ -789,7 +814,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
     tx, ty, dx, dy, provenance = load_fit_dev(spec, data_root)  # Provenance hashes are taken on CPU.
     device = torch.device(spec.device)
     tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
-    future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
+    future = draw_future(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
     output.mkdir(parents=True, exist_ok=False)
     manifest: dict[str, Any] = {
         "schema_version": SCHEMA,
