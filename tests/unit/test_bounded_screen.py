@@ -36,6 +36,7 @@ BASE_PLAN: dict[str, Any] = {
         "seed_type": "conv_light",
         "lifecycle": "v1",
         "trust_safety": 0.5,
+        "device": "cpu",
     },
     "endpoint": {"late_epochs": [4, 5, 6]},
     "analysis": {
@@ -79,10 +80,11 @@ def fake_screen(
         "analysis_module_sha256": screen.analysis_module_hash(),
         "git": {"commit": "x"},
         "seeds": seeds,
+        "snapshot": str(runner.REPO),  # tests analyse from the checkout they run in
     }
     (root / "launch.json").write_text(json.dumps(launch))
     (root / "launch-finished.json").write_text(json.dumps({"units": [{"seed": s, "returncode": 0} for s in seeds]}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     diverged = diverged or {}
 
     def verify(unit: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
@@ -220,10 +222,10 @@ def test_analysis_refuses_changed_plan_and_republication(tmp_path, monkeypatch):
 
 def test_launch_refuses_dirty_tree_and_exposed_test_batch(tmp_path, monkeypatch):
     plan = write_plan(tmp_path)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": " M file"})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": " M file"})
     with pytest.raises(RuntimeError, match="dirty"):
         screen.launch(tmp_path / "screen", tmp_path, 1, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     (tmp_path / "cifar-10-batches-py").mkdir()
     (tmp_path / "cifar-10-batches-py" / "test_batch").write_text("")
     with pytest.raises(RuntimeError, match="test_batch"):
@@ -253,7 +255,7 @@ def test_analysis_refuses_a_changed_analysis_module_or_dirty_tree(tmp_path, monk
         screen.analyze(root, plan)
     launch["analysis_module_sha256"] = screen.analysis_module_hash()
     (root / "launch.json").write_text(json.dumps(launch))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": " M f"})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": " M f"})
     with pytest.raises(RuntimeError, match="dirty"):
         screen.analyze(root, plan)
 
@@ -458,7 +460,8 @@ def test_launch_records_linked_plan_hashes_and_seals_runner_stdout(tmp_path, mon
     plan["units"]["count"] = 1
     plan["linked_plans"] = [str(linked)]
     path = write_plan(tmp_path, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path)
     record = json.loads((tmp_path / "screen" / "launch.json").read_text())
@@ -541,7 +544,7 @@ def test_plan_numeric_and_structural_fields_are_validated(tmp_path, mutate):
 
 
 def test_launch_validates_workers_before_creating_anything(tmp_path, monkeypatch):
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
     with pytest.raises(ValueError, match="workers"):
         screen.launch(tmp_path / "screen", tmp_path, 0, write_plan(tmp_path))
     assert not (tmp_path / "screen").exists()
@@ -551,7 +554,8 @@ def test_runner_stdout_really_lands_in_the_sealed_file(tmp_path, monkeypatch):
     plan = copy.deepcopy(BASE_PLAN)
     plan["units"]["count"] = 1
     path = write_plan(tmp_path, plan)
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["echo", "scheduled-arm-secret"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path)
     assert "scheduled-arm-secret" in (tmp_path / "screen" / "seed-1.runner-stdout.sealed").read_text()
@@ -578,7 +582,8 @@ def test_gated_launch_requires_the_gate_reading_and_its_own_pinned_hash(tmp_path
     path = gated_plan(tmp_path, gate_root, gate_plan)
     (gate_root / "screen_report.json").write_text(json.dumps({"reading": reading}))
     (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(path): file_hash(path) if pinned else "0" * 64}}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     if allowed:
         screen.launch(tmp_path / "screen", tmp_path, 1, path)
@@ -632,7 +637,8 @@ def test_gate_accepts_the_pinned_plan_by_hash_whatever_path_spelling(tmp_path, m
     (gate_root / "screen_report.json").write_text(json.dumps({"reading": "control_passes"}))
     relative = Path(os.path.relpath(path))
     (gate_root / "launch.json").write_text(json.dumps({"linked_plan_sha256": {str(relative): file_hash(path)}}))
-    monkeypatch.setattr(screen, "git_identity", lambda: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "git_identity", lambda *a: {"commit": "x", "status": ""})
+    monkeypatch.setattr(screen, "make_snapshot", lambda dest: dest.mkdir() or dest)
     monkeypatch.setattr(screen, "train_command", lambda *a: ["true"])
     screen.launch(tmp_path / "screen", tmp_path, 1, path.resolve())
 

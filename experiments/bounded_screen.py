@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import os
+import queue
 import subprocess
 import sys
 import time
@@ -172,10 +173,35 @@ def train_command(plan: dict[str, Any], seed: int, output: Path, data_root: Path
     return [*command, "--seed", str(seed)]  # Last, so nothing can override the unit's seed.
 
 
+def visible_gpus() -> list[int]:
+    import torch
+
+    return list(range(torch.cuda.device_count()))
+
+
+def make_snapshot(dest: Path) -> Path:
+    """An immutable copy of HEAD's tracked files, with its identity (independent review, 2026-10-08).
+
+    Units train, and the analysis runs, from this copy, so edits to the live checkout can
+    neither change a running fleet nor fail its verification.
+    """
+    dest.mkdir(parents=False, exist_ok=False)
+    head = git_identity()["commit"]
+    archive = subprocess.run(["git", "archive", "--format=tar", head], cwd=REPO, check=True, capture_output=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(dest)], input=archive, check=True)
+    (dest / "SNAPSHOT.json").write_text(strict_json({"commit": head, "created_unix": time.time()}) + "\n")
+    return dest
+
+
 def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
     if type(workers) is not int or workers < 1:
         raise ValueError("workers must be a positive int")
+    gpus: list[int] = []
+    if plan["config"]["device"] == "cuda":
+        gpus = visible_gpus()
+        if not gpus or workers > len(gpus):
+            raise ValueError(f"one process per GPU: {workers} workers requested, {len(gpus)} GPUs visible")
     git = git_identity()
     if git["status"]:
         raise RuntimeError("refusing to launch from a dirty tree: the commit must pin the frozen procedure")
@@ -183,6 +209,9 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
     if (data_root / "cifar-10-batches-py" / "test_batch").exists():
         raise RuntimeError("data root exposes test_batch; use a training-only view")
     root.mkdir(parents=False, exist_ok=False)
+    root = root.resolve()
+    data_root = data_root.resolve()
+    snapshot = make_snapshot(root / "src")
     seeds = unit_seeds(plan)
     launch_record = {
         "study": plan["study"]["id"],
@@ -192,23 +221,33 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path) -> dict[s
         # Plans that must stay frozen while this study runs, e.g. a graft study gated on it (PDR-0046 F7).
         "linked_plan_sha256": {str(Path(p)): file_hash(Path(p)) for p in plan["linked_plans"]},
         "git": git,
+        "snapshot": str(snapshot),
+        "gpus": gpus,
         "seeds": seeds,
         "workers": workers,
         "started_unix": time.time(),
     }
     (root / "launch.json").write_text(strict_json(launch_record) + "\n")
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", CUDA_VISIBLE_DEVICES="", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
-    env["PYTHONPATH"] = f"{REPO}:{REPO / 'src'}"
+    base_env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    base_env["PYTHONPATH"] = f"{snapshot}:{snapshot / 'src'}"
+    free: queue.Queue[str] = queue.Queue()
+    for slot in [str(g) for g in gpus] or [""] * workers:  # "" hides every GPU from CPU units.
+        free.put(slot)
 
     def run(seed: int) -> dict[str, Any]:
         unit = root / f"seed-{seed}"
-        started = time.monotonic()
-        # The runner prints every arm's summary; the file is sealed so undeclared arms stay unread (PDR-0046 F6).
-        with (root / f"seed-{seed}.runner-stdout.sealed").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
-            code = subprocess.run(
-                train_command(plan, seed, unit, data_root), cwd=REPO, env=env, stdout=out, stderr=err, check=False
-            ).returncode
-        return {"seed": seed, "returncode": code, "wall_s": time.monotonic() - started}
+        gpu = free.get()  # One process per GPU: a device is held for the whole unit (GPU probe).
+        try:
+            env = dict(base_env, CUDA_VISIBLE_DEVICES=gpu)
+            started = time.monotonic()
+            # The runner prints every arm's summary; the file is sealed so undeclared arms stay unread (PDR-0046 F6).
+            with (root / f"seed-{seed}.runner-stdout.sealed").open("w") as out, (root / f"seed-{seed}.stderr").open("w") as err:
+                code = subprocess.run(
+                    train_command(plan, seed, unit, data_root), cwd=snapshot, env=env, stdout=out, stderr=err, check=False
+                ).returncode
+            return {"seed": seed, "returncode": code, "wall_s": time.monotonic() - started, "gpu": gpu}
+        finally:
+            free.put(gpu)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(run, seeds))  # No retries: a failed unit is a recorded failure.
@@ -392,6 +431,8 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     plan = load_plan(plan_path)
     plan_sha = file_hash(plan_path)
     launched = read_json(root / "launch.json")
+    if not Path(__file__).resolve().is_relative_to(Path(launched["snapshot"]).resolve()):
+        raise ValueError(f"analysis must run from the launch snapshot {launched['snapshot']} (PYTHONPATH), not the live checkout")
     if launched["prereg_sha256"] != plan_sha:
         raise ValueError("pre-registration changed after launch")
     if launched.get("analysis_module_sha256") != analysis_module_hash():

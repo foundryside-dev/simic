@@ -39,6 +39,7 @@ from experiments.kernel_demo import (
     build_optimizer,
     build_seed,
     derive,
+    enable_class1,
     make_generator,
     normalize_u8,
     state_hash,
@@ -356,10 +357,10 @@ def append_record(fh: TextIO, record: dict[str, Any]) -> None:
     os.fsync(fh.fileno())
 
 
-def runtime(threads: int) -> dict[str, Any]:
+def runtime(spec: RunSpec) -> dict[str, Any]:
     import torchvision
 
-    return {
+    identity: dict[str, Any] = {
         "python": platform.python_version(),
         "torch": torch.__version__,
         "torchvision": torchvision.__version__,
@@ -368,22 +369,40 @@ def runtime(threads: int) -> dict[str, Any]:
         "processor": platform.processor(),
         "hostname": platform.node(),
         "cpu_count": os.cpu_count(),
-        "threads": threads,
-        "device": "cpu",
+        "threads": spec.threads,
+        "device": spec.device,
         "deterministic": torch.are_deterministic_algorithms_enabled(),
         "mkldnn": torch.backends.mkldnn.enabled,
         "default_dtype": str(torch.get_default_dtype()),
     }
+    if spec.device == "cuda":  # Exactness is per SKU, driver and build: record them so replay can refuse a mismatch.
+        identity.update(
+            {
+                "gpu_name": torch.cuda.get_device_name(0),
+                "cuda": torch.version.cuda,
+                "cudnn": torch.backends.cudnn.version(),  # type: ignore[no-untyped-call]
+                "cudnn_deterministic": torch.backends.cudnn.deterministic,
+                "cudnn_benchmark": torch.backends.cudnn.benchmark,
+                "tf32_matmul": torch.backends.cuda.matmul.allow_tf32,
+                "tf32_cudnn": torch.backends.cudnn.allow_tf32,
+                "cublas_workspace_config": os.environ.get("CUBLAS_WORKSPACE_CONFIG", ""),
+            }
+        )
+    return identity
 
 
-def configure_cpu(spec: RunSpec) -> None:
+def configure(spec: RunSpec) -> None:
     spec.validate()
     torch.set_num_threads(spec.threads)
     torch.use_deterministic_algorithms(True)
     torch.set_default_dtype(torch.float32)
-    torch.set_default_device("cpu")
-    # Pin only the CPU process stream, without initializing a GPU or letting
-    # ambient interpreter startup RNG change deterministic trace identities.
+    torch.set_default_device("cpu")  # Tensors are moved explicitly; nothing is created on a GPU implicitly.
+    if spec.device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("device cuda requested but no CUDA device is visible")
+        enable_class1()  # Deterministic algorithms, cuDNN deterministic, no benchmark, no TF32, fixed cuBLAS workspace.
+        torch.cuda.manual_seed_all(derive(spec.seed, "process-global-cuda"))
+    # Pin the CPU process stream, without letting ambient interpreter startup RNG change trace identities.
     torch.set_rng_state(make_generator(derive(spec.seed, "process-global-cpu")).get_state())
 
 
@@ -400,9 +419,15 @@ def source_identity() -> dict[str, Any]:
     return identity
 
 
-def git_identity() -> dict[str, Any]:
+def git_identity(repo: Path = REPO) -> dict[str, Any]:
+    """The commit and tree status, or the recorded identity of an immutable launch snapshot."""
+    marker = repo / "SNAPSHOT.json"
+    if marker.is_file():
+        snapshot = read_json(marker)
+        return {"commit": snapshot["commit"], "status": ""}
+
     def run(*args: str) -> str:
-        return subprocess.run(["git", "--no-optional-locks", *args], cwd=REPO, check=True, capture_output=True, text=True).stdout.strip()
+        return subprocess.run(["git", "--no-optional-locks", *args], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
 
     return {"commit": run("rev-parse", "HEAD"), "status": run("status", "--porcelain=v1", "--untracked-files=all")}
 
@@ -450,6 +475,8 @@ def training_state_hash(host: nn.Module, slot: Slot, opt: torch.optim.SGD) -> st
                 h.update(key.encode())
                 h.update((tensor_hash(value) if isinstance(value, torch.Tensor) else strict_json(value)).encode())
     h.update(tensor_hash(torch.get_rng_state()).encode())
+    if any(p.is_cuda for p in host.parameters()):  # GPU lineage: the CUDA stream is part of the state (GPU probe).
+        h.update(tensor_hash(torch.cuda.get_rng_state()).encode())
     return h.hexdigest()
 
 
@@ -516,7 +543,7 @@ def attach_seed(host: Any, slot: Slot, opt: torch.optim.SGD, spec: RunSpec, fit_
     """Germinate once; the gain is calibrated on fit inputs, never development data."""
     if slot.seed is not None or slot.stage is not Stage.DORMANT:
         raise RuntimeError("one lifetime germination attempt allowed")
-    seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
+    seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init")).to(fit_x.device)
     body_before = parameter_hash(seed, body_only=True)
     buffers_before = state_hash(seed)
     host_before, opt_before = state_hash(host), optimizer_host_hash(opt)
@@ -749,10 +776,12 @@ def save_checkpoint(path: Path, host: nn.Module, slot: Slot, arm: str, manifest_
 
 
 def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[str, Any]:
-    configure_cpu(spec)
+    configure(spec)
     if output.exists():
         raise FileExistsError("output must be a fresh directory; interrupted runs remain incomplete")
-    tx, ty, dx, dy, provenance = load_fit_dev(spec, data_root)
+    tx, ty, dx, dy, provenance = load_fit_dev(spec, data_root)  # Provenance hashes are taken on CPU.
+    device = torch.device(spec.device)
+    tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
     future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
     output.mkdir(parents=True, exist_ok=False)
     manifest: dict[str, Any] = {
@@ -764,7 +793,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
         "data": provenance,
         "source": source_identity(),
         "git": git_identity(),
-        "runtime": runtime(spec.threads),
+        "runtime": runtime(spec),
         "common_future_sha256": future.hash,
         "host_init_seed": derive(spec.seed, "host-init"),
         "seed_body_init_seed": derive(spec.seed, "seed-body-init"),
@@ -785,7 +814,7 @@ def train(spec: RunSpec, output: Path, data_root: Path | None = None) -> dict[st
     with (output / "training.jsonl").open("x") as log:
         for arm in ARMS:
             started = time.perf_counter()
-            host = build_host(spec.host, manifest["host_init_seed"])
+            host = build_host(spec.host, manifest["host_init_seed"]).to(device)
             slot = ScaleAwareSlot(spec)
             opt = build_optimizer(host, spec.kernel_config())
             host_initial = parameter_hash(host)
@@ -1028,8 +1057,8 @@ def verify_run(root: Path) -> tuple[dict[str, Any], dict[str, Any], RunSpec]:
     if not isinstance(manifest["spec"], dict) or set(manifest["spec"]) != {field.name for field in dataclasses.fields(RunSpec)}:
         raise ValueError("incomplete specification")
     spec = validated_spec(manifest["spec"])
-    configure_cpu(spec)
-    if manifest["runtime"] != runtime(spec.threads):
+    configure(spec)
+    if manifest["runtime"] != runtime(spec):
         raise ValueError("execution runtime mismatch")
     data = require_keys(
         manifest["data"],
@@ -1125,11 +1154,12 @@ def restore_checkpoint(root: Path, arm: str, manifest_hash: str, spec: RunSpec) 
     checkpoint = _read_checkpoint(root / f"{arm}.pt")
     if checkpoint["schema_version"] != SCHEMA or checkpoint["arm"] != arm or checkpoint["manifest_sha256"] != manifest_hash:
         raise ValueError("checkpoint identity mismatch")
-    host = build_host(spec.host, derive(spec.seed, "host-init"))
+    host = build_host(spec.host, derive(spec.seed, "host-init")).to(spec.device)
     host.load_state_dict(checkpoint["host"], strict=True)
     slot = ScaleAwareSlot(spec)
     if arm != "no_growth":
         slot.seed = build_seed(spec.seed_type, 64, derive(spec.seed, "seed-body-init"))
+        slot.seed.to(spec.device)
         slot.seed.load_state_dict(checkpoint["seed"], strict=True)
     elif checkpoint["seed"] is not None:
         raise ValueError("no-growth checkpoint contains a seed")
@@ -1154,8 +1184,9 @@ def evaluate(root: Path, data_root: Path | None = None) -> dict[str, Any]:
     # All checkpoints validated/materialized before opening outer data.
     models = {arm: restore_checkpoint(root, arm, complete["artifacts"]["manifest.json"], spec) for arm in ARMS}
     x, y, outer_identity = load_outer(spec, data_root, manifest["data"])
+    x, y = x.to(spec.device), y.to(spec.device)
     started = time.perf_counter()
-    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")), ScaleAwareSlot(spec), x, y, spec.batch_size)
+    untrained = score(build_host(spec.host, derive(spec.seed, "host-init")).to(spec.device), ScaleAwareSlot(spec), x, y, spec.batch_size)
     scores = {arm: score(host, slot, x, y, spec.batch_size) for arm, (host, slot) in models.items()}
     result = evaluation_record(
         verified, outer_identity, scores, untrained, time.perf_counter() - started, file_hash(root / "complete.json")
@@ -1201,7 +1232,7 @@ def evaluation_record(
         "manifest_sha256": complete["artifacts"]["manifest.json"],
         "completion_sha256": completion_hash,
         "source": source_identity(),
-        "runtime": runtime(spec.threads),
+        "runtime": runtime(spec),
         "data": outer_identity,
         "claim_scope": "engineering-smoke-only" if spec.data == "smoke" else "one-prospective-CIFAR-split",
         "untrained_host_score": untrained,

@@ -82,7 +82,7 @@ def test_scoring_is_sample_weighted_and_preserves_state_rng_and_modes():
 
 def test_birth_preserves_momentum_and_pairs_body_initialization():
     spec = RunSpec(epochs=7)
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     tx, ty = smoke_split(spec, "fit")
     dx, _ = smoke_split(spec, "dev")
     host = build_host("mild", derive(spec.seed, "host-init"))
@@ -105,7 +105,7 @@ def test_birth_preserves_momentum_and_pairs_body_initialization():
 
 def test_no_growth_matches_legacy_production_host_and_optimizer_exactly():
     spec = RunSpec(epochs=7)
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     tx, ty = smoke_split(spec, "fit")
     dx, dy = smoke_split(spec, "dev")
     future = CommonFuture.draw(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
@@ -137,7 +137,7 @@ def test_no_growth_matches_legacy_production_host_and_optimizer_exactly():
 @pytest.mark.parametrize("stage,alpha,beta", [(Stage.TRAINING, 0.0, 0.0), (Stage.BLENDING, 0.5, 0.0), (Stage.FOSSILIZED, 1.0, 1.0)])
 def test_ce_alone_updates_seed_body_and_gain(stage, alpha, beta):
     spec = RunSpec(epochs=7)
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     tx, ty = smoke_split(spec, "fit")
     dx, _ = smoke_split(spec, "dev")
     host, slot = build_host("mild", derive(spec.seed, "host-init")), runner.ScaleAwareSlot(RunSpec())
@@ -160,7 +160,7 @@ def test_ce_alone_updates_seed_body_and_gain(stage, alpha, beta):
 
 def test_prefix_gradient_isolation_and_recoupling():
     spec = RunSpec()
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     dx, _ = smoke_split(spec, "dev")
     host, slot = build_host("mild", 1), runner.ScaleAwareSlot(RunSpec())
     runner.attach_seed(host, slot, build_optimizer(host, spec.kernel_config()), spec, dx, static=False)
@@ -178,7 +178,7 @@ def test_prefix_gradient_isolation_and_recoupling():
 
 def test_full_state_identity_sees_seed_momentum_and_lifecycle():
     spec = RunSpec(epochs=7)
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     dx, _ = smoke_split(spec, "dev")
     host, slot = build_host("mild", 1), runner.ScaleAwareSlot(RunSpec())
     opt = build_optimizer(host, spec.kernel_config())
@@ -336,8 +336,8 @@ def test_missing_summary_cost_refused(completed_run, tmp_path):
 def test_process_rng_pin_ignores_ambient_startup_state():
     spec = RunSpec()
     torch.set_rng_state(make_generator(1).get_state())
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     expected = torch.get_rng_state().clone()
     torch.set_rng_state(make_generator(999).get_state())
-    runner.configure_cpu(spec)
+    runner.configure(spec)
     assert torch.equal(expected, torch.get_rng_state())
