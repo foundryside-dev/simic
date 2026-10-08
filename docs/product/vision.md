@@ -129,6 +129,11 @@ have exclusive use to them for at least the next week or so."* Claude MAY
 run GPU experiments on both local RTX 4060 Ti cards for bounded-ladder work.
 Each run is a pre-registered, reviewed PDR, and each plan declares its
 execution profile. Opening outer/test data remains owner-gated.
+**COMPUTE, 2026-10-09 (owner, in session):** *"I'm willing to commit more
+compute to this - nyx is my hardware so you don't need to ask for
+permission to run a job/batch, If I want to stop it I will."* Jobs and
+batches on nyx need no permission. Size studies for the answer. The
+pre-launch sketch and the programme-level gates below are unchanged.
 **ACCEPTANCE-GATE CLAUSE CLARIFIED 2026-10-09 (PDR-0053), RATIFIED THE
 SAME DAY.** Owner, in session: *"ok, please update the vision"*. At
 read-back, the owner chose "Ratify; sketch before launch". Claude had surfaced that the

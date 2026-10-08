@@ -292,3 +292,19 @@ def test_a_crashed_run_is_recorded_and_beyond_the_allowance_is_instrument_failur
     root, path = _fake_study(tmp_path, monkeypatch, broken=(("T0", 9901), ("T5", 9902), ("H20", 9903)))
     report = ts.analyze(root, path)
     assert len(report["failures"]) == 3 and report["reading"] == "instrument_failure"
+
+
+def test_the_committed_rung4_plan_matches_the_owner_signed_decide() -> None:
+    plan = ts.load_plan(PLAN_PATH)
+    assert {c: (v["graft_epoch"], v["epochs"]) for c, v in plan["cells"].items()} == {
+        "T0": (0, 10),
+        "T1": (1, 10),
+        "T2": (2, 10),
+        "T3": (3, 10),
+        "T5": (5, 10),
+        "H20": (2, 20),
+    }
+    assert (plan["config"]["host"], plan["config"]["seed_type"], plan["config"]["lifecycle"]) == ("under_normalized", "norm", "v2")
+    assert plan["criteria"]["delta_nats"] == 0.05 and plan["criteria"]["lever_cell"] == "T0"
+    used = set(range(7001, 7097)) | set(range(9301, 9328)) | set(range(4001, 4025))
+    assert set(ts.unit_seeds(plan)).isdisjoint(used)
