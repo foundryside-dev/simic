@@ -110,3 +110,31 @@ def test_analyze_refuses_a_changed_preregistration(tiny_screen, tmp_path):
     edited.write_text(prereg_path.read_text().replace('"delta_nats": 0.05', '"delta_nats": 0.5'))
     with pytest.raises(ValueError, match="changed after launch"):
         screen.analyze(root, edited)
+
+
+def test_gate_scopes_to_the_no_op_contrast_while_a_noisy_static_arm_only_fails_credibility(tmp_path, monkeypatch):
+    prereg = screen.load_prereg()
+    prereg["units"].update(first_seed=1, count=20, excluded_seeds=[])
+    prereg_path = tmp_path / "prereg.json"
+    prereg_path.write_text(json.dumps(prereg))
+    root = tmp_path / "screen"
+    root.mkdir()
+    (root / "launch.json").write_text(json.dumps({"prereg_sha256": file_hash(prereg_path)}))
+    rng = np.random.default_rng(0)
+    values = {
+        seed: {
+            "no_growth": 1.10,
+            "scheduled": 1.10 + 0.005 * float(rng.standard_normal()),
+            "static": 1.10 + 0.4 * float(rng.standard_normal()),
+        }
+        for seed in range(1, 21)
+    }
+    monkeypatch.setattr(screen, "verify_run", lambda unit: None)
+    monkeypatch.setattr(screen, "late_ce", lambda unit, epochs: values[int(unit.name.split("-")[1])])
+    report = screen.analyze(root, prereg_path)
+    assert report["gate_instrument_resolves"] is True
+    assert report["static_comparison_credible"] is False
+    assert report["adr0018_reopen_trigger"] is True
+    assert "static_not_credible" in report["adr0018_reopen_reasons"]
+    assert "instrument_imprecise" not in report["adr0018_reopen_reasons"]
+    assert report["contrasts"]["scheduled_minus_no_growth"]["verdict"] == "equivalent_within_floor"

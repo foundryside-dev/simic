@@ -45,22 +45,34 @@ exploratory. The run stays on development data only, under the frozen plan:
   descriptive.
 - **Floor δ = 0.05 nats.** It is fixed before the fleet, not fitted to the
   pilot.
-- **Gate (PDR-0043):** the instrument *resolves at bounded scale* if both
-  co-primary CI half-widths are ≤ δ. This is precision, not significance.
+- **Gate (PDR-0043):** the instrument *resolves at bounded scale* if the
+  scheduled − no growth CI half-width is ≤ δ. This is precision on the matched
+  no-op contrast, not significance.
+- **Static comparison credible:** the scheduled − static CI half-width is ≤ δ.
+  This is reported separately, because the static arm's own instability is not
+  a property of the instrument.
 - **ADR-0018 reopen trigger:** static wins (scheduled − static CI lower bound
-  > 0), or the gate's precision criterion fails.
+  > 0), or either precision criterion fails.
 - **Readings, all pre-committed:**
   - progress: shape timing next and resume Phase A;
   - reopen because static wins;
   - reopen because the graft adds no value, while still resuming Phase A
     because the instrument resolves;
-  - reopen because the instrument is imprecise, reporting the MDE.
+  - reopen because the static comparison is not credible, while Phase A may
+    still resume;
+  - reopen because the instrument is imprecise: report the MDE, and keep
+    Phase A paused.
+- **The verdict table is deliberately asymmetric.** "Scheduled worse" fires
+  on any significant deficit. "Scheduled better" needs the whole interval
+  beyond −δ. Under ADR-0018 the burden of proof is on the intervention.
 - **No exclusions, no re-runs, no interim looks.** Failed units are recorded.
   If more than 4 units fail, the verdict is instrument failure. The analysis
   publishes once and refuses to overwrite.
 
-**Budget:** 48 × ~5.8 CPU-min ≈ 4.7 CPU-hours, run as 12 parallel
-single-threaded workers (~12 GB of memory, ~25–35 min wall time) on nyx. CPU
+**Budget:** 48 × ~5.8 CPU-min ≈ 4.7 CPU-hours, run as 8 parallel
+single-threaded workers (~8 GB of memory, ~35–45 min wall time) on nyx. The
+host had 17 GB free, and a memory kill would count as a unit failure under
+the frozen rules, so the worker count leaves headroom. CPU
 only. No outer or test data: the launcher refuses a data root that exposes
 `test_batch`, and the screen module has no evaluate path.
 
@@ -81,6 +93,17 @@ only. No outer or test data: the launcher refuses a data root that exposes
 - **What the result does not cover.** One fixed data sample (data seed
   20261004), one host, one seed type, CPU. Inference covers training
   randomness only.
+
+## Pre-launch amendment
+
+The first committed plan (`d640434`) required *both* contrasts to be precise
+for the gate. A review before launch pointed out that this would read a noisy
+static comparator as a failing instrument, contrary to PDR-0043's own
+definition of the gate. So the gate was re-scoped to the no-op contrast, and
+`static_comparison_credible` was added as its own criterion. No confirmatory
+unit had run when this was changed. The change is recorded in the plan's
+`deviations` field. The exploratory timing unit is archived at
+`docs/results/2026-10-08-bounded-screen-exploratory-seed7/`.
 
 ## Reversal trigger
 

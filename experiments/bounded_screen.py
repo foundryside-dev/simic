@@ -183,7 +183,10 @@ def analyze(root: Path, prereg_path: Path = PREREG) -> dict[str, Any]:
         if name in CONTRASTS:
             entry["verdict"] = contrast_verdict(ci, delta)
         contrasts[name] = entry
-    precise = all(contrasts[c]["t_interval"]["half_width"] <= delta for c in CONTRASTS)
+    # The gate asks whether the matched no-op contrast resolves (PDR-0043); the
+    # static comparator's own variance is a separate credibility question.
+    resolves = contrasts["scheduled_minus_no_growth"]["t_interval"]["half_width"] <= delta
+    credible = contrasts["scheduled_minus_static"]["t_interval"]["half_width"] <= delta
     static_wins = contrasts["scheduled_minus_static"]["t_interval"]["lower"] > 0
     report = {
         "study": prereg["study"]["id"],
@@ -193,9 +196,14 @@ def analyze(root: Path, prereg_path: Path = PREREG) -> dict[str, Any]:
         "delta_nats": delta,
         "arm_late_ce_mean": {arm: float(np.mean([units[s][arm] for s in seeds])) for arm in ARMS},
         "contrasts": contrasts,
-        "gate_instrument_resolves": precise,
-        "adr0018_reopen_trigger": static_wins or not precise,
-        "adr0018_reopen_reasons": [r for r, hit in (("static_wins", static_wins), ("imprecise", not precise)) if hit],
+        "gate_instrument_resolves": resolves,
+        "static_comparison_credible": credible,
+        "adr0018_reopen_trigger": static_wins or not resolves or not credible,
+        "adr0018_reopen_reasons": [
+            reason
+            for reason, hit in (("static_wins", static_wins), ("instrument_imprecise", not resolves), ("static_not_credible", not credible))
+            if hit
+        ],
     }
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     return report

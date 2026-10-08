@@ -3,14 +3,24 @@
     "id": "bounded-screen-v1",
     "status": "confirmatory",
     "question": "At bounded scale, does the scheduled graft lifecycle earn its cost against both no growth and static same-block capacity, and can the paired instrument resolve differences of the declared size at all?",
-    "authority": ["ADR-0018", "PDR-0043", "PDR-0044"],
-    "based_on": ["docs/results/2026-10-08-bounded-cpu-pilot.md (exploratory, seed 7)", "timing unit seed 7 at this config (exploratory: no_growth 1.1351, scheduled 1.1284, static 1.3912 final dev CE)"]
+    "authority": [
+      "ADR-0018",
+      "PDR-0043",
+      "PDR-0044"
+    ],
+    "based_on": [
+      "docs/results/2026-10-08-bounded-cpu-pilot.md (exploratory, seed 7)",
+      "timing unit seed 7 at this config (exploratory: no_growth 1.1351, scheduled 1.1284, static 1.3912 final dev CE)"
+    ]
   },
   "units": {
     "definition": "one training seed: host initialization, seed-body initialization, augmentation future and process RNG. The three arms within a seed share all of them and are matched repeated measures, not samples.",
     "first_seed": 1001,
     "count": 48,
-    "excluded_seeds": [7, 999],
+    "excluded_seeds": [
+      7,
+      999
+    ],
     "population_note": "Inference is over training randomness on ONE fixed data sample (data_seed 20261004). It does not generalise over fit/dev subsets."
   },
   "config": {
@@ -27,7 +37,11 @@
   },
   "endpoint": {
     "metric": "development cross-entropy (nats), sample-weighted over all 5,000 dev examples",
-    "late_epochs": [7, 8, 9],
+    "late_epochs": [
+      7,
+      8,
+      9
+    ],
     "per_unit_reduction": "mean dev CE over the late epochs, per arm; then one paired difference per unit per contrast",
     "rationale": "Averaging the last three epochs damps the single-epoch swings (up to 0.47 nats) seen in the pilot. Declared before any confirmatory unit runs."
   },
@@ -36,14 +50,23 @@
       "scheduled_minus_no_growth": "late CE(scheduled) - late CE(no_growth); negative favours the graft",
       "scheduled_minus_static": "late CE(scheduled) - late CE(static); negative favours the graft"
     },
-    "descriptive_contrasts": ["static_minus_no_growth"],
+    "descriptive_contrasts": [
+      "static_minus_no_growth"
+    ],
     "test": "paired t interval over per-unit differences, two-sided",
     "family_alpha": 0.05,
     "multiplicity": "Bonferroni over the two co-primary contrasts: each interval at 97.5%",
     "secondary_check": "percentile bootstrap over units at the same level",
     "bootstrap_resamples": 20000,
     "bootstrap_seed": 20261008,
-    "also_reported": ["Wilcoxon signed-rank p (descriptive)", "fraction of units favouring the first arm", "worst decile", "MDE at 80% power from the observed sd", "per-unit differences", "costs from the run summaries"],
+    "also_reported": [
+      "Wilcoxon signed-rank p (descriptive)",
+      "fraction of units favouring the first arm",
+      "worst decile",
+      "MDE at 80% power from the observed sd",
+      "per-unit differences",
+      "costs from the run summaries"
+    ],
     "exclusions": "None. A unit that fails to complete or fails verify_run is recorded as a failure with its error and is never re-run.",
     "interim_looks": "None. The analysis runs once, after every unit has finished, and refuses to overwrite its report."
   },
@@ -58,14 +81,24 @@
       "equivalent_within_floor": "-delta < CI lower and CI upper < delta",
       "inconclusive": "otherwise"
     },
-    "gate_instrument_resolves": "Both co-primary CI half-widths <= delta. This is a precision criterion; it does not depend on the sign of any effect. It closes the PDR-0043 gate question.",
-    "adr0018_reopen_trigger": "Fires if scheduled_minus_static has CI lower > 0 (static capacity wins at equal final parameters), or if the gate precision criterion fails (measurement uncertainty prevents a credible comparison).",
+    "gate_instrument_resolves": "The scheduled_minus_no_growth CI half-width is <= delta. This is precision on the matched no-op contrast (PDR-0043, criterion-18-shaped); it does not depend on the sign of any effect. It closes the PDR-0043 gate question.",
+    "adr0018_reopen_trigger": "Fires if scheduled_minus_static has CI lower > 0 (static capacity wins at equal final parameters), or if either precision criterion fails (measurement uncertainty prevents a credible comparison).",
     "instrument_failure": "More than max_failed_units units fail: the verdict is instrument_failure and the design reopens.",
     "readings": {
-      "progress": "Instrument resolves, trigger does not fire, and scheduled_minus_no_growth is scheduled_better_beyond_floor: shape random/heuristic timing next, and resume Phase A per PDR-0043.",
+      "progress": "Instrument resolves, static comparison credible, trigger does not fire, and scheduled_minus_no_growth is scheduled_better_beyond_floor: shape random/heuristic timing next, and resume Phase A per PDR-0043.",
       "reopen_static_wins": "Instrument resolves and static wins: reopen the lifecycle design per ADR-0018. Do not enlarge the controller.",
       "reopen_no_value": "Instrument resolves, no trigger, but the graft does not beat no growth beyond the floor: the lifecycle does not earn its cost at this scale. Reopen the design, and resume Phase A only because the instrument itself resolves.",
-      "reopen_imprecise": "Instrument does not resolve at this n: report the MDE. Redesign the instrument (endpoint, scale or fleet) before any contract is drafted."
+      "reopen_instrument_imprecise": "The no-op contrast does not resolve at this n: report the MDE. Redesign the instrument (endpoint, scale or fleet) before any contract is drafted, and keep Phase A paused.",
+      "reopen_static_not_credible": "The instrument resolves but the static comparison does not: Phase A may resume (PDR-0043). Reopen the lifecycle/comparator design, because the static control is not yet a credible test."
+    },
+    "static_comparison_credible": "The scheduled_minus_static CI half-width is <= delta. The static arm has its own birth calibration and was unstable in exploratory units, so its variance is reported separately and is not treated as a property of the instrument.",
+    "verdict_asymmetry": "Burden is on the intervention: scheduled_worse fires on any significant deficit (lower > 0), while scheduled_better_beyond_floor needs upper < -delta. Under ADR-0018 the graft has to earn its cost; a control does not."
+  },
+  "deviations": [
+    {
+      "date": "2026-10-08",
+      "when": "pre-launch; no confirmatory unit had run",
+      "change": "The gate was re-scoped from both co-primary contrasts to the no-op contrast only, and a separate static_comparison_credible criterion was added. Reason: PDR-0043's gate asks whether the matched no-op difference resolves. The static comparator's variance is not a property of the instrument. Found by review of d640434."
     }
-  }
+  ]
 }
