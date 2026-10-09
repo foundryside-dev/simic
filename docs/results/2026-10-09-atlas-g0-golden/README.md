@@ -23,3 +23,18 @@ Command (repeat per GPU and seed list):
 ```bash
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python -B -m experiments.atlas_golden --root runs/rung4-timing-horizon --data-root runs/cifar-fit-only --seeds 8001 8002 8003 8004 --out <json>
 ```
+
+## Re-run after the code review (2026-10-09)
+
+**Result: pass**, all eight seeds and six cells, bitwise. A PyTorch code review found
+record-identity and lineage gaps (global RNG states and the replicate future were not in
+the snapshot; a germination-epoch divergence lost its birth record; the runner's
+end-state checks and initial scoring were missing). All were fixed and tested, and the
+golden check was repeated on the fixed source:
+
+| File | sha256 |
+|---|---|
+| `experiments/atlas.py` | `af5eb1b0bc4bba3a303fc322fa3005f6f4263b42799cfaff334703532d2cd200` |
+| `experiments/atlas_golden.py` | `ec4c467d3f15188a41287bc56974ec209946f2423779781c29959e9f6cc9513a` |
+
+Reports: [`rerun-after-review/`](rerun-after-review/).

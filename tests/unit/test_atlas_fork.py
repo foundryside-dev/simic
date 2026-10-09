@@ -98,3 +98,75 @@ def test_golden_comparator_reports_the_first_disagreement() -> None:
     assert first_difference(a, a[:1]) == {"reason": "length", "got": 2, "want": 1}
     changed = [a[0], {"epoch": 1, "x": 3}]
     assert first_difference(a, changed) == {"reason": "record", "index": 1, "epoch": 1, "keys": ["x"]}
+
+
+# --- Code-review additions (W1-W3, M1-M3) ---
+
+
+def test_branch_costs_equal_the_runners_arm_costs(reference: dict[int, Path], unit: atlas.Unit, trunk: atlas.Trunk) -> None:
+    summaries = json.loads((reference[2] / "complete.json").read_text())["summaries"]
+    assert trunk.costs == summaries["no_growth"]["costs"]
+    assert unit.branch(trunk.snapshots[2], action="norm").costs == summaries["scheduled"]["costs"]
+
+
+def test_trunk_records_the_runners_initial_scoring(reference: dict[int, Path], trunk: atlas.Trunk) -> None:
+    rows = [json.loads(line) for line in (reference[2] / "training.jsonl").read_text().splitlines()]
+    start = next(r for r in rows if r["kind"] == "arm_start" and r["arm"] == "no_growth")
+    assert trunk.initial_dev == start["initial_dev"]
+
+
+def test_record_hashes_do_not_depend_on_ambient_global_rng(unit: atlas.Unit, trunk: atlas.Trunk) -> None:
+    """W1: training_state_sha256 folds in the global RNG state, so a fork must restore it."""
+    first = unit.branch(trunk.snapshots[2], action="norm")
+    import torch
+
+    torch.rand(1)  # ambient draw between forks
+    second = unit.branch(trunk.snapshots[2], action="norm")
+    assert [_strip(r) for r in second.records] == [_strip(r) for r in first.records]
+
+
+def test_a_snapshot_inside_a_replicate_continues_that_replicate(unit: atlas.Unit, trunk: atlas.Trunk) -> None:
+    """W2: a snapshot remembers the future it was trained on; re-forking continues it, and a mismatch is refused."""
+    parent = unit.branch(trunk.snapshots[1], action="norm", replicate=1, snapshot_at=(3,))
+    child = unit.branch(parent.snapshots[3], action=None)
+    assert child.replicate == 1 and child.future_hash == parent.future_hash
+    assert [_strip(r) for r in child.records] == [_strip(r) for r in parent.records[2:]]
+    with pytest.raises(ValueError, match="replicate"):
+        unit.branch(parent.snapshots[3], action=None, replicate=2)
+
+
+def test_branch_refuses_a_germination_the_lifecycle_cannot_finish(unit: atlas.Unit) -> None:
+    """M1: the runner's own rule (whole lifecycle plus a coupled epoch after germination)."""
+    late = unit.trunk(decision_points=(5,))
+    with pytest.raises(ValueError):
+        unit.branch(late.snapshots[5], action="norm")
+    assert unit.branch(late.snapshots[5], action=None).diverged is None  # waiting is always legal
+
+
+def test_divergence_in_the_germination_epoch_keeps_the_birth_record(
+    unit: atlas.Unit, trunk: atlas.Trunk, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """W3: the runner attaches the birth record to a divergence in the germination epoch."""
+    from experiments.bounded_comparison import ArmDivergedError
+
+    def boom(host: Any, slot: Any, *args: Any) -> dict[str, Any]:
+        raise ArmDivergedError(epoch=2, step=0, reason="injected", stage=slot.stage.value)
+
+    monkeypatch.setattr(atlas, "train_epoch", boom)
+    branch = unit.branch(trunk.snapshots[2], action="norm")
+    assert branch.diverged is not None and branch.diverged["birth"]["gain_at_birth"] is not None
+
+
+@pytest.mark.parametrize(("host", "seed_type", "lifecycle"), [("mild", "conv_heavy", "v1"), ("channel_starved", "conv_light", "v2")])
+def test_bn_hosts_and_seeds_fork_and_resume_bitwise(tmp_path: Path, host: str, seed_type: str, lifecycle: str) -> None:
+    """BN host buffers and BN seed buffers survive snapshots at every lifecycle stage."""
+    spec = RunSpec(epochs=7, host=host, seed_type=seed_type, lifecycle=lifecycle, graft_epoch=1)
+    runner.train(spec, tmp_path / "ref")
+    expected = _epochs(tmp_path / "ref", "scheduled")
+    unit = atlas.Unit.load(spec)
+    trunk = unit.trunk(decision_points=(1,))
+    whole = unit.branch(trunk.snapshots[1], action=seed_type, snapshot_at=(3, 5))
+    assert [{**_strip(r), "arm": "scheduled"} for r in trunk.records[:1]] + [_strip(r) for r in whole.records] == expected
+    for t in (3, 5):  # mid-BLENDING and FOSSILIZED
+        resumed = unit.branch(whole.snapshots[t], action=None)
+        assert [_strip(r) for r in resumed.records] == [_strip(r) for r in whole.records[t - 1 :]]

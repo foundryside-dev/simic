@@ -11,9 +11,11 @@ The epoch loop is a copy of `train()`'s arm body, kept in step with it by the te
 `tests/unit/test_atlas_fork.py`. `train()` itself stays frozen (its runs are evidence).
 
 A snapshot is taken at an epoch boundary, before that epoch trains. It holds deep copies of the
-host and seed tensors, the slot lifecycle and the optimizer state. Training draws nothing from
-the global RNG streams (all randomness is in the common future, which is derived per epoch), so
-the cursor is the epoch index and the global streams need no capture.
+host and seed tensors, the slot lifecycle, the optimizer state, the global RNG states, and the
+replicate future it was trained on. Training draws nothing from the global RNG streams (all
+randomness is in the common future, derived per epoch), so the data cursor is the epoch index.
+The streams are still captured and restored, because `training_state_sha256` hashes them: an
+ambient draw between forks would otherwise change every record's identity (code review W1).
 """
 
 from __future__ import annotations
@@ -30,6 +32,8 @@ from typing import Any
 import torch
 
 from experiments.bounded_comparison import (
+    NON_FINITE_INITIAL,
+    NON_FINITE_INITIAL_REASON,
     SCHEMA,
     ArmDivergedError,
     NonFiniteError,
@@ -75,6 +79,10 @@ class Snapshot:
     alpha_beta_log: tuple[tuple[float, float], ...]
     optimizer: dict[str, Any]
     costs: dict[str, int]
+    cpu_rng: torch.Tensor
+    cuda_rng: torch.Tensor | None
+    replicate: int  # the future this state was trained on (code review W2)
+    future_from: int  # where that replicate's future was spliced in (0 for replicate 0)
 
 
 @dataclass
@@ -87,6 +95,8 @@ class Span:
     costs: dict[str, int] = field(default_factory=dict)
     replicate: int = 0
     future_hash: str = ""
+    future_from: int = 0
+    initial_dev: dict[str, Any] | None = None  # trunk only: the runner's initial scoring
 
 
 Trunk = Span
@@ -97,7 +107,17 @@ def _clone(state: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     return {k: v.detach().clone() for k, v in state.items()}
 
 
-def take(host: Any, slot: ScaleAwareSlot, opt: torch.optim.SGD, costs: dict[str, int], epoch: int, seed_type: str | None) -> Snapshot:
+def take(
+    host: Any,
+    slot: ScaleAwareSlot,
+    opt: torch.optim.SGD,
+    costs: dict[str, int],
+    epoch: int,
+    seed_type: str | None,
+    *,
+    replicate: int = 0,
+    future_from: int = 0,
+) -> Snapshot:
     if (slot.seed is None) != (seed_type is None):
         raise ValueError("seed_type must name the installed seed, and only when one is installed")
     return Snapshot(
@@ -110,6 +130,10 @@ def take(host: Any, slot: ScaleAwareSlot, opt: torch.optim.SGD, costs: dict[str,
         alpha_beta_log=tuple(tuple(pair) for pair in slot.alpha_beta_log),  # type: ignore[misc]
         optimizer=copy.deepcopy(opt.state_dict()),
         costs=dict(costs),
+        cpu_rng=torch.get_rng_state().clone(),
+        cuda_rng=torch.cuda.get_rng_state().clone() if any(p.is_cuda for p in host.parameters()) else None,
+        replicate=replicate,
+        future_from=future_from,
     )
 
 
@@ -120,8 +144,10 @@ def snapshot_digest(snap: Snapshot) -> str:
         for key in sorted(tensors):
             h.update(key.encode())
             h.update(tensor_hash(tensors[key]).encode())
-    meta = {k: v for k, v in dataclasses.asdict(snap).items() if k not in ("host", "seed", "optimizer")}
+    meta = {k: v for k, v in dataclasses.asdict(snap).items() if k not in ("host", "seed", "optimizer", "cpu_rng", "cuda_rng")}
     h.update(strict_json(meta).encode())
+    for rng in (snap.cpu_rng, snap.cuda_rng):
+        h.update(b"none" if rng is None else tensor_hash(rng).encode())
     for index, state in sorted(snap.optimizer["state"].items()):
         for key, value in sorted(state.items()):
             h.update(f"{index}:{key}".encode())
@@ -159,7 +185,22 @@ def materialize(snap: Snapshot, spec: RunSpec, device: torch.device) -> tuple[An
     for name, value in snap.lifecycle.items():
         setattr(slot, name, value)
     slot.alpha_beta_log = [tuple(pair) for pair in snap.alpha_beta_log]  # type: ignore[misc]
+    torch.set_rng_state(snap.cpu_rng)
+    if snap.cuda_rng is not None:
+        torch.cuda.set_rng_state(snap.cuda_rng)
     return host, slot, opt
+
+
+def _check_end_state(slot: ScaleAwareSlot, opt: torch.optim.SGD, base_params: int) -> None:
+    """The runner's end-of-run integrity checks (code review M2): coupling, and exact optimizer ownership."""
+    params = [p for group in opt.param_groups for p in group["params"]]
+    if len({id(p) for p in params}) != len(params):
+        raise RuntimeError("duplicate optimizer membership")
+    installed = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
+    if sum(p.numel() for p in params) != installed:
+        raise RuntimeError("optimizer does not own exactly the installed parameters")
+    if slot.seed is not None and (slot.stage is not Stage.FOSSILIZED or slot.alpha != 1.0 or slot.beta != 1.0):
+        raise RuntimeError("incomplete final topology/coupling")
 
 
 @dataclass
@@ -174,6 +215,8 @@ class Unit:
     future: CommonFuture
     device: torch.device
     provenance: dict[str, Any] = field(default_factory=dict)
+    cpu_rng: torch.Tensor | None = None  # the streams configure() pinned; every trunk starts from them
+    cuda_rng: torch.Tensor | None = None
 
     @classmethod
     def load(cls, spec: RunSpec, data_root: Path | None = None) -> Unit:
@@ -182,9 +225,14 @@ class Unit:
         device = torch.device(spec.device)
         tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
         future = draw_future(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
-        return cls(spec, tx, ty, dx, dy, future, device, provenance)
+        cuda_rng = torch.cuda.get_rng_state().clone() if device.type == "cuda" else None
+        return cls(spec, tx, ty, dx, dy, future, device, provenance, torch.get_rng_state().clone(), cuda_rng)
 
     def trunk(self, decision_points: tuple[int, ...]) -> Trunk:
+        assert self.cpu_rng is not None
+        torch.set_rng_state(self.cpu_rng)
+        if self.cuda_rng is not None:
+            torch.cuda.set_rng_state(self.cuda_rng)
         host = build_host(self.spec.host, derive(self.spec.seed, "host-init")).to(self.device)
         slot = ScaleAwareSlot(self.spec)
         opt = build_optimizer(host, self.spec.kernel_config())
@@ -199,9 +247,34 @@ class Unit:
             "optimizer_parameter_steps": 0,
             "fully_coupled_optimizer_steps": 0,
         }
-        return self._run(
-            host, slot, opt, costs, start=0, germinate=None, seed_type=None, snapshot_at=decision_points, future=self.future, replicate=0
+        try:
+            initial_dev: dict[str, Any] = score(host, slot, self.dx, self.dy, self.spec.batch_size)
+        except NonFiniteError:  # The runner's non-finite birth: a recorded divergence, not an abort (code review M3).
+            failed = Span(costs=costs, future_hash=self.future.hash, initial_dev=dict(NON_FINITE_INITIAL))
+            failed.diverged = {
+                "epoch": 0,
+                "step": 0,
+                "reason": NON_FINITE_INITIAL_REASON,
+                "stage": slot.stage.value,
+                "witness": {"seed_present": False},
+                "birth": None,
+            }
+            return failed
+        span = self._run(
+            host,
+            slot,
+            opt,
+            costs,
+            start=0,
+            germinate=None,
+            seed_type=None,
+            snapshot_at=decision_points,
+            future=self.future,
+            replicate=0,
+            future_from=0,
         )
+        span.initial_dev = initial_dev
+        return span
 
     def future_for(self, replicate: int, from_epoch: int) -> CommonFuture:
         """Replicate r of the future from `from_epoch` on. Replicate 0 is the common future itself.
@@ -216,11 +289,21 @@ class Unit:
         drawn = draw_future(derive(self.spec.seed, "common-future", replicate), len(self.ty), self.spec.epochs, self.spec.kernel_config())
         return splice_future(self.future, drawn, from_epoch)
 
-    def branch(self, snap: Snapshot, action: str | None, snapshot_at: tuple[int, ...] = (), replicate: int = 0) -> Branch:
-        """Fork from a snapshot: `action` is a seed type to germinate now, or None to keep waiting."""
+    def branch(self, snap: Snapshot, action: str | None, snapshot_at: tuple[int, ...] = (), replicate: int | None = None) -> Branch:
+        """Fork from a snapshot: `action` is a seed type to germinate now, or None to keep waiting.
+
+        `replicate` redraws the future from the snapshot on. A snapshot taken inside a replicate
+        already carries that replicate's past, so it can only continue it.
+        """
         if action is not None and action not in SEED_NAMES:
             raise ValueError(f"action must be None (no-op) or one of {SEED_NAMES}")
-        future = self.future_for(replicate, snap.epoch)
+        if action is not None:  # the runner's own rule: the whole lifecycle plus a coupled epoch fit (code review M1)
+            dataclasses.replace(self.spec, graft_epoch=snap.epoch).validate()
+        rep = snap.replicate if replicate is None else replicate
+        if snap.replicate != 0 and rep != snap.replicate:
+            raise ValueError(f"replicate mismatch: the snapshot was trained on replicate {snap.replicate}")
+        future_from = snap.future_from if snap.replicate != 0 else snap.epoch
+        future = self.future_for(rep, future_from)
         host, slot, opt = materialize(snap, self.spec, self.device)
         return self._run(
             host,
@@ -232,7 +315,8 @@ class Unit:
             seed_type=snap.seed_type,
             snapshot_at=snapshot_at,
             future=future,
-            replicate=replicate,
+            replicate=rep,
+            future_from=0 if rep == 0 else future_from,
         )
 
     def _run(
@@ -248,14 +332,15 @@ class Unit:
         snapshot_at: tuple[int, ...],
         future: CommonFuture,
         replicate: int,
+        future_from: int,
     ) -> Span:
         """`train()`'s arm body from `start`, germinating `germinate` before `start` trains."""
         spec, tx, ty, dx, dy = self.spec, self.tx, self.ty, self.dx, self.dy
-        span = Span(costs=costs, replicate=replicate, future_hash=future.hash)
+        span = Span(costs=costs, replicate=replicate, future_hash=future.hash, future_from=future_from)
         base_params = sum(p.numel() for p in host.parameters())
         for epoch in range(start, spec.epochs):
             if epoch in snapshot_at:
-                span.snapshots[epoch] = take(host, slot, opt, costs, epoch, seed_type)
+                span.snapshots[epoch] = take(host, slot, opt, costs, epoch, seed_type, replicate=replicate, future_from=future_from)
             action = "GERMINATE" if germinate is not None and epoch == start else "WAIT"
             birth = None
             if action == "GERMINATE":
@@ -276,6 +361,7 @@ class Unit:
                     "reason": stop.reason,
                     "stage": stop.stage,
                     "witness": stop.witness,
+                    "birth": birth,  # the runner keeps the birth record on a germination-epoch divergence (code review W3)
                 }
                 break
             except NonFiniteError as error:
@@ -286,6 +372,7 @@ class Unit:
                     "reason": str(error),
                     "stage": metrics["stage_after"],
                     "witness": metrics["witness"],
+                    "birth": birth,
                 }
                 break
             costs["host_train_examples"] += len(ty)
@@ -313,6 +400,8 @@ class Unit:
                     **metrics,
                 }
             )
+        if span.diverged is None:
+            _check_end_state(slot, opt, base_params)
         return span
 
 
