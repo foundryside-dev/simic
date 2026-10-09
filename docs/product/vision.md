@@ -56,6 +56,10 @@ negative for the stand-in, not a refutation of the first claim, which is
 about generated, screened structure. A clean negative remains a useful
 result.
 
+**C1 comparator** (owner-signed 2026-10-10, PDR-0057 D2, ADR-0019): C1's
+efficiency comparator is uniform scale-up of the host. Static capacity at
+the known site from step zero is reported as an oracle ceiling.
+
 ## Who it serves
 - **Primary:** john — researcher-owner. The product is defensible experimental
   evidence (positive *or* negative) about generative morphogenesis; HLD §28 notes a

@@ -1,0 +1,16 @@
+{
+ "train_epoch": {
+  "wall_s_profiled": 1.323,
+  "cuda_kernels": 31912,
+  "gpu_busy_s": 0.316,
+  "host_device_syncs": 8234,
+  "gpu_busy_fraction": 0.238
+ },
+ "score": {
+  "wall_s_profiled": 0.233,
+  "cuda_kernels": 7896,
+  "gpu_busy_s": 0.045,
+  "host_device_syncs": 1753,
+  "gpu_busy_fraction": 0.192
+ }
+}

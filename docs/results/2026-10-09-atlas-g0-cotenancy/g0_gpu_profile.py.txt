@@ -1,0 +1,32 @@
+"""G0 item 1: profile one training epoch and one scoring pass of the bounded runner on GPU (seed 8001, under_normalized)."""
+import dataclasses, json, sys, time
+from pathlib import Path
+import torch
+from torch.profiler import ProfilerActivity, profile
+from experiments import atlas
+from experiments.bounded_comparison import ScaleAwareSlot, score, train_epoch
+from experiments.bounded_data import validated_spec
+from experiments.kernel_demo import build_host, build_optimizer, derive
+
+spec = validated_spec(json.loads(Path("runs/rung4-timing-horizon/units/seed-8001/T2/manifest.json").read_text())["spec"])
+unit = atlas.Unit.load(spec, Path("runs/cifar-fit-only"))
+host = build_host(spec.host, derive(spec.seed, "host-init")).to(unit.device)
+slot = ScaleAwareSlot(spec)
+opt = build_optimizer(host, spec.kernel_config())
+train_epoch(host, slot, opt, spec, unit.future, unit.tx, unit.ty, 0)  # warm-up
+torch.cuda.synchronize()
+out = {}
+for name, fn in (("train_epoch", lambda: train_epoch(host, slot, opt, spec, unit.future, unit.tx, unit.ty, 1)),
+                 ("score", lambda: score(host, slot, unit.dx, unit.dy, spec.batch_size))):
+    t0 = time.perf_counter()
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        fn()
+        torch.cuda.synchronize()
+    wall = time.perf_counter() - t0
+    events = prof.key_averages()
+    cuda_kernels = sum(e.count for e in events if e.device_type == torch.autograd.DeviceType.CUDA)
+    cuda_us = sum(e.self_device_time_total for e in events if e.device_type == torch.autograd.DeviceType.CUDA)
+    syncs = sum(e.count for e in events if e.key in ("aten::item", "aten::_local_scalar_dense", "cudaStreamSynchronize", "cudaDeviceSynchronize"))
+    out[name] = {"wall_s_profiled": round(wall, 3), "cuda_kernels": cuda_kernels, "gpu_busy_s": round(cuda_us / 1e6, 3),
+                 "host_device_syncs": syncs, "gpu_busy_fraction": round(cuda_us / 1e6 / wall, 3)}
+print(json.dumps(out, indent=1))

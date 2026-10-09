@@ -5,9 +5,11 @@ Date: 2026-10-04 · Status: accepted
 Deciders: John, explicit reboot authorization in the 2026-10-04 session · Tracker: simic-dda0d0188c
 
 Amends: —
-Amended-by: —
+Amended-by: ADR-0019
 Supersedes: —
 Superseded-by: —
+Notes:
+- 2026-10-10 (ADR-0019): amended; C1's comparator reopened against uniform scale-up. Read ADR-0019.
 <!-- adr-meta:end — everything below is IMMUTABLE body (ADR-0017) -->
 
 ## Context

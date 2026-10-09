@@ -1,4 +1,4 @@
-# Current State — Simic        Checkpoint: 2026-10-09 (session 17, rung 4 read)
+# Current State — Simic        Checkpoint: 2026-10-10 (session 17, PDR-0057 signed)
 
 ## Who owns this now
 Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
@@ -47,8 +47,11 @@ green."* Reserved to John:
     and part of the mean comes from static runs degrading late.
   - At 20 epochs the graft ties static on the median seed. It never beat
     static at 10 epochs (T0: +0.019).
-  - Seeds differ in timing preference beyond noise, but modestly. Timing
-    alone leaves little for a learned controller.
+  - Per-seed timing headroom is not detectable with one future per seed:
+    the after-the-fact oracle gains 0.026 nats over always-T0, below what
+    normal noise of the same spread gives. Per-seed linear slopes do vary
+    beyond a uniform spread (variance ratio 1.69 [1.42, 1.99]), but that is
+    worth about 0.002 nats. Replicate futures are needed to measure it.
   - Static degrades late at 20 epochs on 117/756 runs and diverged in
     12/768. Logged on `simic-9c5c3a2acf`.
 
@@ -79,15 +82,21 @@ The owner answered all three on 2026-10-08:
 
 Outer evaluation stays owner-gated.
 
-**For John (2026-10-09):** the post-rung-4 DECIDE. John asked in
-session for a "how to train your Tamiyo" pathway: the stages, gates,
-transition criteria and work at each stage, then to start training. Claude
-is drafting it as a proposed PDR with design spikes. The gates and stop
-conditions in it are John's to sign (PDR-0053).
+**Signed 2026-10-10:** John adopted the controller training pathway,
+[PDR-0057](decisions/0057-controller-training-pathway.md) D1–D9, and
+accepted ADR-0019. C1's comparator is now uniform scale-up (vision.md, C1
+comparator clause); targeted static is an oracle ceiling. The parked
+"learned structural timing" condition is waived by D1. Evidence:
+[certificate](certificates/2026-10-09-pdr0057-evidence-certificate.md).
 
-**For Claude, now:**
-- close rung 4: reviews of the result note, PR;
-- draft the controller pathway and its first stage.
+**For Claude, now:** G0 item 6 (scaled-up hosts at m ∈ {1.1, 1.25, 1.5,
+2.0}, `reference`, and a static arm in the atlas with its own golden
+check), then the Fleet C1 plan: reviews, a dry run in which every
+(host, seed type) cell runs twice on GPU with equal records, and the
+in-session sketch to John before launch. Items 7–9 wait for John's read of
+Fleet C1. G0 items 1–5 are done
+([golden](../results/2026-10-09-atlas-g0-golden/README.md),
+[co-tenancy](../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
 launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,

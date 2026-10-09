@@ -1,0 +1,39 @@
+"""Exploratory, after the rung-4 reading: can single-future data separate per-seed timing headroom from noise?
+
+Compares the naive per-seed oracle gain over always-T0 with two "all interaction is noise" nulls:
+  1. iid normal residuals with the pooled residual sd (spike S1's null);
+  2. multivariate normal residuals with the observed 5x5 interaction covariance (keeps within-seed correlation).
+Both nulls treat the whole seed x timing interaction as noise. With one future per seed that interaction is
+exactly what is in question, so neither null can show that heterogeneity is absent. Replicate futures can.
+Usage, from the repository root:
+    .venv/bin/python <this file> docs/results/2026-10-09-rung4-timing-horizon/tables/per-run.jsonl.gz
+"""
+import gzip, json, sys
+import numpy as np
+
+CELLS = {"T0": 0, "T1": 1, "T2": 2, "T3": 3, "T5": 5}
+y = {}
+for line in gzip.open(sys.argv[1], "rt"):
+    r = json.loads(line)
+    if r["cell"] in CELLS and r["late_ce"]["scheduled"] is not None:
+        y.setdefault(r["seed"], {})[CELLS[r["cell"]]] = r["late_ce"]["scheduled"]
+xs = sorted(CELLS.values())
+Y = np.array([[y[s][x] for x in xs] for s in sorted(y) if len(y[s]) == len(xs)])
+n, k = Y.shape
+mu = Y.mean(axis=1, keepdims=True)
+tau = (Y - mu).mean(axis=0)
+R = Y - mu - tau
+gain = lambda M: float(np.mean(M[:, 0] - M.min(axis=1)))
+rng = np.random.default_rng(20261009)
+sd = float(np.sqrt((R**2).sum() / ((n - 1) * (k - 1))))
+cov = np.cov(R, rowvar=False)
+iid = [gain(mu + tau + rng.normal(0, sd, (n, k))) for _ in range(200)]
+mvn = [gain(mu + tau + rng.multivariate_normal(np.zeros(k), cov, n)) for _ in range(200)]
+print(json.dumps({
+    "n_seeds": n,
+    "naive_oracle_gain_over_T0_observed": round(gain(Y), 4),
+    "null_iid_normal_pooled_sd": {"sd": round(sd, 4), "mean_gain": round(float(np.mean(iid)), 4)},
+    "null_mvn_observed_interaction_cov": {"mean_gain": round(float(np.mean(mvn)), 4)},
+    "residual_excess_kurtosis_pooled": round(float(((R**2).mean() and (R**4).mean() / (R**2).mean() ** 2) - 3), 2),
+    "reading": "both nulls treat the observed interaction as pure noise; single-future data cannot separate heterogeneity from noise",
+}, indent=1))

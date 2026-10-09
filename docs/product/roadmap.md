@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-10-08 (session 17; PDR-0050 — the ladder is the plan, Phase A to Later, GPU window)
+# Roadmap — Simic            Updated: 2026-10-10 (session 17; rung 4 met; PDR-0057 adopted)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -36,20 +36,21 @@
 
 ## Next (shaped, decreasing certainty)
 - **Rung 4 (met 2026-10-09, `lever_found`, PDR-0055;
-  [result](../results/2026-10-09-rung4-timing-horizon.md)): does graft
+  [result](../results/2026-10-09-rung4-timing-horizon.md)): did graft
   timing or horizon change the outcome, on `under_normalized` × `norm`?**
-  Earlier grafts are better, and a longer horizon lets the graft catch
-  static on the median seed. What follows is a new owner DECIDE.
-  The study runs six cells through `experiments/timing_study.py`:
-  - graft epochs 0, 1, 2, 3 and 5 at a 10-epoch horizon;
-  - graft epoch 2 at a 20-epoch horizon.
-
-  It runs on fresh seeds from snapshots on nyx. The ladder stops at rung 4
-  on `flat_stop`. Location is out of scope: it needs host engineering and a
-  new owner decision.
-- **Rung 5: can telemetry predict the label better than a fixed schedule?**
-  This is the first Tamiyo-shaped result. HLD contracts are drafted here,
-  only for what it touches.
+  Yes. Earlier grafts were better, and a longer horizon let the graft catch
+  static on the median seed. Six cells ran: graft epochs 0, 1, 2, 3 and 5
+  at 10 epochs, and graft epoch 2 at 20 epochs. What follows is a new owner
+  DECIDE. Location stayed out of scope.
+- **Adopted 2026-10-10: the controller training pathway** (PDR-0057, gates
+  G0–G5; ADR-0019). It replaces the rung-5 line below: rung 5 = G2 + G3,
+  rung 6 = G4 (live single-decision test), rung 7 = G5 (transfer). The first
+  read is Fleet C1: C1 against uniform scale-up, before any telemetry
+  build. Every `inconclusive` comes to John with stop on the menu.
+- **Rung 5 (superseded in form by PDR-0057): can telemetry predict the
+  best choice better than a fixed policy?** Now G2 (headroom) + G3 (offline
+  learning). HLD contracts are drafted only for what each gate touches; the
+  first ones (Warrant, a RegionContract stub) arrive at G4.
 
 ## Later (directional bets, no order, no dates)
 - **HLD programme: design hardening and Phase A contracts** (moved to Later

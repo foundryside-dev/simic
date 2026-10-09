@@ -1,0 +1,278 @@
+{
+ "all_equal": true,
+ "runtime": {
+  "cpu_count": 24,
+  "cublas_workspace_config": ":4096:8",
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": true,
+  "default_dtype": "torch.float32",
+  "deterministic": true,
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 4060 Ti",
+  "hostname": "nyx.foundryside.dev",
+  "machine": "x86_64",
+  "mkldnn": true,
+  "platform": "Linux-6.8.0-146-generic-x86_64-with-glibc2.39",
+  "processor": "x86_64",
+  "python": "3.14.3",
+  "tf32_cudnn": false,
+  "tf32_matmul": false,
+  "threads": 1,
+  "torch": "2.13.0+cu130",
+  "torchvision": "0.28.0+cu130"
+ },
+ "seeds": [
+  {
+   "cells": {
+    "H20": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 20,
+      "scheduled": 20
+     },
+     "reference_sha256": "09f762012670299de1707d84ac390da325561c5ac667a2eb64a7204e8c813918",
+     "scheduled": null
+    },
+    "T0": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "534fe41da1c769b5daf3107b7d54c6da3f8b90de92cd7d9ef9e86bea26c1280b",
+     "scheduled": null
+    },
+    "T1": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "5a5c71a39d939acbf4d7153a43c8c64ca2ab6f7230374aa331f0bac5990442a7",
+     "scheduled": null
+    },
+    "T2": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "1d3a35a36e7facfacafc330e53e94b772030ddd7d4f99d77b13c874e7cd11f18",
+     "scheduled": null
+    },
+    "T3": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "da22ecb79ce4657b26a94a4e3993a711eed54a1730bf2accde054e94cd944b9b",
+     "scheduled": null
+    },
+    "T5": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "897067035b1aef74025e6208788b564e1a4e68f21af2a2a9a1e6df275e8a79d1",
+     "scheduled": null
+    }
+   },
+   "equal": true,
+   "seed": 8001
+  },
+  {
+   "cells": {
+    "H20": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 20,
+      "scheduled": 20
+     },
+     "reference_sha256": "1ae6588d450ee8d1f25df7a425f665ba6967cd2f3e598d7be1944fb2d14dbff5",
+     "scheduled": null
+    },
+    "T0": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "8fae325436c2b7f6b169a3ebd5d25db2436f0167b8b84c2c2bef08666ab1068d",
+     "scheduled": null
+    },
+    "T1": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "b6196bfbe4f0ae5e07d10eeed62797617becdd9b2c7cfe96b9fe408bf474bc81",
+     "scheduled": null
+    },
+    "T2": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "e8bb4f0673bdb9d0c5f96c192e13c650bc71abb11fa1483be70ac7d7713ce0fb",
+     "scheduled": null
+    },
+    "T3": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "dae3e3d2c8600b17d92bb97e954321ec4769fe741364fa4911bacc64f14203c6",
+     "scheduled": null
+    },
+    "T5": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "19d2ce420ba6ee4bea05e0a3550b8a4d2a34629699a9f3ee8d65accea875f6b3",
+     "scheduled": null
+    }
+   },
+   "equal": true,
+   "seed": 8002
+  },
+  {
+   "cells": {
+    "H20": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 20,
+      "scheduled": 20
+     },
+     "reference_sha256": "aac3850ecac3910b4ca1278b28664608f8885fc54557b3045495266b47aad55c",
+     "scheduled": null
+    },
+    "T0": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "2690b266cc30a30aecb0382df250880730c68aa18ce609de01426d387ea91a11",
+     "scheduled": null
+    },
+    "T1": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "0b8d5e629c53ff53b52d90b161b0fe5b6ca36efac5fe8c3acaefc6231296124d",
+     "scheduled": null
+    },
+    "T2": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "429ac272047a5dab48ab5390ac1674815d70c9bbc00a511abe17b904f6e1b0ed",
+     "scheduled": null
+    },
+    "T3": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "ce71f6f3639decb42b36adc77976b0aa256700706d4b95cfe89093185a00dd66",
+     "scheduled": null
+    },
+    "T5": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "ee5e23f9347a17c25a27e5fffca6ae46fcb5b7c04efd73ebcfe25356879abd4d",
+     "scheduled": null
+    }
+   },
+   "equal": true,
+   "seed": 8003
+  },
+  {
+   "cells": {
+    "H20": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 20,
+      "scheduled": 20
+     },
+     "reference_sha256": "185c447c2fd9bece8ec6b003337697c1d8743e89a4e6225172163e1bab916b5d",
+     "scheduled": null
+    },
+    "T0": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "13d1e0d44ad087a5e3046081dd3708880667ff8354c31d5d14ace3bc0afbca2a",
+     "scheduled": null
+    },
+    "T1": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "bc3b698a6b298e0204f09f937c6969887c367236f29b315a04f4cac1de9d4050",
+     "scheduled": null
+    },
+    "T2": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "a74ee29648962cbf2f7b6dcf214794f046d93819eaff7f0df523b7c75cbb8925",
+     "scheduled": null
+    },
+    "T3": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "843ee0a31186a884102636c95cc925e6f716deafb2e54001aa97286870628723",
+     "scheduled": null
+    },
+    "T5": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "0be82be7f01bc2f41ff2b04b37c9dc1139e71e20b2fe9ea210c8201802058a8e",
+     "scheduled": null
+    }
+   },
+   "equal": true,
+   "seed": 8004
+  }
+ ],
+ "source": {
+  "experiments/__init__.py": "132de327be1e4f9a5a778feffe74b8def7bb7b2bbfda8521883eced3d9f17e63",
+  "experiments/atlas.py": "ac8863cb53a271a8c1abe9a0b1f5bc5146efb950e0b0e9c1246acffada697c5d",
+  "experiments/atlas_golden.py": "932bc593853803dab8ab0e64af46180003fb5ed0c75e5f032fed94a49a650744",
+  "experiments/bounded_comparison.py": "512fcea23f0167f4eaca519c99234d5c212ca3afc17898c9cd4a3b4318022148",
+  "experiments/bounded_data.py": "d182cfe9c71cebae890abf19dcaaa9689b3c13f01bd3d535ef60c0553611abdd",
+  "experiments/kernel_demo.py": "d2d33cf03d76d4f95c7644abd72c359c362975225813249e25a44911204ae3c7",
+  "pyproject.toml": "ca9e3d487fa37334ec4a18340b07a118c0766d846548b3feec67591241767fd6",
+  "uv.lock": "df2bb14fb753da420382e0f2d0ead6ab692cbec2899414e48268ea84dbf0776a"
+ }
+}

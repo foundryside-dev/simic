@@ -1,0 +1,98 @@
+{
+ "all_equal": true,
+ "runtime": {
+  "cpu_count": 24,
+  "cublas_workspace_config": ":4096:8",
+  "cuda": "13.0",
+  "cudnn": 92000,
+  "cudnn_benchmark": false,
+  "cudnn_deterministic": true,
+  "default_dtype": "torch.float32",
+  "deterministic": true,
+  "device": "cuda",
+  "gpu_name": "NVIDIA GeForce RTX 4060 Ti",
+  "hostname": "nyx.foundryside.dev",
+  "machine": "x86_64",
+  "mkldnn": true,
+  "platform": "Linux-6.8.0-146-generic-x86_64-with-glibc2.39",
+  "processor": "x86_64",
+  "python": "3.14.3",
+  "tf32_cudnn": false,
+  "tf32_matmul": false,
+  "threads": 1,
+  "torch": "2.13.0+cu130",
+  "torchvision": "0.28.0+cu130"
+ },
+ "seeds": [
+  {
+   "cells": {
+    "H20": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 20,
+      "scheduled": 20
+     },
+     "reference_sha256": "aac3850ecac3910b4ca1278b28664608f8885fc54557b3045495266b47aad55c",
+     "scheduled": null
+    },
+    "T0": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "2690b266cc30a30aecb0382df250880730c68aa18ce609de01426d387ea91a11",
+     "scheduled": null
+    },
+    "T1": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "0b8d5e629c53ff53b52d90b161b0fe5b6ca36efac5fe8c3acaefc6231296124d",
+     "scheduled": null
+    },
+    "T2": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "429ac272047a5dab48ab5390ac1674815d70c9bbc00a511abe17b904f6e1b0ed",
+     "scheduled": null
+    },
+    "T3": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "ce71f6f3639decb42b36adc77976b0aa256700706d4b95cfe89093185a00dd66",
+     "scheduled": null
+    },
+    "T5": {
+     "no_growth": null,
+     "records_compared": {
+      "no_growth": 10,
+      "scheduled": 10
+     },
+     "reference_sha256": "ee5e23f9347a17c25a27e5fffca6ae46fcb5b7c04efd73ebcfe25356879abd4d",
+     "scheduled": null
+    }
+   },
+   "equal": true,
+   "seed": 8003
+  }
+ ],
+ "source": {
+  "experiments/__init__.py": "132de327be1e4f9a5a778feffe74b8def7bb7b2bbfda8521883eced3d9f17e63",
+  "experiments/atlas.py": "ac8863cb53a271a8c1abe9a0b1f5bc5146efb950e0b0e9c1246acffada697c5d",
+  "experiments/atlas_golden.py": "932bc593853803dab8ab0e64af46180003fb5ed0c75e5f032fed94a49a650744",
+  "experiments/bounded_comparison.py": "512fcea23f0167f4eaca519c99234d5c212ca3afc17898c9cd4a3b4318022148",
+  "experiments/bounded_data.py": "d182cfe9c71cebae890abf19dcaaa9689b3c13f01bd3d535ef60c0553611abdd",
+  "experiments/kernel_demo.py": "d2d33cf03d76d4f95c7644abd72c359c362975225813249e25a44911204ae3c7",
+  "pyproject.toml": "ca9e3d487fa37334ec4a18340b07a118c0766d846548b3feec67591241767fd6",
+  "uv.lock": "df2bb14fb753da420382e0f2d0ead6ab692cbec2899414e48268ea84dbf0776a"
+ }
+}

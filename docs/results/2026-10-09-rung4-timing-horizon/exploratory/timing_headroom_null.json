@@ -1,0 +1,13 @@
+{
+ "n_seeds": 767,
+ "naive_oracle_gain_over_T0_observed": 0.0256,
+ "null_iid_normal_pooled_sd": {
+  "sd": 0.053,
+  "mean_gain": 0.0349
+ },
+ "null_mvn_observed_interaction_cov": {
+  "mean_gain": 0.0376
+ },
+ "residual_excess_kurtosis_pooled": 26.0,
+ "reading": "both nulls treat the observed interaction as pure noise; single-future data cannot separate heterogeneity from noise"
+}
