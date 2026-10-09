@@ -137,6 +137,14 @@ differently from the PDR-0050 window. The line is resolved under "Run
 authorization" below. The run-launch line's "once Tolaria exists"
 parenthetical now also covers the bounded ladder's runs. Nothing else in
 the grant changed.
+**COMPUTE, 2026-10-09 (PDR-0056; the owner, in session, after the
+ratification above):** *"I'm willing to commit more compute to this - nyx
+is my hardware so you don't need to ask for permission to run a job/batch,
+If I want to stop it I will."* Jobs and batches on nyx need no permission;
+the owner stops a job himself if he wants to. Every launched fleet is
+recorded in `current-state.md` and on the bet's tracker issue so he can see
+it. The pre-launch sketch, the programme-level gates, outer/test data and
+paid or off-nyx compute are unchanged.
 
 Autonomous within strategy — the agent MAY, without asking:
   prioritize the backlog, write specs/PRDs, dispatch delivery, **launch/kill

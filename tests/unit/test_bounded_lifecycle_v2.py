@@ -194,3 +194,23 @@ def test_gain_at_birth_is_the_stored_float32_parameter(paired_runs: dict[str, Pa
     ste = next(r for r in records if r["kind"] == "epoch" and r["arm"] == "scheduled" and r["epoch"] == spec.graft_epoch)
     birth = ste["birth"]
     assert ste["witness"]["ste"]["gain"][0] == birth["gain_at_birth"]  # no update before STE step 0's forward
+
+
+def test_the_common_future_is_prefix_stable_across_horizons() -> None:
+    """Rung-4 review: a 20-epoch run must be the 10-epoch run continued, so horizon contrasts are paired."""
+    cfg = RunSpec().kernel_config()
+    short, long = runner.draw_future(123, 128, 3, cfg), runner.draw_future(123, 128, 5, cfg)
+    for name in ("order", "crops", "flips"):
+        assert torch.equal(getattr(long, name)[:3], getattr(short, name))
+
+
+def test_a_longer_horizon_replays_the_shorter_run_bitwise_over_their_shared_epochs(tmp_path: Path) -> None:
+    runs = {}
+    for epochs in (7, 9):
+        runs[epochs] = tmp_path / f"e{epochs}"
+        runner.train(RunSpec(epochs=epochs, lifecycle="v2"), runs[epochs])
+
+    def shared(root: Path) -> list[dict[str, Any]]:
+        return [{k: v for k, v in r.items() if k != "wall_s"} for r in _records(root) if r["kind"] == "arm_start" or r.get("epoch", 0) < 7]
+
+    assert shared(runs[7]) == shared(runs[9])

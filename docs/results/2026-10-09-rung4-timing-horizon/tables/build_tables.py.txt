@@ -1,0 +1,28 @@
+"""Builds the per-run table the confirmatory analysis consumed (from the published report's own summariser) plus a compact per-epoch table.
+
+Run from the repository root, from the launch snapshot (it imports the frozen summariser):
+    cd runs/rung4-timing-horizon/src && PYTHONPATH=$PWD:$PWD/src python -B <this file> $PWD <root> <plan> <out_dir>
+"""
+import gzip, json, sys, math
+from pathlib import Path
+sys.path[:0] = [sys.argv[1], sys.argv[1] + "/src"]
+from experiments import timing_study as ts
+root, plan_path, out = Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4])
+plan = ts.load_plan(plan_path)
+short = min(c["epochs"] for c in plan["cells"].values())
+out.mkdir(parents=True, exist_ok=True)
+with gzip.open(out / "per-run.jsonl.gz", "wt") as f, gzip.open(out / "per-epoch.jsonl.gz", "wt") as g:
+    for seed in ts.unit_seeds(plan):
+        for cell in plan["cells"]:
+            run = ts.unit_dir(root, seed, cell)
+            summary = ts.run_summary(run, ts.late_epochs(plan, cell), short)
+            for heavy in ("ste_gain", "ste_kappa"):  # per-step witness lists stay in runs/ (size limit)
+                summary.pop(heavy, None)
+            f.write(json.dumps({"cell": cell, "seed": seed, **summary}, sort_keys=True) + "\n")
+            for line in open(run / "training.jsonl"):
+                r = json.loads(line)
+                if r.get("kind") != "epoch":
+                    continue
+                w = r.get("witness") or {}
+                g.write(json.dumps({"cell": cell, "seed": seed, "arm": r["arm"], "epoch": r["epoch"], "dev_ce": r["dev"]["ce"], "dev_acc": r["dev"]["accuracy"],
+                                    "train_ce": r["train_ce"], "stage": r["stage_after"], "gain_max": w.get("gain_max"), "installed_parameters": r["installed_parameters"]}, sort_keys=True) + "\n")

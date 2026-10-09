@@ -35,17 +35,18 @@
     to a failed rung by enlarging the controller.
 
 ## Next (shaped, decreasing certainty)
-- **Rung 4 (decided, PDR-0054): does graft timing (epochs 0–5) or horizon
-  (10 against 20 epochs) change the outcome, on `norm`?** If neither does,
-  the ladder stops at rung 4. Location is out of scope: it needs host
-  engineering, and a new owner decision.
-  Earlier framing, kept for context: does the timing or location of the
-  graft change the outcome?
-  This fans K grafts plus a no-op from snapshots at several decision points.
-  A rung-4 DECIDE PDR, drafted after rung 3 reads, chooses the apparatus.
-  The bounded runner's snapshot fan is the default, not the parked kernel
-  demo (PDR-0052). GPU is authorised (PDR-0050, exclusive window from
-  2026-10-08).
+- **Rung 4 (met 2026-10-09, `lever_found`, PDR-0055;
+  [result](../results/2026-10-09-rung4-timing-horizon.md)): does graft
+  timing or horizon change the outcome, on `under_normalized` × `norm`?**
+  Earlier grafts are better, and a longer horizon lets the graft catch
+  static on the median seed. What follows is a new owner DECIDE.
+  The study runs six cells through `experiments/timing_study.py`:
+  - graft epochs 0, 1, 2, 3 and 5 at a 10-epoch horizon;
+  - graft epoch 2 at a 20-epoch horizon.
+
+  It runs on fresh seeds from snapshots on nyx. The ladder stops at rung 4
+  on `flat_stop`. Location is out of scope: it needs host engineering and a
+  new owner decision.
 - **Rung 5: can telemetry predict the label better than a fixed schedule?**
   This is the first Tamiyo-shaped result. HLD contracts are drafted here,
   only for what it touches.

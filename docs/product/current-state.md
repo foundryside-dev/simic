@@ -1,12 +1,12 @@
-# Current State — Simic        Checkpoint: 2026-10-08 (session 17, second checkpoint)
+# Current State — Simic        Checkpoint: 2026-10-09 (session 17, rung 4 read)
 
 ## Who owns this now
 Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
 green."* Reserved to John:
 - vision changes;
 - tags, releases and publication;
-- GPU or paid campaigns, except PDR-0050's window: pre-registered, reviewed
-  ladder runs on the local 2× RTX 4060 Ti for about a week from 2026-10-08;
+- paid or off-nyx compute. Jobs on nyx need no permission (PDR-0056);
+  every launched fleet is recorded under "Running now" below;
 - opening outer/test data;
 - deleting run data.
 
@@ -38,13 +38,26 @@ green."* Reserved to John:
   - Lifecycle v2 ([PDR-0051](decisions/0051-lifecycle-v2-validation.md),
     accepted) diverged in 0/192 runs here.
   - Static `norm` host instability is now 3/168 (`simic-9c5c3a2acf`).
+- **Rung 4, does timing or horizon change the outcome:** **met,
+  `lever_found`** (PDR-0055, [result](../results/2026-10-09-rung4-timing-horizon.md)).
+  - Timing: grafting at epoch 0 beats epoch 3 by 0.051 nats
+    [0.043, 0.059], margin 0.02. Robust on median, trimmed mean and sign.
+  - Horizon: the graft − static gap shrinks by 0.101 [0.067, 0.136] at 20
+    epochs, margin 0.05. Tail-sensitive: the median shrinkage is 0.067,
+    and part of the mean comes from static runs degrading late.
+  - At 20 epochs the graft ties static on the median seed. It never beat
+    static at 10 epochs (T0: +0.019).
+  - Seeds differ in timing preference beyond noise, but modestly. Timing
+    alone leaves little for a learned controller.
+  - Static degrades late at 20 epochs on 117/756 runs and diverged in
+    12/768. Logged on `simic-9c5c3a2acf`.
 
 ## The bets now (PDR-0050)
-1. **The bounded ladder.** Rung 4 is decided (PDR-0054): does graft
-   timing, or the training horizon, change how much of static's gain the
-   graft captures (`norm`)? If neither does, the ladder stops at rung 4.
-   GPU is authorised for an exclusive window of about a week from
-   2026-10-08.
+1. **The bounded ladder.** Rung 4 is met (`lever_found`). Under PDR-0055
+   the next step is a new owner-signed DECIDE that shapes what follows:
+   rung 5, a horizon/host rung, or the controller pathway John asked for on
+   2026-10-09 (see the decision queue). Compute on nyx needs no permission
+   (PDR-0056).
 2. **HLD programme / Phase A:** moved to Later. It is pulled by rung 5.
 
 ## Green status (PDR-0040 guardrail)
@@ -66,16 +79,19 @@ The owner answered all three on 2026-10-08:
 
 Outer evaluation stays owner-gated.
 
+**For John (2026-10-09):** the post-rung-4 DECIDE. John asked in
+session for a "how to train your Tamiyo" pathway: the stages, gates,
+transition criteria and work at each stage, then to start training. Claude
+is drafting it as a proposed PDR with design spikes. The gates and stop
+conditions in it are John's to sign (PDR-0053).
+
 **For Claude, now:**
-- rung 4 is decided (PDR-0054, owner-signed): graft timing (epochs 0–5)
-  and horizon (10 against 20 epochs) on `under_normalized` × `norm`. The
-  ladder stops at rung 4 if neither changes the outcome. Next:
-  1. design the per-study plan, with a reading rule for "changes the
-     outcome" and "flat", and a host-instability policy;
-  2. sketch it to the owner in session;
-  3. review, dry-run, launch;
-- the vision's gate split is ratified (PDR-0053). Per-study plans need an
-  in-session sketch before launch.
+- close rung 4: reviews of the result note, PR;
+- draft the controller pathway and its first stage.
+
+**Running now** (PDR-0056: every fleet on nyx is listed here when
+launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,
+4,608/4,608 runs clean; its data stay in `runs/rung4-timing-horizon/`.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
