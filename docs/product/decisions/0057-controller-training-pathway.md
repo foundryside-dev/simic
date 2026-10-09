@@ -136,8 +136,11 @@ after G4. Each comes with its cost and a stop option.
 ### G0 — Apparatus (no claim)
 
 **Items 1–5 (no decision needed; in progress):**
-1. GPU profile, then several processes per GPU; co-tenancy must leave
-   records identical.
+1. GPU profile and co-tenancy. Done: four processes sharing one GPU
+   reproduce rung 4 bitwise, but gain only about 1.04× throughput, because
+   a training step launches about 249 kernels and 64 host–device syncs.
+   Fleets stay at one process per GPU; speed comes from S3's exact-records
+   tier ([report](../../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 2. **Fork core** (`experiments/atlas.py`). Done.
 3. **Rung-4 golden test.** Passed, and passed again after the code review's
    fixes ([report](../../results/2026-10-09-atlas-g0-golden/README.md)).
