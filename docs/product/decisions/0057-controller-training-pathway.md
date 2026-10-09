@@ -10,8 +10,15 @@ Related: PDR-0050 (ladder), PDR-0053 (gate split), PDR-0054/0055 (rung 4),
 PDR-0056 (compute), ADR-0011 (anchor corpus), ADR-0018 (bounded
 comparison), ADR-0019 (proposed: reopen the comparison); spikes in
 [`spikes/2026-10-09-controller-pathway/`](../spikes/2026-10-09-controller-pathway/)
-(S1 statistics, S2 HLD mapping, S3 engineering). Reviewed by a product
-critic before signature; its findings are folded in.
+(S1 statistics, S2 HLD mapping, S3 engineering); evidence certificate
+[`certificates/2026-10-09-pdr0057-evidence-certificate.md`](../certificates/2026-10-09-pdr0057-evidence-certificate.md).
+Reviewed before signature by a product critic (twice) and by DRL, PyTorch
+and systems-thinking specialists; their findings are folded in.
+
+**Signer's note.** G0 apparatus work was built before signature because
+it makes no claim and needs no decision. That work is not a reason to
+adopt anything here. Stopping (Option 0) costs it nothing: the atlas stays
+useful to any later question.
 
 ## What this is for
 
@@ -24,275 +31,289 @@ proven) it in a target agnostic way (entirely unproven so far)."*
 
 | Claim | Statement | Where it stands in Simic (2026-10-09) |
 |---|---|---|
-| **C1, efficiency** | A small targeted injection lifts an undercooked model, and is worth a larger uniform scale-up | **Direction only.** The `norm` graft adds 0.06% optimizer parameter-steps (rung 3) and captures 0.86 of static's gain at T0 (rung 4). Uniform scale-up has never been measured. The Esper figure ("40→60") has not been reproduced |
+| **C1, efficiency** | A small targeted injection lifts an undercooked model, and is worth a larger uniform scale-up | **Partly.** The `norm` graft is cheap (+0.06% optimizer parameter-steps, rung 3) and captures 0.86 of static's gain at T0 (rung 4). Against static it loses; against uniform scale-up it has never been run. The Esper figure ("40→60") is unreproduced |
 | **C2, learnability** | A controller using pre-decision telemetry chooses interventions better than the best fixed policy | **Untested.** One host offers no detectable per-seed headroom (below) |
 | **C3, transfer** | The controller works on hosts it never trained on | **Untested.** Needs a host family |
 
-## Two findings that shape the pathway
+## Findings that shape the pathway
 
-1. **One host offers no detectable per-seed timing headroom.** Picking each
+1. **The graft has never beaten static on a pre-registered contrast.** It
+   beat no growth (rung 3: −0.087 with `norm`); static beat it in rungs 3
+   and 4. At 20 epochs it ties static on the median seed.
+2. **One host offers no detectable per-seed timing headroom.** Picking each
    seed's best graft timing after the fact gains 0.026 nats over always-T0
    (rung 4, n = 767). Normal noise with the same spread would give 0.035.
-   The residuals are very heavy-tailed, so that comparison is suggestive,
-   not proof: single-future data cannot separate heterogeneity from noise
+   The residuals are very heavy-tailed, so this is suggestive, not proof:
+   single-future data cannot separate heterogeneity from noise
    ([script](../../results/2026-10-09-rung4-timing-horizon/exploratory/timing_headroom_null.py.txt)).
-   - **Reconciled with rung 4.** The rung-4 result found that per-seed
-     *linear* slopes vary beyond a uniform spread (variance ratio 1.69
-     [1.42, 1.99]), worth about 0.002 nats to a linear oracle. PDR-0055's
-     consequence said `lever_found` gives rung 5 "something to predict".
-     That holds for the fixed timing lever. It does not hold per seed at a
-     size a controller could use.
-   - The seed-type choice on one host looks the same (spike S1).
-   - So the first atlas spans **four hosts** and carries **replicate
-     futures**, which measure label reliability directly.
-2. **The comparator matters.** The ladder's static arm puts the same module
-   at the known site from step zero. It needs the diagnosis in advance, so
-   it is an oracle ceiling. The principle's alternative is a bigger model
-   with no diagnosis: uniform scale-up.
+   Per-seed *linear* slopes do vary beyond a uniform spread (variance ratio
+   1.69 [1.42, 1.99]), worth about 0.002 nats. PDR-0055 said `lever_found`
+   gives rung 5 "something to predict": that holds for the fixed lever
+   ("graft at T0"), not per seed.
+3. **The only measured between-host variation is `mild`,** where static is
+   no better than no growth (+0.009 [−0.029, +0.046]) and the graft hurts
+   (+0.029 [+0.003, +0.054]), n = 24, exploratory.
+4. **The comparator matters.** Targeted static needs the diagnosis in
+   advance: an oracle ceiling. The principle's alternative is a bigger
+   model with no diagnosis: uniform scale-up.
+
+## How the bar has moved so far
+
+Each step below was disclosed at the time. Read together, the bar has only
+ever moved in the direction of continuing (systems review).
+
+| Rung | Original bar | Reading | What happened |
+|---|---|---|---|
+| 2 | static − no growth beyond −0.10 (PDR-0046/0048) | `control_fails_below_floor` (−0.119, lower bound −0.088) | Continued: PDR-0049 deferred the floor to the graft redesign (post-data, owner-ratified) |
+| 3 | graft captures static's gain | `partial_capture` | Recorded as met under PDR-0052's composition table, declared before data |
+| 4 | sketch: margin 0.05; flat → stop | `lever_found` (margin set to 0.02 and flatness tightened before launch) | Met. The lever is T0, the schedule most like static |
+| Now | learned timing "only after a graft earns its cost" (parked) | not met | D1 would waive it; D2 would change C1's comparator (post-data) |
 
 ## Naming
 
 - **Whether, when and where to grow** is Aurelia's commissioning policy.
 - **Which seed type** is Momir at its L0 rung: retrieval over the fixed
   library, guided by its own critic.
-- **The controller is therefore two predictors** (spike S2 §S1): a
-  class-blind one for Aurelia, trained only on "best action versus no-op"
-  (ADR-0011, INV-09), and a per-action one for Momir's critic. Seed type
-  never enters a `GrowthIntent`.
-- **Isperia** judges against no-op and stays a fixed, pre-registered rule at
-  every stage. A learned judge would grade itself.
-- **"Tamiyo" stays a prose gloss** ("the Tamiyo-shaped controller"). It
-  never names a package, contract, test or telemetry field. Tamiyo is the
-  witness under Namespec 2.0, and INV-35 would be unsatisfiable if the
-  controller carried the name.
+- **The controller is two predictors** (spike S2): a class-blind one for
+  Aurelia, and a per-action one for Momir's critic. Seed type never enters
+  a `GrowthIntent` (ADR-0011, INV-09).
+- **Isperia** judges against no-op and stays a fixed, pre-registered rule.
+- **"Tamiyo" stays a prose gloss** ("the Tamiyo-shaped controller"), never
+  a package, contract, test or telemetry name (INV-35).
 
-## Owner decisions this PDR asks for
+## Owner decisions
+
+Sign **Option 0 or D1–D2 first, on their own.** D3–D9 only matter if D1–D2
+are adopted.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Adopt G0–G5 as the ladder's continuation: rung 5 = G2 + G3, rung 6 = G4, rung 7 = G5. **This waives a parked condition:** current-state says learned structural timing comes "only after a round-2 graft earns its cost", and the graft has not beaten static | Adopt, with the waiver stated |
-| D2 | **Reopen the comparison (ADR-0019, proposed).** ADR-0018 says to reopen the design if static wins at the declared cost; it did. C1's comparator becomes **uniform scale-up**. Targeted static stays reported as an oracle ceiling, and its recorded win stands. **This is a comparator change made after seeing data**, in the direction that tests the founding principle rather than rescuing the graft | Adopt. Claude does not edit `vision.md`; the scoped clause below is for read-back |
-| D3 | The stop conditions and readings in the gate table | Adopt as written |
-| D4 | G1 can fail C1 at bounded scale. If the `under_normalized` graft is shown **inferior** to 1.25× uniform scale-up, C1 is refuted here in its most favourable case | Accept that risk; it is the point of G1 |
-| D5 | v1 has one decision point, after epoch 1 (d = 1). The controller sees one epoch of telemetry; every policy pays rung 4's ~0.016 nats for not grafting at T0 | Adopt. Sequential decisions only if G2 on the host family finds timing headroom |
-| D6 | The naming above, including the two-predictor split | Adopt |
-| D7 | **The cost charge λ** (nats per doubling of parameter-steps). Derived from uniform scale-up's slope on support seeds, or an exchange rate John states | Derived, unless John states one |
-| D8 | **The C2 comparator a\* is host-blind**: one fixed action for every context. A controller that only recognises the pathology then counts as C2, reported under the weaker name "telemetry identifies the pathology" | Adopt |
-| D9 | **Fleet A's rung parameters:** hosts `under_normalized`, `channel_starved`, `no_spatial_mix`, `mild` (plus `reference` and scale-up arms); seed types `norm`, `attn`, `conv_light`, `conv_heavy`; one site (stage 2); horizon 10 epochs; 4,096 fit examples | Adopt |
+| **Option 0** | **Stop the ladder at rung 4** and publish the clean negative: a hand-built graft repairs most of a designed deficit cheaply, but never beats the same capacity installed from the start. Cost: none; G0 work stays. What is lost: C1 against scale-up and C2/C3 stay untested | A real option. Claude recommends D1–D2 only because Fleet C1 (below) is a cheap, decisive next read |
+| D1 | Adopt G0–G5 as the ladder's continuation: rung 5 = G2 + G3, rung 6 = G4, rung 7 = G5. **Waives** the parked "learned timing only after a graft earns its cost" condition | Adopt, with the waiver stated |
+| D2 | **Reopen the comparison (ADR-0019).** ADR-0018's own trigger fired: static won. C1's comparator becomes **uniform scale-up**; targeted static stays reported as a ceiling and its wins stand. **A comparator change made after seeing data** | Adopt. Claude does not edit `vision.md`; the scoped clause below is for read-back |
+| D3 | The readings and stop conditions in the gates below, including that **every `inconclusive` comes to John with "stop" on the menu** | Adopt as written |
+| D4 | G1 can refute C1 at bounded scale. A G1 pass shows that a targeted graft beats uniform width; it does **not** show that growing during training beats installing at the start (static already shows targeting) | Accept |
+| D5 | v1 has one decision point, after epoch 1. Every policy pays ~0.016 nats for not grafting at T0. **No evidence yet** that one epoch of telemetry carries signal. Sequential decisions (v2) need a new spike: states after a graft are off-atlas | Adopt |
+| D6 | The naming above | Adopt |
+| D7 | **Cost charge** λ = max(0, −slope of no-op CE on log₂ parameter-step multiple), fitted on Fleet C1 over the full scale-up range; or an exchange rate John states | Derived, unless John states one |
+| D8 | **Two fixed-policy comparators** for C2: a host-blind a\* and a per-host lookup a\*_h, both frozen before audit data. The full C2 name needs a win over a\*_h; beating only a\* is reported as "telemetry identifies the host" | Adopt |
+| D9 | Hosts `under_normalized`, `channel_starved`, `no_spatial_mix`, `mild`, plus `reference` and scale-up arms; seed types `norm`, `attn`, `conv_light`, `conv_heavy`; one site (stage 2); 10 epochs; 4,096 fit examples | Adopt |
 
 Claude decides, under review: per-study plans, sizing, seeds, engineering,
-and always recomputing the no-op branch in Fleet A (the conservative
-default).
+and always recomputing the no-op branch.
 
 **Proposed vision clause (D2), scoped to C1, for read-back only:** "C1's
 efficiency comparator is uniform scale-up of the host. Static capacity at
 the known site from step zero is reported as an oracle ceiling."
 
-## Rules that apply to every gate
+**The binding constraint is John's attention,** not compute. Decisions
+come to him at four points only: this PDR, after Fleet C1, after G2, and
+after G4. Each comes with its cost and a stop option.
+
+## Rules for every gate
 
 - **Fixed sequence.** C1 (G1) is its own claim family, Bonferroni over two
   hosts. C2/C3 (G2 → G3 → G4 → G5) is a fixed sequence at one-sided
-  α = 0.025 per gate; a gate opens only when its predecessor passes.
-- **Product dependency.** Statistically the C2 chain does not need G1. But
-  if G1 refutes C1 on `under_normalized`, C2 spending pauses until John
-  decides.
-- **Robust companions.** Every primary must clear on the paired mean *and*
-  a robust companion (the rung-4 heavy-tail lesson):
-  - G1 and G5: the 10%-trimmed mean;
-  - G3 and G4: a Wilcoxon signed-rank test on contexts where the controller
-    and a\* disagree. Elsewhere their difference is exactly 0, so a trimmed
-    mean could never pass.
-- **Failures** score chance-level CE (ln 10) and are never dropped. A
-  separate tail gate requires the controller's divergence rate to be
-  non-inferior to a\*'s (upper 95% bound ≤ +1.0 point).
-- **Unblinding order** (one analyst, so the order is the wall):
-  1. Read support and screen seeds only. Run the deficit screen (which
-     decides the host set), fit λ, choose a\*, the model class and the
-     abstention threshold, and set Isperia's threshold θ and QA-window
-     length for G4. Hash-freeze all of them.
-  2. Only then read audit seeds and run G1, G2 and G3.
-- **Seeds.** Seeds 1001–9356 are already seen: support or shakedown only.
-  Fresh ranges: Fleet A 10001–10192; G4 11001–11192; host family 12001+.
+  α = 0.025 per gate.
+- **Every reading has a consequence.** No reading leads to an automatic
+  re-run. Each `inconclusive` goes to John with stop as an option.
+- **Robust companions.** Each primary must clear on the paired mean and a
+  companion: the 10%-trimmed mean for G1 and G5; for G3 and G4, a Wilcoxon
+  signed-rank test on contexts where the controller and the comparator
+  disagree.
+- **Failures** score chance CE (ln 10) in evaluation and are never dropped.
+  Training targets use a Huber loss or a separate divergence head, so the
+  penalty does not dominate the fit. A tail gate requires the controller's
+  divergence rate to be non-inferior to a\*'s (+1.0 point).
+- **Unblinding order** for Fleet A: read support and screen seeds; fit and
+  hash-freeze a\*, a\*_h, the model class, the abstention threshold, and
+  Isperia's θ and QA window. Only then read audit seeds.
+- **Seeds.** 1001–9356 are seen: shakedown only. Fleet C1 10001–10192;
+  Fleet A 10201–10392; G4 11001–11192; host family 12001+.
 
 ## The gates
 
 ### G0 — Apparatus (no claim)
 
-**Work, items 1–5 (need no owner decision; started):**
-1. GPU profile baseline, then several processes per GPU. Gate: a unit run
-   alone and alongside co-tenants gives identical records.
-2. **Snapshot/fork core** (`experiments/atlas.py`), ported from the kernel
-   demo's fork pattern. The frozen rung-4 runner is not modified.
-3. **Rung-4 golden test:** the atlas reproduces rung 4's records bitwise
-   (wall time aside) on seeds 8001–8008, all six cells.
-4. **Replicate futures:** epochs from the decision point draw from
-   `derive(seed, "common-future", r)`; r = 0 is today's future bitwise.
-5. **Atlas record schema** with a mandatory no-op per decision point;
-   failures are rows; per-branch cost recorded.
+**Items 1–5 (no decision needed; in progress):**
+1. GPU profile, then several processes per GPU; co-tenancy must leave
+   records identical.
+2. **Fork core** (`experiments/atlas.py`). Done.
+3. **Rung-4 golden test.** Passed, and passed again after the code review's
+   fixes ([report](../../results/2026-10-09-atlas-g0-golden/README.md)).
+4. **Replicate futures.** Done.
+5. **Unit records** with a mandatory no-op, failures as rows. Done.
 
-**Work, items 6–9 (wait for D2, D7–D9):**
+**Item 6 (after D2, D7, D9): what Fleet C1 needs.** The four pathologies,
+`reference`, and width-scaled no-op hosts at nominal m ∈ {1.1, 1.25, 1.5,
+2.0}, each recording its realised m (widths move in multiples of 8). A
+**static arm in the atlas**, with its own golden check against rung 4's
+static records.
 
-6. Hosts: the four pathologies, an unimpaired `reference`, and
-   width-scaled no-op hosts at nominal m ∈ {1.1, 1.25, 1.5, 2.0}. Widths
-   move in multiples of 8, so each arm records its realised m.
-7. Telemetry (Nissa): free and near-free per-stage features, plus one probe
-   forward on a throwaway copy, from a pinned split outside fit and dev
-   (`perm[40000:41000]`). Dev stays the 5,000 examples of rungs 1–4.
-8. Experiment-grade records keeping HLD field names: `ScaffoldState`, a
-   light `TelemetryEnvelope`, a light `BranchResult`, a separate blinded-id
-   map.
-9. **Pipeline shakedown (no claim):** run the G3 training code end to end
-   on already-seen seeds, so the first real fit is not also the first run
-   of the code.
+**Items 7–9 (only after John reads Fleet C1):** telemetry from a pinned
+probe split outside fit and dev; experiment-grade records with HLD field
+names; a no-claim pipeline shakedown on seen seeds; the pathology
+decodability probe and `class_derangement` falsifier ported from the kernel
+demo. **Telemetry hazard:** the kernel host's saturation hooks close over
+`self`, so a probe on a deep copy writes into the live host's statistics.
+Probes clear the copy's hooks or use hooks that read the module argument,
+and a gate checks that a probe leaves the trunk's telemetry unchanged.
 
-**Pass:** golden reproduction; forked no-op equals the trunk bitwise;
-telemetry on/off gives identical training digests; co-tenancy gives
-identical records; a 3-seed real-config dry run of Fleet A completes with
-analysis.
-**Kill:** any replay mismatch. Fix it before science runs.
-**Effort (spike S3):** items 1–5 about 4–5 days; items 6–8 about 4–7 days.
+**Pass:**
+- golden reproduction (done for `under_normalized` × `norm`);
+- forked no-op equals the trunk;
+- **every (host, seed type) cell of a fleet runs twice on GPU with equal
+  records**, including one BN seed and one resume mid-BLENDING, before that
+  fleet launches. The golden covers one host and one seed type only;
+- telemetry on/off leaves training digests and the trunk's telemetry
+  unchanged;
+- co-tenancy leaves records identical **at the target processes per GPU,
+  with snapshots resident and peak memory logged** (a cuDNN workspace
+  shortfall silently changes algorithm);
+- a real-config dry run of each fleet completes with analysis.
 
-### Fleet A — the first atlas (data for G1, G2, G3)
+**Kill:** any replay mismatch.
 
-- 192 fresh seeds, each on the four hosts. One decision after epoch 1:
-  no-op plus the four seed types at the stage-2 site.
-- Roles by seed hash: support 50%, screen 25%, audit 25%. Replicate futures
-  1, 2 and 4 by role.
-- Extra arms: static (ceiling and deficit screen) and the scale-up hosts.
-- Every branch also records its probe-split CE over a short window after
-  the decision, the data G4's Isperia threshold is set on.
-- **Deficit screen (pre-registered, support and screen seeds only):** a
-  host stays in C2 analysis only if
-  some static arm beats its no-op by more than 0.05 nats with the 95%
-  lower bound above 0. A host whose static arm diverges above 10%
-  triggers a host-instability policy before G2 is read.
-- About 22 hours of fleet wall time on today's throughput, both GPUs.
-- **Launch needs** D1–D5 and D7–D9 signed, a reviewed and dry-run plan,
-  and the in-session sketch (PDR-0053).
+### Fleet C1 → G1 (C1 efficiency) and the deficit screen — the first read
 
-### G1 — C1 efficiency (from Fleet A)
+Runs before any telemetry or atlas engineering beyond item 6, on its own
+seeds, so reading it cannot leak into Fleet A.
 
-- **Contrast:** each host's pre-declared blueprint (`DESIGNED_WINNER`:
-  `under_normalized`→`norm`, `mild`→`conv_light`), grafted at d = 1, minus
-  uniform scale-up at m; late dev CE. Choosing the blueprint from data
-  would give the graft about one SE of selection edge.
-- **Test:** non-inferiority at margin 0.02, stepping down m = 1.25 → 1.5 →
-  2.0. The m = 1.1 arm feeds λ and is descriptive.
-- **Co-primaries** (Bonferroni, one-sided α = 0.0125 each):
-  `under_normalized` (existence) and `mild` (the honest, non-designed host).
-- **Readings per host:**
-  - `non_inferior at m`: the upper bound of graft − scale-up is below
-    +0.02. Report the largest such m;
-  - `inferior`: the lower bound is above +0.02 at m = 1.25. On
-    `under_normalized` this refutes C1 at bounded scale. **Back to John.**
-  - `inconclusive` otherwise. With a half-width of about 0.021, a graft
-    exactly equal to 1.25× scale-up lands here about half the time.
-  - On `mild`, anything short of `non_inferior` narrows C1 to designed
+- **Arms per host and seed:** no-op; the host's pre-declared blueprint
+  (`DESIGNED_WINNER`) grafted after epoch 1; targeted static; uniform
+  scale-up at the four multiples. All four hosts, 192 seeds. About 10 hours
+  of fleet wall time.
+- **G1 contrast:** designed graft − uniform scale-up at m, late dev CE.
+  Non-inferiority at margin 0.02, stepping down m = 1.25 → 1.5 → 2.0.
+  Co-primaries (Bonferroni, one-sided 0.0125): `under_normalized`
+  (existence) and `mild` (the honest, non-designed host).
+- **Named co-reading:** graft − static on every host, so the ceiling
+  stays in view.
+- **Readings per host:** `non_inferior at m` (report the largest m);
+  `inferior` (lower bound above +0.02 at m = 1.25); `inconclusive`.
+- **Consequences:**
+  - `inferior` on `under_normalized`: C1 refuted at bounded scale. C2
+    spending stops; John decides.
+  - `inconclusive` on `under_normalized` (about half the time if the graft
+    exactly equals 1.25× scale-up): John decides between more seeds, stop,
+    or proceeding.
+  - Anything short of `non_inferior` on `mild` narrows C1 to designed
     pathologies, the expected result.
+- **Deficit screen:** a host enters Fleet A only if static beats its no-op
+  by more than 0.05 nats with the 95% lower bound above 0. Static
+  divergence above 10% triggers a host-instability policy. `mild` will
+  probably fail; fewer than two passing hosts means the host set is rebuilt
+  or the pathway stops (John).
+- **λ** is fitted here (D7) and frozen for every later gate.
+- **Checkpoint:** G1, the screen and λ go to John before items 7–9 are
+  built.
 
-### G2 — Headroom: is there anything to learn? (rung 5, part 1)
+### Fleet A → G2 (headroom) and G3 (offline learning)
 
-- **Estimator:** the per-context oracle's gain over a\*, cross-fitted over
-  seeds and over replicate futures, seed-cluster bootstrap. Also reported:
-  a model-based estimate, label reliability ρ across futures, and the split
-  between between-host and within-host headroom.
-- **Readings:**
-  - `go`: lower bound ≥ 0.025 nats, enough for G4 to detect a controller
-    that recovers half of it;
-  - `no_headroom`: upper bounds of both estimates < 0.025;
-  - `inconclusive`: **owner decision** between more audit replicates and
-    the host family. No automatic re-run.
-- **Stop:** `no_headroom` on the four hosts sends the pathway to the host
-  family (G2′, same rule). `no_headroom` again **stops the ladder at rung
-  5**: measured counterfactuals show no decision-relevant variation in this
-  action space.
+- Seeds 10201–10392 on the hosts that passed the screen. One decision after
+  epoch 1: no-op plus the four seed types. Roles by seed hash: support 50%,
+  screen 25%, audit 25%; replicate futures 1, 2 and 4 by role. Each branch
+  records probe-split CE over a short window after the decision. About 22
+  hours.
+- **Launch needs** D1–D9 signed, the Fleet C1 checkpoint passed, a reviewed
+  and dry-run plan, and the in-session sketch (PDR-0053).
 
-### G3 — Offline learnability (rung 5, part 2: the first real training)
+**G2 — is there anything to learn? (rung 5, part 1)**
+- Estimator: the per-context oracle's gain over a\*, cross-fitted over seeds
+  and replicate futures; also a model-based estimate, label reliability ρ
+  **per host**, and the split between between-host and within-host
+  headroom.
+- `go`: lower bound ≥ 0.025 nats. `no_headroom`: both upper bounds below
+  0.025. Otherwise `inconclusive`.
+- **Consequences:** `go` → G3. `no_headroom` → **the ladder stops at rung 5**
+  as a clean negative, unless John signs a fresh decision to build the host
+  family and re-test (G2′, about 35 hours plus the family engineering).
+  `inconclusive` → John: more audit replicates, the host family, or stop.
+- Four hosts each built for one blueprint make a `go` weakly informative on
+  its own (designed-winner circularity). The real tests are G2′ and G5.
 
-- **Training:** on support seeds, from pre-decision telemetry, by
-  regression, never on argmin labels. Two predictors (Naming):
-  - Aurelia's: label = the best cost-charged effect over the seed types
-    versus no-op, with no seed type in its input or output;
-  - Momir's critic: label = each seed type's cost-charged effect.
-  At most three model classes (ridge, small GBM, kNN), chosen on screen
+**G3 — offline learning (rung 5, part 2: the first real training)**
+- Training on support seeds, by regression, never on argmin labels:
+  - **Momir's critic:** each seed type's cost-charged effect;
+  - **Aurelia's predictor:** the realised effect of the action a
+    cross-fitted critic would pick, never the minimum of K noisy effects.
+    Where a seed has two futures, select on one and score on the other. It
+    sees no seed type.
+- At most three model classes (ridge, small GBM, kNN), chosen on screen
   seeds.
-- **The policy under test** is the composition: Aurelia's predictor
-  commissions or waits, and Momir's critic picks the seed type.
-- **Primary (audit seeds):** Δ = a\*'s cost-charged CE minus the
-  controller's, averaged over the audit replicates. Co-conditions: beats
-  no-op; tail gate.
-- **Reported separately:** whether-regret (Aurelia's part),
-  false-intervention and miss rates, between/within split.
-- **Stop:** if Δ fails with ρ ≥ 0.3, telemetry is insufficient: one revision
-  cycle on support/screen data only. With ρ < 0.3 the labels are noise:
-  stop.
+- **The policy under test** is the composition, passed offline through the
+  frozen Isperia rule using the recorded probe-window CE, so G3 scores the
+  same policy G4 runs. Isperia's veto rate on known-good grafts is reported
+  before θ is frozen.
+- **Primary (audit seeds):** a\*'s cost-charged CE minus the controller's.
+  Co-conditions: beats no-op; tail gate. **Also reported:** the margin over
+  a\*_h, whether-regret (Aurelia's part), false-intervention and miss rates.
+- **Consequences:**
+  - pass → G4.
+  - fail with ρ ≥ 0.3 on the passing hosts: telemetry is insufficient. One
+    revision on support and screen data only, then **one** evaluation on 48
+    fresh audit seeds (10401–10448). A second failure stops.
+  - fail with ρ < 0.3: the labels are noise. Stop.
 
-### G4 — Closed loop (rung 6)
+### G4 — Live single-decision test (rung 6)
 
-- **Fleet:** fresh report seeds on the four hosts; the frozen controller
-  acts live at d = 1.
-- **Admission chain** (spike S2 §S2): Aurelia's predictor commissions or
-  waits → `GrowthIntent` (no seed type) → resolver stub → Momir-L0 proposes
-  **one** candidate → Jin-Gitaxias measures it and the no-op → rule-driven
-  Isperia → minimal `Warrant` → Wrenn adopts the branch. The attach path
-  refuses a missing or mismatched warrant.
-- **No oracle admission.** Isperia judges on a short QA window scored on
-  the probe split, disjoint from the endpoint data. a\* passes through the
-  same gate.
-- **Pulls from the tracker:** `simic-0bf2c40dec` (Warrant and a
-  RegionContract stub only) and `simic-38a07fad39` (warrant valid only at
-  the evidence host state).
-- **Primary:** controller − a\* on cost-charged late CE, paired by seed. The
-  live branch must equal its atlas branch bitwise. Co-conditions, as in
-  G3: the controller beats no-op (lower bound > 0); tail gate.
-- **Readings:** `c2_supported`; `c2_not_supported` (upper bound < 0.0125);
-  `inconclusive`. If 80% or more of G2's headroom was between hosts, a pass
-  is published as "telemetry identifies the pathology".
+- Fresh report seeds; the frozen controller acts live after epoch 1.
+- **Admission chain** (spike S2): Aurelia's predictor commissions or waits
+  → `GrowthIntent` (no seed type) → resolver stub → Momir-L0 proposes one
+  candidate → Jin-Gitaxias measures it and the no-op on the probe-split QA
+  window → rule-driven Isperia → minimal `Warrant` → Wrenn adopts the
+  branch. a\* passes through the same gate.
+- **What it tests:** the live telemetry pipeline, admission, and fresh
+  seeds. **What it does not test:** compounding over sequential decisions.
+  With one decision, the live branch equals its atlas branch bitwise.
+- **Primary:** controller − a\*, paired by seed, plus the margin over a\*_h.
+  Co-conditions as in G3.
+- **Consequences:** `c2_supported` (and, only if it beats a\*_h, the full
+  name) → G5. `c2_not_supported` (upper bound < 0.0125) → C2 is not
+  supported; stop. `inconclusive` → John: more seeds or stop.
+- Pulls from the tracker: `simic-0bf2c40dec` (Warrant and a RegionContract
+  stub only) and `simic-38a07fad39` (valid only at the evidence host
+  state).
 
 ### G5 — Transfer (rung 7)
 
-- **Prerequisite:** a parametric host family (pathology class, stage,
-  severity, base width), two slot sites, frozen before any family host
-  trains.
-- **Unit: the host.** 32 report hosts × 16 fresh seeds, disjoint from
-  support, screen and audit hosts.
-- **Primary:** per-host controller − a\*, tested across hosts, with one
-  O'Brien–Fleming interim at 16 hosts.
-- **Secondary:** C1 on held-out hosts against 1.25× scale-up.
-- **Stop:** failure means C3 is not supported; C2 is published as
-  within-distribution only.
+- A parametric host family (pathology class, stage, severity, base width;
+  two slot sites), frozen before any family host trains. This is also the
+  first real test of pathology recognition rather than host recognition.
+- 32 report hosts × 16 fresh seeds, disjoint from support, screen and audit
+  hosts. Primary: per-host controller − a\*, tested across hosts, one
+  O'Brien–Fleming interim at 16 hosts. Secondary: C1 on held-out hosts.
+- **Consequences:** pass → C3 supported at bounded scale. Fail → C3 not
+  supported; C2 published as within-distribution only.
 
-Generated structure (Momir L1+, Elesh, Urabrask) is beyond G5 and out of
-scope. The fixed library stays as permanent blinded controls.
+Generated structure (Momir L1+, Elesh, Urabrask) is beyond G5. The fixed
+library stays as permanent blinded controls.
 
 ## Compute (fleet wall time on today's throughput, both GPUs)
 
 | Fleet | Hours |
 |---|---:|
 | G0 checks and dry runs | ~0.5 |
-| Fleet A (G1, G2, G3) | ~22 |
-| Fleet A, 20-epoch audit subsample (label stability across horizons) | ~2.7 |
+| Fleet C1 (G1, deficit screen, λ) | ~10 |
+| Fleet A (G2, G3) | ~22 |
+| Fleet A, 20-epoch audit subsample | ~2.7 |
+| G3 revision audit, if needed | ~1 |
 | G4 report fleet | ~7 |
-| Host family (G2′, G3, G5) | ~35 |
-| **Total** | **~67** |
+| Host family (G2′, G3, G5), only by a fresh decision | ~35 |
 
-G0's speed work should cut these. Compute does not bind; host engineering
-and review do.
+G0's speed work should cut these.
 
 ## When training starts
 
-- **G0 is under way now** (items 1–5, no claim). Item 2, the fork core, is
-  built and tested. Item 3 passed on 2026-10-09: the atlas reproduces rung
-  4's GPU records bitwise on seeds 8001–8008, all six cells
-  ([report](../../results/2026-10-09-atlas-g0-golden/README.md)).
-- **The first training, G3,** needs Fleet A's atlas. Realistically: G0
-  takes about 8–12 working days, Fleet A about one day of nyx, then G3.
-- **Earlier, without a claim:** the item-9 shakedown trains the G3 code on
-  already-seen seeds as soon as items 2–5 and 7 exist.
+- G0 items 1–5 are done or nearly done (no claim).
+- Fleet C1 needs D1–D2, D7 and D9, plus item 6: about 2–4 working days,
+  then about 10 hours of nyx.
+- The first real training (G3) follows John's Fleet C1 checkpoint, items
+  7–9, and Fleet A: realistically two to three weeks of spare-time work.
 
 ## Reversal trigger
 
-- John rejects or amends any of D1–D9.
-- G0 cannot reproduce rung 4 bitwise: the pathway pauses until it can.
-- Fleet A's deficit screen keeps fewer than two hosts: the host set is
-  rebuilt before G2.
+- John chooses Option 0, or rejects or amends any of D1–D9.
+- G0 cannot reproduce rung 4 bitwise: the pathway pauses.
+- Fleet C1 refutes C1, or fewer than two hosts pass the deficit screen:
+  John decides before anything else is built.

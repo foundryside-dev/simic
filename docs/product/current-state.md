@@ -83,21 +83,22 @@ The owner answered all three on 2026-10-08:
 Outer evaluation stays owner-gated.
 
 **For John (2026-10-09):** the post-rung-4 DECIDE is
-[PDR-0057](decisions/0057-controller-training-pathway.md) (proposed), the
-controller training pathway he asked for, with ADR-0019 (proposed) reopening
-the comparison against uniform scale-up. It asks for decisions D1–D9:
-- D1 adopt gates G0–G5 as rungs 5–7. This waives the parked "learned
-  structural timing" condition below, which is otherwise still in force;
-- D2 the C1 comparator becomes uniform scale-up (a post-data comparator
-  change); D3 the stop conditions; D4 accept that G1 can refute C1;
-- D5 one decision point after epoch 1; D6 naming; D7 the cost charge;
-  D8 a host-blind fixed-policy comparator; D9 Fleet A's hosts, seed types
-  and horizon.
+[PDR-0057](decisions/0057-controller-training-pathway.md) (proposed), with
+ADR-0019 (proposed) and an
+[evidence certificate](certificates/2026-10-09-pdr0057-evidence-certificate.md)
+reviewed by DRL, PyTorch and systems-thinking specialists. First, on their
+own: **Option 0** (stop the ladder at rung 4 and publish the clean negative)
+or **D1–D2** (adopt the pathway, which waives the parked "learned structural
+timing" condition below; reopen the comparison against uniform scale-up, a
+post-data comparator change). D3–D9 follow only if D1–D2 are adopted. The
+first read under the pathway is Fleet C1: C1 against uniform scale-up, about
+10 hours, before any telemetry engineering.
 
 **For Claude, now:** G0 items 1–5 of PDR-0057, which need no owner
-decision. The fork core is built, and the rung-4 golden check passed on
-GPU ([report](../results/2026-10-09-atlas-g0-golden/README.md)). Items
-6–9 wait for D2 and D7–D9.
+decision. The fork core, replicate futures and unit records are built,
+and the rung-4 golden check passes on GPU
+([report](../results/2026-10-09-atlas-g0-golden/README.md)). Item 6 waits
+for D1–D2, D7 and D9; items 7–9 wait for John's read of Fleet C1.
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
 launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,

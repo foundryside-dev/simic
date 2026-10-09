@@ -170,3 +170,37 @@ def test_bn_hosts_and_seeds_fork_and_resume_bitwise(tmp_path: Path, host: str, s
     for t in (3, 5):  # mid-BLENDING and FOSSILIZED
         resumed = unit.branch(whole.snapshots[t], action=None)
         assert [_strip(r) for r in resumed.records] == [_strip(r) for r in whole.records[t - 1 :]]
+
+
+# --- Second PyTorch review: the rest of the runner's end-of-run checks (M2) ---
+
+
+def _seeded_slot(fully_coupled: bool) -> tuple[runner.ScaleAwareSlot, Any]:
+    from experiments import kernel_demo
+
+    slot = runner.ScaleAwareSlot(SPEC)
+    slot.seed = kernel_demo.build_seed("norm", 64, 3)
+    slot.stage = kernel_demo.Stage.FOSSILIZED if fully_coupled else kernel_demo.Stage.BLENDING
+    slot.alpha = slot.beta = 1.0
+    host = kernel_demo.build_host("under_normalized", 5)
+    opt = kernel_demo.build_optimizer(host, SPEC.kernel_config())
+    kernel_demo.append_seed_group(opt, slot.seed, SPEC.kernel_config())
+    return slot, (host, opt)
+
+
+def test_end_state_refuses_a_graft_that_never_fully_coupled() -> None:
+    slot, (host, opt) = _seeded_slot(True)
+    base = sum(p.numel() for p in host.parameters())
+    learned = {"host": True, "seed": True}
+    atlas._check_end_state(slot, opt, base, fully_coupled_steps=5, learned=learned)
+    with pytest.raises(RuntimeError, match="coupl"):
+        atlas._check_end_state(slot, opt, base, fully_coupled_steps=0, learned=learned)
+
+
+@pytest.mark.parametrize("who", ["host", "seed"])
+def test_end_state_refuses_a_branch_that_did_not_learn(who: str) -> None:
+    slot, (host, opt) = _seeded_slot(True)
+    base = sum(p.numel() for p in host.parameters())
+    learned = {"host": True, "seed": True, who: False}
+    with pytest.raises(RuntimeError, match="learn"):
+        atlas._check_end_state(slot, opt, base, fully_coupled_steps=5, learned=learned)

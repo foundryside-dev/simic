@@ -64,7 +64,12 @@ now carries uniform scale-up as the comparator and targeted static as a ceiling.
   tests the owner's principle, not one that favours the graft: G1 can refute C1 at bounded
   scale on its most favourable host (PDR-0057 D4).
 - Fleets that test C1 add width-scaled no-op hosts, with their realised parameter multiple
-  recorded.
+  recorded. Graft − targeted static stays a named co-reading beside graft − scale-up.
+- The graft tested against scale-up also carries the diagnosis: it is the host's pre-declared
+  blueprint at the known site. A pass therefore shows that targeted capacity beats uniform
+  width. It does not show that growing during training beats installing at the start, which
+  targeted static already answers.
+- Stopping at rung 4 remains open to the owner (PDR-0057, Option 0).
 - The vision's standing line ("static over-provisioning … beats the hand-built scheduled
   graft") stays true and is not edited by this ADR. A scoped C1 clause is proposed in
   PDR-0057 for owner read-back.

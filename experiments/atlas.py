@@ -43,6 +43,7 @@ from experiments.bounded_comparison import (
     configure,
     draw_future,
     git_identity,
+    parameter_hash,
     read_json,
     runtime,
     score,
@@ -191,16 +192,22 @@ def materialize(snap: Snapshot, spec: RunSpec, device: torch.device) -> tuple[An
     return host, slot, opt
 
 
-def _check_end_state(slot: ScaleAwareSlot, opt: torch.optim.SGD, base_params: int) -> None:
-    """The runner's end-of-run integrity checks (code review M2): coupling, and exact optimizer ownership."""
+def _check_end_state(
+    slot: ScaleAwareSlot, opt: torch.optim.SGD, base_params: int, *, fully_coupled_steps: int, learned: dict[str, bool]
+) -> None:
+    """The runner's end-of-run integrity checks (code reviews M2): coupling, optimizer ownership, learning."""
     params = [p for group in opt.param_groups for p in group["params"]]
     if len({id(p) for p in params}) != len(params):
         raise RuntimeError("duplicate optimizer membership")
     installed = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
     if sum(p.numel() for p in params) != installed:
         raise RuntimeError("optimizer does not own exactly the installed parameters")
-    if slot.seed is not None and (slot.stage is not Stage.FOSSILIZED or slot.alpha != 1.0 or slot.beta != 1.0):
+    if slot.seed is not None and (slot.stage is not Stage.FOSSILIZED or slot.alpha != 1.0 or slot.beta != 1.0 or fully_coupled_steps == 0):
         raise RuntimeError("incomplete final topology/coupling")
+    if not learned["host"]:
+        raise RuntimeError("host did not learn/update")
+    if slot.seed is not None and not learned["seed"]:
+        raise RuntimeError("seed body/gain did not learn/update")
 
 
 @dataclass
@@ -338,6 +345,13 @@ class Unit:
         spec, tx, ty, dx, dy = self.spec, self.tx, self.ty, self.dx, self.dy
         span = Span(costs=costs, replicate=replicate, future_hash=future.hash, future_from=future_from)
         base_params = sum(p.numel() for p in host.parameters())
+        host_before = parameter_hash(host)
+
+        def seed_hashes() -> tuple[str, float] | None:
+            return None if slot.seed is None else (parameter_hash(slot.seed, body_only=True), float(slot.seed.gain.detach()))
+
+        seed_before = seed_hashes()
+        grads = {"host": 0.0, "seed_body": 0.0, "seed_gain": 0.0}
         for epoch in range(start, spec.epochs):
             if epoch in snapshot_at:
                 span.snapshots[epoch] = take(host, slot, opt, costs, epoch, seed_type, replicate=replicate, future_from=future_from)
@@ -346,6 +360,7 @@ class Unit:
             if action == "GERMINATE":
                 assert germinate is not None
                 birth = attach_seed(host, slot, opt, dataclasses.replace(spec, seed_type=germinate), tx, static=False)
+                seed_before = (birth["body_init_sha256"], birth["gain_at_birth"])
                 seed_type = germinate
                 costs["calibration_examples"] += birth["calibration_examples"]
             params = base_params + (0 if slot.seed is None else sum(p.numel() for p in slot.seed.parameters()))
@@ -401,7 +416,20 @@ class Unit:
                 }
             )
         if span.diverged is None:
-            _check_end_state(slot, opt, base_params)
+            for record in span.records:
+                for name in grads:
+                    grads[name] = max(grads[name], record["gradient_norm_max"][name])
+            after = seed_hashes()
+            learned = {
+                "host": parameter_hash(host) != host_before and grads["host"] > 0,
+                "seed": after is not None
+                and seed_before is not None
+                and after[0] != seed_before[0]
+                and after[1] != seed_before[1]
+                and grads["seed_body"] > 0
+                and grads["seed_gain"] > 0,
+            }
+            _check_end_state(slot, opt, base_params, fully_coupled_steps=costs["fully_coupled_optimizer_steps"], learned=learned)
         return span
 
 

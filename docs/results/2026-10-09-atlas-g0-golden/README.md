@@ -38,3 +38,17 @@ golden check was repeated on the fixed source:
 | `experiments/atlas_golden.py` | `ec4c467d3f15188a41287bc56974ec209946f2423779781c29959e9f6cc9513a` |
 
 Reports: [`rerun-after-review/`](rerun-after-review/).
+
+## Final run, self-describing report (2026-10-09)
+
+**Result: pass**, all eight seeds and six cells, both arms, bitwise. After a second
+PyTorch review, the remaining runner end-of-run checks were ported and the report
+was hardened: it now records the source hashes (runner files plus `atlas.py` and
+`atlas_golden.py`), the runtime (GPU, CUDA, cuDNN, torch build), each reference
+`training.jsonl` hash and the number of records compared per cell and arm. The report
+is its own provenance: [`final/`](final/).
+
+What the GPU runs show, and do not: reproduction of the instrument for
+`under_normalized` × `norm` on GPU. The RNG-restore and divergence paths are proven
+by CPU tests only, because seeds 8001–8008 had no ambient draws or divergences. BN hosts,
+the other seed types and co-tenancy are not yet checked on GPU.
