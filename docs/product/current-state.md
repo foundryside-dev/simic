@@ -1,4 +1,4 @@
-# Current State — Simic        Checkpoint: 2026-10-09 (session 17, rung 4 read)
+# Current State — Simic        Checkpoint: 2026-10-10 (session 17, PDR-0057 signed)
 
 ## Who owns this now
 Claude, since 2026-10-08 (PDR-0040): *"you have carriage to bring simic to
@@ -82,23 +82,21 @@ The owner answered all three on 2026-10-08:
 
 Outer evaluation stays owner-gated.
 
-**For John (2026-10-09):** the post-rung-4 DECIDE is
-[PDR-0057](decisions/0057-controller-training-pathway.md) (proposed), with
-ADR-0019 (proposed) and an
-[evidence certificate](certificates/2026-10-09-pdr0057-evidence-certificate.md)
-reviewed by DRL, PyTorch and systems-thinking specialists. First, on their
-own: **Option 0** (stop the ladder at rung 4 and publish the clean negative)
-or **D1–D2** (adopt the pathway, which waives the parked "learned structural
-timing" condition below; reopen the comparison against uniform scale-up, a
-post-data comparator change). D3–D9 follow only if D1–D2 are adopted. The
-first read under the pathway is Fleet C1: C1 against uniform scale-up, about
-10 hours, before any telemetry engineering.
+**Signed 2026-10-10:** John adopted the controller training pathway,
+[PDR-0057](decisions/0057-controller-training-pathway.md) D1–D9, and
+accepted ADR-0019. C1's comparator is now uniform scale-up (vision.md, C1
+comparator clause); targeted static is an oracle ceiling. The parked
+"learned structural timing" condition is waived by D1. Evidence:
+[certificate](certificates/2026-10-09-pdr0057-evidence-certificate.md).
 
-**For Claude, now:** G0 items 1–5 of PDR-0057, which need no owner
-decision. The fork core, replicate futures and unit records are built,
-and the rung-4 golden check passes on GPU
-([report](../results/2026-10-09-atlas-g0-golden/README.md)). Item 6 waits
-for D1–D2, D7 and D9; items 7–9 wait for John's read of Fleet C1.
+**For Claude, now:** G0 item 6 (scaled-up hosts at m ∈ {1.1, 1.25, 1.5,
+2.0}, `reference`, and a static arm in the atlas with its own golden
+check), then the Fleet C1 plan: reviews, a dry run in which every
+(host, seed type) cell runs twice on GPU with equal records, and the
+in-session sketch to John before launch. Items 7–9 wait for John's read of
+Fleet C1. G0 items 1–5 are done
+([golden](../results/2026-10-09-atlas-g0-golden/README.md),
+[co-tenancy](../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
 launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,

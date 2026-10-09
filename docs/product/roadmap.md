@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-10-09 (session 17; rung 4 met; PDR-0057 proposed)
+# Roadmap — Simic            Updated: 2026-10-10 (session 17; rung 4 met; PDR-0057 adopted)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -42,13 +42,15 @@
   static on the median seed. Six cells ran: graft epochs 0, 1, 2, 3 and 5
   at 10 epochs, and graft epoch 2 at 20 epochs. What follows is a new owner
   DECIDE. Location stayed out of scope.
-- **Proposed, not adopted: the controller training pathway** (PDR-0057,
-  gates G0–G5, awaiting John's D1–D9). If adopted, it replaces the rung-5
-  line below with G2 + G3, and adds rungs 6 (closed loop) and 7 (transfer).
-  G0 apparatus work, which makes no claim, has started.
-- **Rung 5: can telemetry predict the label better than a fixed schedule?**
-  This is the first Tamiyo-shaped result. HLD contracts are drafted here,
-  only for what it touches.
+- **Adopted 2026-10-10: the controller training pathway** (PDR-0057, gates
+  G0–G5; ADR-0019). It replaces the rung-5 line below: rung 5 = G2 + G3,
+  rung 6 = G4 (live single-decision test), rung 7 = G5 (transfer). The first
+  read is Fleet C1: C1 against uniform scale-up, before any telemetry
+  build. Every `inconclusive` comes to John with stop on the menu.
+- **Rung 5 (superseded in form by PDR-0057): can telemetry predict the
+  best choice better than a fixed policy?** Now G2 (headroom) + G3 (offline
+  learning). HLD contracts are drafted only for what each gate touches; the
+  first ones (Warrant, a RegionContract stub) arrive at G4.
 
 ## Later (directional bets, no order, no dates)
 - **HLD programme: design hardening and Phase A contracts** (moved to Later

@@ -1,6 +1,13 @@
 # PDR-0057 — The controller training pathway ("how to train your Tamiyo"): gates G0–G5
 
-Date: 2026-10-09   Status: **proposed; the gates, comparators and stop conditions await owner signature**   Author: Claude (session 17)
+Date: 2026-10-09   Status: **accepted (owner-signed 2026-10-10)**   Author: Claude (session 17)
+Owner sign-off: **RECEIVED 2026-10-10**, in session, choosing from Claude's
+options after reading the evidence certificate:
+- "D1–D2: adopt pathway" (Option 0 not taken);
+- D3–D6 and D9: "Adopt as written";
+- D7: "Derived from scale-up";
+- D8: "Both a\* and a\*_h";
+- the D2 vision clause: "Apply verbatim" (applied to `vision.md`).
 Owner direction: **RECEIVED 2026-10-09**, in session: *"can you produce a
 'how to train your tamiyo' plan that lets test and prove what we need to
 prove. Do any relevant design spikes and then start training tamiyo to

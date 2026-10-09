@@ -1,8 +1,8 @@
 # ADR-0019 — Reopen the bounded comparison: C1 is tested against uniform scale-up, targeted static becomes an oracle ceiling
 <!-- adr-meta:begin — append-only; rules: README.md#metadata-and-immutability -->
 
-Date: 2026-10-09 · Status: proposed
-Deciders: John (owner signature pending, PDR-0057 D2) · Tracker: simic-f73351380d
+Date: 2026-10-09 · Status: accepted
+Deciders: John, owner-signed in session 2026-10-10 (PDR-0057 D2) · Tracker: simic-f73351380d
 
 Amends: ADR-0018
 Amended-by: —

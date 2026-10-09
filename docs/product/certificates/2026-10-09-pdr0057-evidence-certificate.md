@@ -2,7 +2,7 @@
 
 Date: 2026-10-09 · Prepared by: Claude (session 17) for John's sign-off ·
 Branch `controller-pathway` from main `6d38c81` · Status: **reviewed;
-ready for owner decision**
+owner decided 2026-10-10: D1–D9 adopted, Option 0 not taken**
 
 This certificate lists what John is asked to decide, the evidence behind
 each item, where it lives, how it was checked, and what it does not show.
