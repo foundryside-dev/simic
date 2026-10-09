@@ -31,6 +31,8 @@ from typing import Any
 
 import torch
 
+from experiments.atlas_hosts import HostConfig, config_hash
+from experiments.atlas_hosts import build as build_config_host
 from experiments.bounded_comparison import (
     NON_FINITE_INITIAL,
     NON_FINITE_INITIAL_REASON,
@@ -97,7 +99,8 @@ class Span:
     replicate: int = 0
     future_hash: str = ""
     future_from: int = 0
-    initial_dev: dict[str, Any] | None = None  # trunk only: the runner's initial scoring
+    initial_dev: dict[str, Any] | None = None  # trunk and static only: the runner's initial scoring
+    birth: dict[str, Any] | None = None  # static only: the birth record the runner writes at arm start
 
 
 Trunk = Span
@@ -168,10 +171,18 @@ def splice_future(base: CommonFuture, replacement: CommonFuture, from_epoch: int
     return CommonFuture(parts[0], parts[1], parts[2], base.epochs, h.hexdigest())
 
 
-def materialize(snap: Snapshot, spec: RunSpec, device: torch.device) -> tuple[Any, ScaleAwareSlot, torch.optim.SGD]:
+def make_host(spec: RunSpec, host_cfg: HostConfig | None, device: torch.device) -> Any:
+    """The kernel host for `spec.host`, or a config-built host (scaled or reference, `atlas_hosts`)."""
+    init = derive(spec.seed, "host-init")
+    return (build_host(spec.host, init) if host_cfg is None else build_config_host(host_cfg, init)).to(device)
+
+
+def materialize(
+    snap: Snapshot, spec: RunSpec, device: torch.device, host_cfg: HostConfig | None = None
+) -> tuple[Any, ScaleAwareSlot, torch.optim.SGD]:
     """Rebuild host, slot and optimizer from a snapshot. Seed groups are appended before momentum loads."""
     cfg = spec.kernel_config()
-    host = build_host(spec.host, derive(spec.seed, "host-init")).to(device)
+    host = make_host(spec, host_cfg, device)
     host.load_state_dict(snap.host)
     slot = ScaleAwareSlot(spec)
     opt = build_optimizer(host, cfg)
@@ -224,26 +235,29 @@ class Unit:
     provenance: dict[str, Any] = field(default_factory=dict)
     cpu_rng: torch.Tensor | None = None  # the streams configure() pinned; every trunk starts from them
     cuda_rng: torch.Tensor | None = None
+    host_cfg: HostConfig | None = None  # None: the kernel host for spec.host (legacy, rung-4 golden)
 
     @classmethod
-    def load(cls, spec: RunSpec, data_root: Path | None = None) -> Unit:
+    def load(cls, spec: RunSpec, data_root: Path | None = None, *, host_cfg: HostConfig | None = None) -> Unit:
         configure(spec)
         tx, ty, dx, dy, provenance = load_fit_dev(spec, data_root)
         device = torch.device(spec.device)
         tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
         future = draw_future(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
         cuda_rng = torch.cuda.get_rng_state().clone() if device.type == "cuda" else None
-        return cls(spec, tx, ty, dx, dy, future, device, provenance, torch.get_rng_state().clone(), cuda_rng)
+        return cls(spec, tx, ty, dx, dy, future, device, provenance, torch.get_rng_state().clone(), cuda_rng, host_cfg)
 
-    def trunk(self, decision_points: tuple[int, ...]) -> Trunk:
-        assert self.cpu_rng is not None
-        torch.set_rng_state(self.cpu_rng)
-        if self.cuda_rng is not None:
-            torch.cuda.set_rng_state(self.cuda_rng)
-        host = build_host(self.spec.host, derive(self.spec.seed, "host-init")).to(self.device)
-        slot = ScaleAwareSlot(self.spec)
-        opt = build_optimizer(host, self.spec.kernel_config())
-        costs = {
+    @property
+    def host_label(self) -> str:
+        return f"kernel-{self.spec.host}" if self.host_cfg is None else f"atlas-{self.host_cfg.name}-{config_hash(self.host_cfg)[:12]}"
+
+    def _require_slot(self) -> None:
+        """Seeds are built for the 64-channel stage-2 site; a scaled host has no slot."""
+        if self.host_cfg is not None and self.host_cfg.w2 != 64:
+            raise ValueError(f"host {self.host_cfg.name} has no 64-channel slot site; it is a no-growth comparator")
+
+    def _fresh_costs(self) -> dict[str, int]:
+        return {
             "host_train_examples": 0,
             "seed_train_examples": 0,
             "host_dev_examples": len(self.dy),  # the runner's initial scoring
@@ -254,6 +268,64 @@ class Unit:
             "optimizer_parameter_steps": 0,
             "fully_coupled_optimizer_steps": 0,
         }
+
+    def _restore_pinned_rng(self) -> None:
+        assert self.cpu_rng is not None
+        torch.set_rng_state(self.cpu_rng)
+        if self.cuda_rng is not None:
+            torch.cuda.set_rng_state(self.cuda_rng)
+
+    def static(self, seed_type: str) -> Span:
+        """The runner's static arm: the seed attached fully coupled at birth, trained from step zero."""
+        if seed_type not in SEED_NAMES:
+            raise ValueError(f"seed_type must be one of {SEED_NAMES}")
+        self._require_slot()
+        self._restore_pinned_rng()
+        spec = dataclasses.replace(self.spec, seed_type=seed_type)
+        host = make_host(spec, self.host_cfg, self.device)
+        slot = ScaleAwareSlot(spec)
+        opt = build_optimizer(host, spec.kernel_config())
+        birth = attach_seed(host, slot, opt, spec, self.tx, static=True)
+        costs = self._fresh_costs()
+        costs["seed_dev_examples"] = len(self.dy)
+        costs["calibration_examples"] = birth["calibration_examples"]
+        try:
+            initial_dev: dict[str, Any] = score(host, slot, self.dx, self.dy, spec.batch_size)
+        except NonFiniteError:
+            failed = Span(costs=costs, future_hash=self.future.hash, initial_dev=dict(NON_FINITE_INITIAL), birth=birth)
+            gain = float(slot.seed.gain.detach()) if slot.seed is not None else math.nan
+            failed.diverged = {
+                "epoch": 0,
+                "step": 0,
+                "reason": NON_FINITE_INITIAL_REASON,
+                "stage": slot.stage.value,
+                "witness": {"seed_present": True, "gain_min": gain, "gain_max": gain},
+                "birth": birth,
+            }
+            return failed
+        span = self._run(
+            host,
+            slot,
+            opt,
+            costs,
+            start=0,
+            germinate=None,
+            seed_type=seed_type,
+            snapshot_at=(),
+            future=self.future,
+            replicate=0,
+            future_from=0,
+            arm="static",
+        )
+        span.initial_dev, span.birth = initial_dev, birth
+        return span
+
+    def trunk(self, decision_points: tuple[int, ...]) -> Trunk:
+        self._restore_pinned_rng()
+        host = make_host(self.spec, self.host_cfg, self.device)
+        slot = ScaleAwareSlot(self.spec)
+        opt = build_optimizer(host, self.spec.kernel_config())
+        costs = self._fresh_costs()
         try:
             initial_dev: dict[str, Any] = score(host, slot, self.dx, self.dy, self.spec.batch_size)
         except NonFiniteError:  # The runner's non-finite birth: a recorded divergence, not an abort (code review M3).
@@ -304,6 +376,8 @@ class Unit:
         """
         if action is not None and action not in SEED_NAMES:
             raise ValueError(f"action must be None (no-op) or one of {SEED_NAMES}")
+        if action is not None:
+            self._require_slot()
         if action is not None:  # the runner's own rule: the whole lifecycle plus a coupled epoch fit (code review M1)
             dataclasses.replace(self.spec, graft_epoch=snap.epoch).validate()
         rep = snap.replicate if replicate is None else replicate
@@ -311,7 +385,7 @@ class Unit:
             raise ValueError(f"replicate mismatch: the snapshot was trained on replicate {snap.replicate}")
         future_from = snap.future_from if snap.replicate != 0 else snap.epoch
         future = self.future_for(rep, future_from)
-        host, slot, opt = materialize(snap, self.spec, self.device)
+        host, slot, opt = materialize(snap, self.spec, self.device, self.host_cfg)
         return self._run(
             host,
             slot,
@@ -340,6 +414,7 @@ class Unit:
         future: CommonFuture,
         replicate: int,
         future_from: int,
+        arm: str | None = None,
     ) -> Span:
         """`train()`'s arm body from `start`, germinating `germinate` before `start` trains."""
         spec, tx, ty, dx, dy = self.spec, self.tx, self.ty, self.dx, self.dy
@@ -402,7 +477,7 @@ class Unit:
                 {
                     "schema_version": SCHEMA,
                     "kind": "epoch",
-                    "arm": "scheduled" if seed_type is not None else "no_growth",
+                    "arm": arm if arm is not None else ("scheduled" if seed_type is not None else "no_growth"),
                     "epoch": epoch,
                     "requested_action": action,
                     "executed_action": action,

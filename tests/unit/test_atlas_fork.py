@@ -204,3 +204,38 @@ def test_end_state_refuses_a_branch_that_did_not_learn(who: str) -> None:
     learned = {"host": True, "seed": True, who: False}
     with pytest.raises(RuntimeError, match="learn"):
         atlas._check_end_state(slot, opt, base, fully_coupled_steps=5, learned=learned)
+
+
+# --- G0 item 6: static arm and config-built hosts ---
+
+
+def test_static_arm_is_the_runners_static_arm(reference: dict[int, Path], unit: atlas.Unit) -> None:
+    static = unit.static(SPEC.seed_type)
+    rows = [json.loads(line) for line in (reference[2] / "training.jsonl").read_text().splitlines()]
+    start = next(r for r in rows if r["kind"] == "arm_start" and r["arm"] == "static")
+    summaries = json.loads((reference[2] / "complete.json").read_text())["summaries"]
+    assert static.diverged is None
+    assert [_strip(r) for r in static.records] == _epochs(reference[2], "static")
+    assert static.initial_dev == start["initial_dev"] and static.birth == start["birth"]
+    assert static.costs == summaries["static"]["costs"]
+
+
+def test_config_built_host_at_scale_one_trains_like_the_kernel_host(trunk: atlas.Trunk) -> None:
+    from experiments import atlas_hosts
+
+    same = atlas.Unit.load(SPEC, host_cfg=atlas_hosts.base_config(SPEC.host)).trunk(decision_points=(2,))
+    assert [_strip(r) for r in same.records] == [_strip(r) for r in trunk.records]
+
+
+def test_scaled_host_trains_as_a_no_growth_comparator() -> None:
+    from experiments import atlas_hosts
+
+    cfg = atlas_hosts.scaled_config(SPEC.host, 1.25)
+    scaled = atlas.Unit.load(SPEC, host_cfg=cfg)
+    span = scaled.trunk(decision_points=(2,))
+    assert span.diverged is None and len(span.records) == SPEC.epochs
+    assert all(r["installed_parameters"] == atlas_hosts.parameter_count(cfg) for r in span.records)
+    with pytest.raises(ValueError, match="slot"):
+        scaled.branch(span.snapshots[2], action="norm")
+    with pytest.raises(ValueError, match="slot"):
+        scaled.static("norm")
