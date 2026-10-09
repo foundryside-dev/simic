@@ -1,6 +1,6 @@
 # PDR-0055 — Rung 4 per-study plan: timing and horizon on `norm`, 768 seeds
 
-Date: 2026-10-09   Status: accepted for launch (after three pre-launch reviews and amendments)   Author: Claude (session 17)
+Date: 2026-10-09   Status: accepted for launch; **outcome recorded 2026-10-09: `lever_found`, rung 4 met**   Author: Claude (session 17)
 Owner sign-off: the question and stop condition are owner-signed in
 PDR-0054. This per-study plan is Claude's under PDR-0053, and a delta note
 against the sketch is posted in session before launch.
@@ -147,3 +147,27 @@ disclosures.
 Any change to the plan or `timing_study.py` after launch is an amendment,
 and the analysis refuses it. An interrupted fleet is resumed with
 `--resume` from its own snapshot, never relaunched on new code.
+
+## Outcome (2026-10-09)
+
+**`lever_found`; rung 4 is met.** The fleet finished 2026-10-09 21:53
+local: 4,608 runs, 0 analysis failures, 0 replay mismatches.
+[Result note](../../results/2026-10-09-rung4-timing-horizon.md).
+
+- **Timing:** graft T0 − T3 −0.051 [−0.059, −0.043], beyond the 0.02
+  margin. Robust on median, trimmed mean and sign.
+- **Horizon:** gap(H20) − gap(T2) −0.101 [−0.136, −0.067], beyond the
+  0.05 margin. Heavy-tailed: the median is −0.067 [−0.078, −0.056], and
+  excluding late-degrading runs of either arm gives −0.058
+  [−0.066, −0.051]. The mean includes static degrading late at 20 epochs.
+- **Interpretation:** the reading is carried by timing, and T0 is the
+  schedule most like static. This favours static-like schedules; it does
+  not show that late injection pays.
+- **Lever cell:** the graft does not beat static at T0 (+0.019).
+- **Sizing breach, disclosed:** the horizon sd was 0.393, 1.7 times the
+  0.230 upper limit used for sizing. Pilot 3 had shown the cause (7 of 24
+  static runs rose late), but 24 seeds underestimated the tail. Power at
+  the observed effect was about 0.86.
+
+Per this PDR's reading consequences, what follows is a new owner-signed
+DECIDE. Claude does not shape rung 5 alone.

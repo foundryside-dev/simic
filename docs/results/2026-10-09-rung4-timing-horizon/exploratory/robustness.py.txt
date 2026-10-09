@@ -1,0 +1,141 @@
+"""Exploratory, written after the confirmatory reading: robustness of the rung-4 contrasts.
+
+Reads the archived per-epoch table (tables/per-epoch.jsonl.gz) and, for the pilot check, a pilot run root.
+Nothing here changes the pre-registered reading. Usage, from the repository root:
+    .venv/bin/python docs/results/2026-10-09-rung4-timing-horizon/exploratory/robustness.py.txt \
+        docs/results/2026-10-09-rung4-timing-horizon/tables/per-epoch.jsonl.gz
+"""
+import collections, gzip, json, math, sys
+import numpy as np
+
+ARMS = ("no_growth", "static", "scheduled")
+EPOCHS = {"T0": 10, "T1": 10, "T2": 10, "T3": 10, "T5": 10, "H20": 20}
+curves = collections.defaultdict(dict)  # (cell, seed, arm) -> {epoch: dev_ce}
+acc = collections.defaultdict(dict)
+for line in gzip.open(sys.argv[1], "rt"):
+    r = json.loads(line)
+    curves[(r["cell"], r["seed"], r["arm"])][r["epoch"]] = r["dev_ce"]
+    acc[(r["cell"], r["seed"], r["arm"])][r["epoch"]] = r["dev_acc"]
+seeds = sorted({k[1] for k in curves})
+
+
+def full(cell, seed, arm):
+    c = curves.get((cell, seed, arm), {})
+    v = [c.get(e) for e in range(EPOCHS[cell])]
+    return v if all(x is not None and math.isfinite(x) for x in v) else None
+
+
+def late(cell, seed, arm):
+    v = full(cell, seed, arm)
+    return None if v is None else float(np.mean(v[-3:]))
+
+
+def summary(x):
+    x = np.sort(np.asarray(x))
+    t = len(x) // 10
+    return {"n": len(x), "mean": round(float(x.mean()), 4), "median": round(float(np.median(x)), 4),
+            "trimmed10": round(float(x[t:len(x) - t].mean()), 4), "share_below_zero": round(float(np.mean(x < 0)), 3)}
+
+
+def paired(f, g):
+    return [a - b for s in seeds if (a := f(s)) is not None and (b := g(s)) is not None]
+
+
+def gap(cell):
+    return lambda s: None if (g := late(cell, s, "scheduled")) is None or (t := late(cell, s, "static")) is None else g - t
+
+
+def late_rise(cell, seed, arm):
+    v = full(cell, seed, arm)
+    return None if v is None else float(np.mean(v[-3:]) - min(v[:-3]))
+
+
+rise_static = {s: r for s in seeds if (r := late_rise("H20", s, "static")) is not None}
+stable = lambda f: (lambda s: f(s) if rise_static.get(s, 1.0) <= 0.1 else None)
+out = {
+    "timing_T0_minus_T3_graft": summary(paired(lambda s: late("T0", s, "scheduled"), lambda s: late("T3", s, "scheduled"))),
+    "horizon_gapH20_minus_gapT2": summary(paired(gap("H20"), gap("T2"))),
+    "horizon_excluding_static_late_rise_gt_0.1": summary(paired(stable(gap("H20")), gap("T2"))),
+    "H20_graft_minus_static": summary([g for s in seeds if (g := gap("H20")(s)) is not None]),
+    "H20_graft_minus_static_excluding_static_late_rise": summary([g for s in seeds if (g := stable(gap("H20"))(s)) is not None]),
+    "T2_graft_minus_static": summary([g for s in seeds if (g := gap("T2")(s)) is not None]),
+    "H20_graft_minus_no_growth": summary(paired(lambda s: late("H20", s, "scheduled"), lambda s: late("H20", s, "no_growth"))),
+    "H20_static_minus_no_growth": summary(paired(lambda s: late("H20", s, "static"), lambda s: late("H20", s, "no_growth"))),
+    "late_rise_gt_0.1_H20": {a: int(sum((r := late_rise("H20", s, a)) is not None and r > 0.1 for s in seeds)) for a in ARMS},
+    "late_rise_finite_n_H20": {a: int(sum(late_rise("H20", s, a) is not None for s in seeds)) for a in ARMS},
+    "late_dev_accuracy_mean": {
+        cell: {a: round(float(np.mean([np.mean([acc[(cell, s, a)][e] for e in range(EPOCHS[cell] - 3, EPOCHS[cell])])
+                                       for s in seeds if full(cell, s, a) is not None])), 4) for a in ARMS}
+        for cell in EPOCHS
+    },
+    "dev_ce_by_epoch_H20_mean_and_median": {
+        a: [[round(float(np.mean(v)), 3), round(float(np.median(v)), 3)]
+            for e in range(20) for v in [[full("H20", s, a)[e] for s in seeds if full("H20", s, a) is not None]]]
+        for a in ARMS
+    },
+}
+print(json.dumps(out, indent=1))
+
+
+# --- Additions after the statistics review (still exploratory) ---
+from scipy import stats
+
+rng = np.random.default_rng(20261009)
+LEVEL = 1 - 0.05 / 3
+
+
+def t_interval(x):
+    x = np.asarray(x)
+    h = stats.t.ppf(1 - (1 - LEVEL) / 2, len(x) - 1) * x.std(ddof=1) / len(x) ** 0.5
+    return [round(float(x.mean() - h), 4), round(float(x.mean() + h), 4)]
+
+
+def boot(x, f, reps=20000):
+    x = np.asarray(x)
+    v = np.array([f(x[rng.integers(0, len(x), len(x))]) for _ in range(reps)])
+    return [round(float(np.quantile(v, (1 - LEVEL) / 2)), 4), round(float(np.quantile(v, 1 - (1 - LEVEL) / 2)), 4)]
+
+
+trim = lambda x: float(np.mean(np.sort(x)[len(x) // 10:len(x) - len(x) // 10]))
+rise_graft = {s: r for s in seeds if (r := late_rise("H20", s, "scheduled")) is not None}
+both_stable = lambda f: (lambda s: f(s) if rise_static.get(s, 1.0) <= 0.1 and rise_graft.get(s, 1.0) <= 0.1 else None)
+h_all = paired(gap("H20"), gap("T2"))
+h_static_only = paired(stable(gap("H20")), gap("T2"))
+h_sym = paired(both_stable(gap("H20")), gap("T2"))
+g_h20 = [g for s in seeds if (g := gap("H20")(s)) is not None]
+
+
+def worst_rank_median():
+    vals = []
+    for s in seeds:
+        a, b = gap("H20")(s), gap("T2")(s)
+        if a is not None and b is not None:
+            vals.append(a - b)
+        elif late("H20", s, "static") is None and late("H20", s, "scheduled") is not None:
+            vals.append(-math.inf)  # static lost at H20: counts as the graft closing the gap
+        elif late("H20", s, "scheduled") is None:
+            vals.append(math.inf)
+    v = np.array(vals)
+    return {"n": len(v), "minus_inf": int(np.isneginf(v).sum()), "plus_inf": int(np.isposinf(v).sum()),
+            "median": round(float(np.median(v)), 4), "share_below_zero": round(float(np.mean(v < 0)), 3)}
+
+
+riser_acc = {k: round(float(np.mean([np.mean([acc[("H20", s, "static")][e] for e in range(17, 20)])
+                                     for s in rise_static if (rise_static[s] > 0.1) == k])), 4) for k in (True, False)}
+review = {
+    "interval_level": LEVEL,
+    "horizon_all_pairs": {"t_interval_mean": t_interval(h_all), "boot_median": boot(h_all, np.median), "boot_trimmed10": boot(h_all, trim), "boot_mean": boot(h_all, np.mean)},
+    "horizon_excluding_static_risers_only_BIASED": {**summary(h_static_only), "boot_median": boot(h_static_only, np.median), "boot_trimmed10": boot(h_static_only, trim)},
+    "horizon_excluding_risers_of_either_arm": {**summary(h_sym), "t_interval_mean": t_interval(h_sym)},
+    "H20_graft_minus_static_boot_median": boot(g_h20, np.median),
+    "horizon_worst_rank_imputation": worst_rank_median(),
+    "H20_static_late_accuracy_risers_vs_not": {"risers": riser_acc[True], "non_risers": riser_acc[False]},
+}
+print(json.dumps({"review_additions": review}, indent=1))
+
+# Power of the horizon co-primary to read beyond-floor at a true -0.10, at the observed sd (normal approximation).
+sd_h, n_h = float(np.std(h_all, ddof=1)), len(h_all)
+se_h = sd_h / n_h ** 0.5
+half = stats.t.ppf(1 - (1 - LEVEL) / 2, n_h - 1) * se_h
+power = float(stats.norm.cdf((-0.05 - half + 0.10) / se_h))
+print(json.dumps({"horizon_power_at_true_minus_0.10_observed_sd": {"sd": round(sd_h, 4), "n": n_h, "power": round(power, 3)}}, indent=1))

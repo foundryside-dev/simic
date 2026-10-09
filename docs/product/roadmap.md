@@ -35,8 +35,11 @@
     to a failed rung by enlarging the controller.
 
 ## Next (shaped, decreasing certainty)
-- **Rung 4 (decided, PDR-0054, owner-signed; plan PDR-0055): does graft
+- **Rung 4 (met 2026-10-09, `lever_found`, PDR-0055;
+  [result](../results/2026-10-09-rung4-timing-horizon.md)): does graft
   timing or horizon change the outcome, on `under_normalized` × `norm`?**
+  Earlier grafts are better, and a longer horizon lets the graft catch
+  static on the median seed. What follows is a new owner DECIDE.
   The study runs six cells through `experiments/timing_study.py`:
   - graft epochs 0, 1, 2, 3 and 5 at a 10-epoch horizon;
   - graft epoch 2 at a 20-epoch horizon.

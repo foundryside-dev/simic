@@ -1,0 +1,45 @@
+{
+ "n_seeds": 767,
+ "shared_curve_minus_mean": {
+  "x0": -0.0359,
+  "x1": -0.0201,
+  "x2": -0.0023,
+  "x3": 0.0149,
+  "x5": 0.0434
+ },
+ "mean_slope_per_epoch": 0.016,
+ "slope_sd_observed": 0.0166,
+ "slope_sd_predicted_by_residual": 0.0127,
+ "variance_ratio_F": 1.694,
+ "df": [
+  766,
+  2298
+ ],
+ "p_upper": 0.0,
+ "residual_sd": 0.049,
+ "argmin_cell_share_winners_curse_caution": {
+  "x0": 0.528,
+  "x1": 0.27,
+  "x2": 0.117,
+  "x3": 0.066,
+  "x5": 0.018
+ }
+}
+{
+ "bootstrap_F_95": [
+  1.424,
+  1.993
+ ],
+ "bootstrap_implied_slope_sd_95": [
+  0.0082,
+  0.0128
+ ],
+ "interaction_sd_per_cell": 0.0474,
+ "best_of_5_over_always_T0": {
+  "mean": 0.0256,
+  "median": 0.0
+ },
+ "corr_T0mT1_vs_T2mT3": 0.09,
+ "corr_T0mT1_vs_T3mT5": -0.048,
+ "slope_kurtosis": 11.11
+}
