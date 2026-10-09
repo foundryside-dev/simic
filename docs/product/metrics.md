@@ -1,4 +1,4 @@
-# Metrics — Simic             Last read: 2026-10-08 (session 17)
+# Metrics — Simic             Last read: 2026-10-09 (session 17)
 
 > Dates here are pacing signals for the owner's own use — this is a spare-time
 > moonshot (owner-stated 2026-08-08, PDR-0005). A fired date is a re-plan signal
@@ -34,6 +34,7 @@ arm-size matching. See ADR-0016.
 | Graft lifecycle stable on the deficit host | No non-finite arm (implicit in every plan); for v2, PDR-0051's pre-registered C1 | **Yes, for lifecycle v2: 0/48** (`norm` and `conv_heavy`; exact one-sided 95% bound 6.05%; PDR-0051 `accepted`). v1 diverged in 14/48 on the same seeds. The mechanism was confirmed by intervention. Static-arm host instability is separate: 2/72 static `norm` arms (`simic-9c5c3a2acf`) | 2026-10-08 (session 17) |
 | **A graft captures the deficit** (rung 3): the pre-registered `graft-capture-v2` readings, composed into a rung verdict by PDR-0052's table | `progress` = capture; `partial_capture` = **static wins at the declared cost** (ADR-0018), a negative on graft ≥ static at this horizon; no capture stops the ladder at rung 3 (PDR-0050) | **Partial capture** (2026-10-09): both plans `partial_capture`. Graft − no growth −0.087 (`norm`) and −0.045 (`conv_heavy`); static beats the graft by 0.057 and 0.098. Capture fractions 0.60 [0.51, 0.72] and 0.31 [0.19, 0.42]. Graft divergences 0/192 (`docs/results/2026-10-09-graft-capture-v2.md`) | 2026-10-09 (session 17) |
 | **Timing or horizon changes the outcome** (rung 4): the pre-registered `rung4-timing-horizon` reading (PDR-0054/0055) | `lever_found` = met; `flat_stop` stops the ladder at rung 4 | **Met, `lever_found`** (2026-10-09). Timing: graft T0 − T3 −0.051 [−0.059, −0.043], margin 0.02. Horizon: gap(H20) − gap(T2) −0.101 [−0.136, −0.067], margin 0.05, tail-sensitive (median −0.067). Graft − static at T0 +0.019; at H20 median +0.005. n = 768 seeds, 4,608 runs, 0 failures (`docs/results/2026-10-09-rung4-timing-horizon.md`) | 2026-10-09 (session 17) |
+| **Atlas apparatus reproduces the instrument** (PDR-0057 G0, no claim): the fork core replays rung 4 bitwise | Pass / fail; any mismatch blocks science | **Pass** (2026-10-09): seeds 8001–8008, all six cells, no_growth and scheduled arms (`docs/results/2026-10-09-atlas-g0-golden/`) | 2026-10-09 (session 17) |
 | Scheduled-graft cost relative to static capacity | Reported, not targeted: optimizer parameter-steps, seed example passes, wall seconds | Pilot, as a share of no growth's 45.44 M optimizer parameter-steps: scheduled +5.0%, static +6.3%. Wall time ≈19 s per arm | 2026-10-08 (session 17) |
 
 ## Input metrics (the levers that move the north-star)

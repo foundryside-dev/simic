@@ -77,6 +77,8 @@ class Span:
     snapshots: dict[int, Snapshot] = field(default_factory=dict)
     diverged: dict[str, Any] | None = None
     costs: dict[str, int] = field(default_factory=dict)
+    replicate: int = 0
+    future_hash: str = ""
 
 
 Trunk = Span
@@ -118,6 +120,17 @@ def snapshot_digest(snap: Snapshot) -> str:
             h.update((tensor_hash(value) if isinstance(value, torch.Tensor) else strict_json(value)).encode())
     h.update(strict_json(snap.optimizer["param_groups"]).encode())
     return h.hexdigest()
+
+
+def splice_future(base: CommonFuture, replacement: CommonFuture, from_epoch: int) -> CommonFuture:
+    """Epochs before `from_epoch` from `base`, the rest from `replacement`, hashed like `draw_future`."""
+    if base.epochs != replacement.epochs or not 0 <= from_epoch <= base.epochs:
+        raise ValueError("futures must share a horizon, and the splice point must lie within it")
+    parts = [torch.cat([getattr(base, n)[:from_epoch], getattr(replacement, n)[from_epoch:]]) for n in ("order", "crops", "flips")]
+    h = hashlib.sha256()
+    for t in parts:
+        h.update(t.numpy().tobytes())
+    return CommonFuture(parts[0], parts[1], parts[2], base.epochs, h.hexdigest())
 
 
 def materialize(snap: Snapshot, spec: RunSpec, device: torch.device) -> tuple[Any, ScaleAwareSlot, torch.optim.SGD]:
@@ -177,15 +190,40 @@ class Unit:
             "optimizer_parameter_steps": 0,
             "fully_coupled_optimizer_steps": 0,
         }
-        return self._run(host, slot, opt, costs, start=0, germinate=None, seed_type=None, snapshot_at=decision_points)
+        return self._run(
+            host, slot, opt, costs, start=0, germinate=None, seed_type=None, snapshot_at=decision_points, future=self.future, replicate=0
+        )
 
-    def branch(self, snap: Snapshot, action: str | None, snapshot_at: tuple[int, ...] = ()) -> Branch:
+    def future_for(self, replicate: int, from_epoch: int) -> CommonFuture:
+        """Replicate r of the future from `from_epoch` on. Replicate 0 is the common future itself.
+
+        Each replicate draws from `derive(seed, "common-future", r)` with `draw_future`'s per-epoch
+        generators, so replicates are prefix-stable across horizons like the common future.
+        """
+        if type(replicate) is not int or replicate < 0:
+            raise ValueError("replicate must be a non-negative integer")
+        if replicate == 0:
+            return self.future
+        drawn = draw_future(derive(self.spec.seed, "common-future", replicate), len(self.ty), self.spec.epochs, self.spec.kernel_config())
+        return splice_future(self.future, drawn, from_epoch)
+
+    def branch(self, snap: Snapshot, action: str | None, snapshot_at: tuple[int, ...] = (), replicate: int = 0) -> Branch:
         """Fork from a snapshot: `action` is a seed type to germinate now, or None to keep waiting."""
         if action is not None and action not in SEED_NAMES:
             raise ValueError(f"action must be None (no-op) or one of {SEED_NAMES}")
+        future = self.future_for(replicate, snap.epoch)
         host, slot, opt = materialize(snap, self.spec, self.device)
         return self._run(
-            host, slot, opt, dict(snap.costs), start=snap.epoch, germinate=action, seed_type=snap.seed_type, snapshot_at=snapshot_at
+            host,
+            slot,
+            opt,
+            dict(snap.costs),
+            start=snap.epoch,
+            germinate=action,
+            seed_type=snap.seed_type,
+            snapshot_at=snapshot_at,
+            future=future,
+            replicate=replicate,
         )
 
     def _run(
@@ -199,10 +237,12 @@ class Unit:
         germinate: str | None,
         seed_type: str | None,
         snapshot_at: tuple[int, ...],
+        future: CommonFuture,
+        replicate: int,
     ) -> Span:
         """`train()`'s arm body from `start`, germinating `germinate` before `start` trains."""
         spec, tx, ty, dx, dy = self.spec, self.tx, self.ty, self.dx, self.dy
-        span = Span(costs=costs)
+        span = Span(costs=costs, replicate=replicate, future_hash=future.hash)
         base_params = sum(p.numel() for p in host.parameters())
         for epoch in range(start, spec.epochs):
             if epoch in snapshot_at:
@@ -218,7 +258,7 @@ class Unit:
             fully_coupled = slot.seed is not None and slot.alpha == slot.beta == 1.0
             metrics = None
             try:
-                metrics = train_epoch(host, slot, opt, spec, self.future, tx, ty, epoch)
+                metrics = train_epoch(host, slot, opt, spec, future, tx, ty, epoch)
                 dev = score(host, slot, dx, dy, spec.batch_size)
             except ArmDivergedError as stop:
                 span.diverged = {

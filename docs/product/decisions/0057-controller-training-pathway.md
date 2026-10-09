@@ -106,8 +106,10 @@ the known site from step zero is reported as an oracle ceiling."
   separate tail gate requires the controller's divergence rate to be
   non-inferior to a\*'s (upper 95% bound ≤ +1.0 point).
 - **Unblinding order** (one analyst, so the order is the wall):
-  1. Read support and screen seeds only. Fit λ, choose a\*, the model class
-     and the abstention threshold. Hash-freeze all four.
+  1. Read support and screen seeds only. Run the deficit screen (which
+     decides the host set), fit λ, choose a\*, the model class and the
+     abstention threshold, and set Isperia's threshold θ and QA-window
+     length for G4. Hash-freeze all of them.
   2. Only then read audit seeds and run G1, G2 and G3.
 - **Seeds.** Seeds 1001–9356 are already seen: support or shakedown only.
   Fresh ranges: Fleet A 10001–10192; G4 11001–11192; host family 12001+.
@@ -157,7 +159,10 @@ analysis.
 - Roles by seed hash: support 50%, screen 25%, audit 25%. Replicate futures
   1, 2 and 4 by role.
 - Extra arms: static (ceiling and deficit screen) and the scale-up hosts.
-- **Deficit screen (pre-registered):** a host stays in C2 analysis only if
+- Every branch also records its probe-split CE over a short window after
+  the decision, the data G4's Isperia threshold is set on.
+- **Deficit screen (pre-registered, support and screen seeds only):** a
+  host stays in C2 analysis only if
   some static arm beats its no-op by more than 0.05 nats with the 95%
   lower bound above 0. A host whose static arm diverges above 10%
   triggers a host-instability policy before G2 is read.
@@ -204,13 +209,19 @@ analysis.
 
 ### G3 — Offline learnability (rung 5, part 2: the first real training)
 
-- **Training:** on support seeds, from pre-decision telemetry, regressing
-  all K cost-charged effects (never argmin labels). At most three model
-  classes (ridge, small GBM, kNN), chosen on screen seeds.
+- **Training:** on support seeds, from pre-decision telemetry, by
+  regression, never on argmin labels. Two predictors (Naming):
+  - Aurelia's: label = the best cost-charged effect over the seed types
+    versus no-op, with no seed type in its input or output;
+  - Momir's critic: label = each seed type's cost-charged effect.
+  At most three model classes (ridge, small GBM, kNN), chosen on screen
+  seeds.
+- **The policy under test** is the composition: Aurelia's predictor
+  commissions or waits, and Momir's critic picks the seed type.
 - **Primary (audit seeds):** Δ = a\*'s cost-charged CE minus the
   controller's, averaged over the audit replicates. Co-conditions: beats
   no-op; tail gate.
-- **Reported separately:** whether-regret (the part Aurelia may learn),
+- **Reported separately:** whether-regret (Aurelia's part),
   false-intervention and miss rates, between/within split.
 - **Stop:** if Δ fails with ρ ≥ 0.3, telemetry is insufficient: one revision
   cycle on support/screen data only. With ρ < 0.3 the labels are noise:
@@ -232,7 +243,8 @@ analysis.
   RegionContract stub only) and `simic-38a07fad39` (warrant valid only at
   the evidence host state).
 - **Primary:** controller − a\* on cost-charged late CE, paired by seed. The
-  live branch must equal its atlas branch bitwise.
+  live branch must equal its atlas branch bitwise. Co-conditions, as in
+  G3: the controller beats no-op (lower bound > 0); tail gate.
 - **Readings:** `c2_supported`; `c2_not_supported` (upper bound < 0.0125);
   `inconclusive`. If 80% or more of G2's headroom was between hosts, a pass
   is published as "telemetry identifies the pathology".

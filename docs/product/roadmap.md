@@ -1,4 +1,4 @@
-# Roadmap — Simic            Updated: 2026-10-08 (session 17; PDR-0050 — the ladder is the plan, Phase A to Later, GPU window)
+# Roadmap — Simic            Updated: 2026-10-09 (session 17; rung 4 met; PDR-0057 proposed)
 
 > Sequencing, WSJF / cost-of-delay, and dated forecasts are produced by
 > /axiom-program-management. This file records bets as INTENT, not a delivery
@@ -36,17 +36,12 @@
 
 ## Next (shaped, decreasing certainty)
 - **Rung 4 (met 2026-10-09, `lever_found`, PDR-0055;
-  [result](../results/2026-10-09-rung4-timing-horizon.md)): does graft
+  [result](../results/2026-10-09-rung4-timing-horizon.md)): did graft
   timing or horizon change the outcome, on `under_normalized` × `norm`?**
-  Earlier grafts are better, and a longer horizon lets the graft catch
-  static on the median seed. What follows is a new owner DECIDE.
-  The study runs six cells through `experiments/timing_study.py`:
-  - graft epochs 0, 1, 2, 3 and 5 at a 10-epoch horizon;
-  - graft epoch 2 at a 20-epoch horizon.
-
-  It runs on fresh seeds from snapshots on nyx. The ladder stops at rung 4
-  on `flat_stop`. Location is out of scope: it needs host engineering and a
-  new owner decision.
+  Yes. Earlier grafts were better, and a longer horizon let the graft catch
+  static on the median seed. Six cells ran: graft epochs 0, 1, 2, 3 and 5
+  at 10 epochs, and graft epoch 2 at 20 epochs. What follows is a new owner
+  DECIDE. Location stayed out of scope.
 - **Proposed, not adopted: the controller training pathway** (PDR-0057,
   gates G0–G5, awaiting John's D1–D9). If adopted, it replaces the rung-5
   line below with G2 + G3, and adds rungs 6 (closed loop) and 7 (transfer).

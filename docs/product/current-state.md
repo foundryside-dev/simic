@@ -49,8 +49,9 @@ green."* Reserved to John:
     static at 10 epochs (T0: +0.019).
   - Per-seed timing headroom is not detectable with one future per seed:
     the after-the-fact oracle gains 0.026 nats over always-T0, below what
-    normal noise of the same spread gives. Replicate futures are needed to
-    measure it.
+    normal noise of the same spread gives. Per-seed linear slopes do vary
+    beyond a uniform spread (variance ratio 1.69 [1.42, 1.99]), but that is
+    worth about 0.002 nats. Replicate futures are needed to measure it.
   - Static degrades late at 20 epochs on 117/756 runs and diverged in
     12/768. Logged on `simic-9c5c3a2acf`.
 
