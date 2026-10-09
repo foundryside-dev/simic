@@ -47,6 +47,10 @@
   It runs on fresh seeds from snapshots on nyx. The ladder stops at rung 4
   on `flat_stop`. Location is out of scope: it needs host engineering and a
   new owner decision.
+- **Proposed, not adopted: the controller training pathway** (PDR-0057,
+  gates G0–G5, awaiting John's D1–D9). If adopted, it replaces the rung-5
+  line below with G2 + G3, and adds rungs 6 (closed loop) and 7 (transfer).
+  G0 apparatus work, which makes no claim, has started.
 - **Rung 5: can telemetry predict the label better than a fixed schedule?**
   This is the first Tamiyo-shaped result. HLD contracts are drafted here,
   only for what it touches.

@@ -47,8 +47,10 @@ green."* Reserved to John:
     and part of the mean comes from static runs degrading late.
   - At 20 epochs the graft ties static on the median seed. It never beat
     static at 10 epochs (T0: +0.019).
-  - Seeds differ in timing preference beyond noise, but modestly. Timing
-    alone leaves little for a learned controller.
+  - Per-seed timing headroom is not detectable with one future per seed:
+    the after-the-fact oracle gains 0.026 nats over always-T0, below what
+    normal noise of the same spread gives. Replicate futures are needed to
+    measure it.
   - Static degrades late at 20 epochs on 117/756 runs and diverged in
     12/768. Logged on `simic-9c5c3a2acf`.
 
@@ -79,15 +81,22 @@ The owner answered all three on 2026-10-08:
 
 Outer evaluation stays owner-gated.
 
-**For John (2026-10-09):** the post-rung-4 DECIDE. John asked in
-session for a "how to train your Tamiyo" pathway: the stages, gates,
-transition criteria and work at each stage, then to start training. Claude
-is drafting it as a proposed PDR with design spikes. The gates and stop
-conditions in it are John's to sign (PDR-0053).
+**For John (2026-10-09):** the post-rung-4 DECIDE is
+[PDR-0057](decisions/0057-controller-training-pathway.md) (proposed), the
+controller training pathway he asked for, with ADR-0019 (proposed) reopening
+the comparison against uniform scale-up. It asks for decisions D1–D9:
+- D1 adopt gates G0–G5 as rungs 5–7. This waives the parked "learned
+  structural timing" condition below, which is otherwise still in force;
+- D2 the C1 comparator becomes uniform scale-up (a post-data comparator
+  change); D3 the stop conditions; D4 accept that G1 can refute C1;
+- D5 one decision point after epoch 1; D6 naming; D7 the cost charge;
+  D8 a host-blind fixed-policy comparator; D9 Fleet A's hosts, seed types
+  and horizon.
 
-**For Claude, now:**
-- close rung 4: reviews of the result note, PR;
-- draft the controller pathway and its first stage.
+**For Claude, now:** G0 items 1–5 of PDR-0057, which need no owner
+decision. The fork core is built, and the rung-4 golden check passed on
+GPU ([report](../results/2026-10-09-atlas-g0-golden/README.md)). Items
+6–9 wait for D2 and D7–D9.
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
 launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,
