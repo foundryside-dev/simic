@@ -21,6 +21,8 @@ from __future__ import annotations
 import copy
 import dataclasses
 import hashlib
+import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,14 +34,20 @@ from experiments.bounded_comparison import (
     ArmDivergedError,
     NonFiniteError,
     ScaleAwareSlot,
+    append_record,
     attach_seed,
     configure,
     draw_future,
+    git_identity,
+    read_json,
+    runtime,
     score,
+    source_identity,
     strict_json,
     train_epoch,
+    write_json,
 )
-from experiments.bounded_data import RunSpec, load_fit_dev, tensor_hash
+from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, tensor_hash
 from experiments.kernel_demo import (
     SEED_NAMES,
     CommonFuture,
@@ -165,15 +173,16 @@ class Unit:
     dy: torch.Tensor
     future: CommonFuture
     device: torch.device
+    provenance: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def load(cls, spec: RunSpec, data_root: Path | None = None) -> Unit:
         configure(spec)
-        tx, ty, dx, dy, _provenance = load_fit_dev(spec, data_root)
+        tx, ty, dx, dy, provenance = load_fit_dev(spec, data_root)
         device = torch.device(spec.device)
         tx, ty, dx, dy = (t.to(device) for t in (tx, ty, dx, dy))
         future = draw_future(derive(spec.seed, "common-future"), len(ty), spec.epochs, spec.kernel_config())
-        return cls(spec, tx, ty, dx, dy, future, device)
+        return cls(spec, tx, ty, dx, dy, future, device, provenance)
 
     def trunk(self, decision_points: tuple[int, ...]) -> Trunk:
         host = build_host(self.spec.host, derive(self.spec.seed, "host-init")).to(self.device)
@@ -305,3 +314,170 @@ class Unit:
                 }
             )
         return span
+
+
+# --- Unit records (PDR-0057 G0, item 5) ---
+
+ATLAS_SCHEMA = "atlas-v0"
+NOOP = "noop"
+LATE_EPOCHS = 3
+CHANCE_CE = math.log(10)  # a diverged branch scores chance-level CE; it is never dropped (PDR-0057)
+
+
+def _plain(record: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in record.items() if k != "wall_s"}
+
+
+def _late_ce(span: Span, epochs: int) -> float | None:
+    if span.diverged is not None:
+        return None
+    late = [r["dev"]["ce"] for r in span.records if r["epoch"] >= epochs - LATE_EPOCHS]
+    if len(late) != LATE_EPOCHS:
+        raise RuntimeError("a completed branch must cover the late window")
+    return float(sum(late) / LATE_EPOCHS)
+
+
+def _check_plan(spec: RunSpec, decision_points: tuple[int, ...], actions: tuple[str, ...], replicates: tuple[int, ...]) -> None:
+    if not decision_points or list(decision_points) != sorted(set(decision_points)):
+        raise ValueError("decision points must be non-empty, sorted and distinct")
+    for t in decision_points:  # the runner's own rule: the whole lifecycle plus a coupled epoch fit after t
+        dataclasses.replace(spec, graft_epoch=t).validate()
+    if not actions or len(set(actions)) != len(actions) or any(a not in SEED_NAMES for a in actions):
+        raise ValueError(f"actions must be distinct seed types from {SEED_NAMES}")
+    if 0 not in replicates or len(set(replicates)) != len(replicates) or any(type(r) is not int or r < 0 for r in replicates):
+        raise ValueError("replicates must be distinct non-negative integers including 0 (the no-op twin check)")
+
+
+def run_unit(
+    spec: RunSpec,
+    output: Path,
+    data_root: Path | None,
+    *,
+    decision_points: tuple[int, ...],
+    actions: tuple[str, ...],
+    replicates: tuple[int, ...],
+) -> dict[str, Any]:
+    """One seed: a no-op trunk, then every (decision point, replicate, no-op or action) branch."""
+    _check_plan(spec, decision_points, actions, replicates)
+    if output.exists():
+        raise FileExistsError("output must be a fresh directory")
+    unit = Unit.load(spec, data_root)
+    output.mkdir(parents=True)
+    write_json(
+        output / "manifest.json",
+        {
+            "schema": ATLAS_SCHEMA,
+            "spec": dataclasses.asdict(spec),
+            "plan": {"decision_points": list(decision_points), "actions": list(actions), "replicates": list(replicates)},
+            "late_epochs": LATE_EPOCHS,
+            "data": unit.provenance,
+            "source": source_identity(),
+            "git": git_identity(),
+            "runtime": runtime(spec),
+            "common_future_sha256": unit.future.hash,
+            "host_init_seed": derive(spec.seed, "host-init"),
+            "seed_body_init_seed": derive(spec.seed, "seed-body-init"),
+        },
+    )
+    trunk = unit.trunk(decision_points)
+    with (output / "trunk.jsonl").open("x") as fh:
+        for record in trunk.records:
+            append_record(fh, record)
+    count = 0
+    with (output / "branches.jsonl").open("x") as fh:
+        for t in decision_points:
+            if t not in trunk.snapshots:
+                continue  # the trunk diverged before t; recorded in complete.json
+            for replicate in replicates:
+                for action in (NOOP, *actions):
+                    branch = unit.branch(trunk.snapshots[t], action=None if action == NOOP else action, replicate=replicate)
+                    final = branch.records[-1]["dev"] if branch.diverged is None else None
+                    append_record(
+                        fh,
+                        {
+                            "schema": ATLAS_SCHEMA,
+                            "decision_epoch": t,
+                            "replicate": replicate,
+                            "action": action,
+                            "status": "completed" if branch.diverged is None else "diverged",
+                            "late_ce": _late_ce(branch, spec.epochs),
+                            "final_dev": final,
+                            "diverged": branch.diverged,
+                            "costs": branch.costs,
+                            "future_sha256": branch.future_hash,
+                            "records": branch.records,
+                        },
+                    )
+                    count += 1
+    completion = {
+        "schema": ATLAS_SCHEMA,
+        "status": "complete",
+        "branches": count,
+        "trunk": {"diverged": trunk.diverged, "epochs": len(trunk.records)},
+        "artifacts": {name: file_hash(output / name) for name in ("manifest.json", "trunk.jsonl", "branches.jsonl")},
+    }
+    write_json(output / "complete.json", completion)
+    return completion
+
+
+def _jsonl(path: Path) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def verify_unit(root: Path) -> dict[str, Any]:
+    """Refuse a unit missing a no-op or an action, with a duplicate branch, or whose no-op twin left the trunk."""
+    manifest, completion = read_json(root / "manifest.json"), read_json(root / "complete.json")
+    plan = manifest["plan"]
+    trunk = {r["epoch"]: _plain(r) for r in _jsonl(root / "trunk.jsonl")}
+    rows = _jsonl(root / "branches.jsonl")
+    keys = [(r["decision_epoch"], r["replicate"], r["action"]) for r in rows]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate branch key")
+    trunk_diverged = completion["trunk"]["diverged"] is not None
+    reached = [t for t in plan["decision_points"] if t in trunk or not trunk_diverged]
+    expected = {(t, r, a) for t in reached for r in plan["replicates"] for a in (NOOP, *plan["actions"])}
+    missing_noop = {k for k in expected - set(keys) if k[2] == NOOP}
+    if missing_noop:
+        raise ValueError(f"missing no-op branch: {sorted(missing_noop)}")
+    if set(keys) != expected:
+        raise ValueError(f"branch set differs from the plan: missing {sorted(expected - set(keys))}, extra {sorted(set(keys) - expected)}")
+    for row in rows:
+        completed = row["status"] == "completed"
+        if (
+            row["status"] not in ("completed", "diverged")
+            or completed != (row["late_ce"] is not None)
+            or completed == (row["diverged"] is not None)
+        ):
+            raise ValueError(f"inconsistent status for branch {row['decision_epoch'], row['replicate'], row['action']}")
+        if completed and not math.isfinite(row["late_ce"]):
+            raise ValueError("a completed branch must have a finite late CE")
+        if row["action"] == NOOP and row["replicate"] == 0:
+            twin = [_plain(r) for r in row["records"]]
+            if twin != [trunk[r["epoch"]] for r in twin if r["epoch"] in trunk] or (
+                completed and len(twin) != len(trunk) - row["decision_epoch"]
+            ):
+                raise ValueError(f"no-op twin at epoch {row['decision_epoch']} does not continue the trunk")
+    return {"branches": len(rows), "decision_points": reached, "noop_twin_matches_trunk": True, "trunk_diverged": trunk_diverged}
+
+
+def effects(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each action's late CE minus its own (decision point, replicate) no-op; a diverged action scores chance CE."""
+    noops = {(r["decision_epoch"], r["replicate"]): r for r in rows if r["action"] == NOOP}
+    out = []
+    for row in rows:
+        if row["action"] == NOOP:
+            continue
+        noop = noops[(row["decision_epoch"], row["replicate"])]
+        scored = row["late_ce"] if row["late_ce"] is not None else CHANCE_CE
+        value = None if noop["late_ce"] is None else scored - noop["late_ce"]  # no zero to measure against: never imputed
+        out.append(
+            {
+                "decision_epoch": row["decision_epoch"],
+                "replicate": row["replicate"],
+                "action": row["action"],
+                "effect": value,
+                "diverged": row["status"] == "diverged",
+                "noop_diverged": noop["late_ce"] is None,
+            }
+        )
+    return out
