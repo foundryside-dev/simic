@@ -34,6 +34,7 @@ import torch
 from experiments.atlas_fast import score, train_epoch  # exact-records tier: the frozen runner's records, fewer syncs
 from experiments.atlas_hosts import HostConfig, config_hash
 from experiments.atlas_hosts import build as build_config_host
+from experiments.atlas_static import attach_static_train_calibrated
 from experiments.bounded_comparison import (
     NON_FINITE_INITIAL,
     NON_FINITE_INITIAL_REASON,
@@ -274,17 +275,26 @@ class Unit:
         if self.cuda_rng is not None:
             torch.cuda.set_rng_state(self.cuda_rng)
 
-    def static(self, seed_type: str) -> Span:
-        """The runner's static arm: the seed attached fully coupled at birth, trained from step zero."""
+    def static(self, seed_type: str, *, calibration: str = "registered") -> Span:
+        """The runner's static arm: the seed attached fully coupled at birth, trained from step zero.
+
+        `calibration="train"` is the corrected arm (`static_calibrated`, simic-e3803e8200): tau read
+        on train-mode host features, so the seed is born at tau on BatchNorm hosts too.
+        """
         if seed_type not in SEED_NAMES:
             raise ValueError(f"seed_type must be one of {SEED_NAMES}")
+        if calibration not in ("registered", "train"):
+            raise ValueError("calibration must be 'registered' (the frozen runner's) or 'train'")
         self._require_slot()
         self._restore_pinned_rng()
         spec = dataclasses.replace(self.spec, seed_type=seed_type)
         host = make_host(spec, self.host_cfg, self.device)
         slot = ScaleAwareSlot(spec)
         opt = build_optimizer(host, spec.kernel_config())
-        birth = attach_seed(host, slot, opt, spec, self.tx, static=True)
+        if calibration == "train":
+            birth = attach_static_train_calibrated(host, slot, opt, spec, self.tx)
+        else:
+            birth = attach_seed(host, slot, opt, spec, self.tx, static=True)
         costs = self._fresh_costs()
         costs["seed_dev_examples"] = len(self.dy)
         costs["calibration_examples"] = birth["calibration_examples"]
@@ -314,7 +324,7 @@ class Unit:
             future=self.future,
             replicate=0,
             future_from=0,
-            arm="static",
+            arm="static_calibrated" if calibration == "train" else "static",
         )
         span.initial_dev, span.birth = initial_dev, birth
         return span
