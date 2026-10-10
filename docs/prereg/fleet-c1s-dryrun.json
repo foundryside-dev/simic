@@ -1,0 +1,81 @@
+{
+  "study": {
+    "id": "fleet-c1s-dryrun",
+    "status": "pre-flight dry run for Fleet C1-S, against the Fleet C1 dry-run fleet: every row on GPU, all seeds pairing, run twice; no reading",
+    "based_on": [
+      "docs/prereg/fleet-c1s.json"
+    ],
+    "pilot": true
+  },
+  "parent": {
+    "plan": "docs/prereg/fleet-c1-dryrun.json",
+    "plan_sha256": "0756c265ab36639b0ddbe7e2f43e900e67d231278f1c443e66a0ab7fdd5d9ba7",
+    "root": "/home/john/simic-worktrees/fleet-c1/runs/fleet-c1-dryrun-a"
+  },
+  "units": {
+    "first_seed": 9903,
+    "count": 3
+  },
+  "hosts": [
+    "channel_starved",
+    "no_spatial_mix",
+    "mild"
+  ],
+  "control_host": "under_normalized",
+  "pairing_seeds": 3,
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "batch_size": 32,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "lr": 0.05,
+    "tau": 0.05,
+    "lam": 1.0,
+    "trust_safety": 0.5,
+    "device": "cuda",
+    "lifecycle": "v2",
+    "data": "cifar",
+    "epochs": 10
+  },
+  "data_identity": {
+    "source_files": {
+      "batches.meta": "f962466ef690d46b226450fb9aadc74ba4bc64a76aa526b5827fe4bc5c7125cb",
+      "data_batch_1": "54636561a3ce25bd3e19253c6b0d8538147b0ae398331ac4a2d86c6d987368cd",
+      "data_batch_2": "766b2cef9fbc745cf056b3152224f7cf77163b330ea9a15f9392beb8b89bc5a8",
+      "data_batch_3": "0f00d98ebfb30b3ec0ad19f9756dc2630b89003e10525f5e148445e82aa6a1f9",
+      "data_batch_4": "3f7bb240661948b8f4d53e36ec720d8306f5668bd0071dcb4e6c947f78e9682b",
+      "data_batch_5": "d91802434d8376bbaeeadf58a737e3a1b12ac839077e931237e0dcd43adcb154"
+    },
+    "fit_sha256": "38c8f9588b2a719b6ecc150ce3a39d332f1dfa32837a6845d2fb58ac9b2b5176",
+    "dev_sha256": "19c7bf0f74c76a2db37295510cbb3b36b30c0fef7ee45181509d834665535a20"
+  },
+  "criteria": {
+    "deficit_min_gain": 0.05,
+    "static_divergence_cap": 0.1,
+    "max_failed_units": 0
+  },
+  "disclosures": [
+    "Why: Fleet C1's registered static arm calibrates tau on eval-mode host features, so on BatchNorm hosts it is born at about 1/30 of tau (simic-e3803e8200). The Fleet C1 pilot's birth witnesses show realised ratios of 0.0013-0.0018 against 0.05 on these three hosts, and 0.0500 on under_normalized.",
+    "Seen before this plan: the pilot's late-CE differences, static (or graft) minus no-growth, n=24, no reading, all from the defective static arm. Positive means worse than no-growth; the screen's static_gain has the opposite sign. Static: channel_starved +0.002, mild +0.017, no_spatial_mix -0.005. Graft: -0.008, -0.001, -0.022.",
+    "The arm: experiments.atlas.Unit.static(seed_type, calibration='train') -> experiments.atlas_static.attach_static_train_calibrated. Tau is read in train mode under no_grad, and every host buffer, module mode and hook statistic is restored. The frozen runner is unchanged.",
+    "A 30x larger birth may make static diverge more often (simic-9c5c3a2acf). The divergence rate is a result, guarded by the parent's static_divergence_cap."
+  ],
+  "source_sha256": {
+    "experiments/c1s_study.py": "6c9f6a1caa9c7c2abc98820b43b880fb78f746bf5b0b9d65af2d2d0929ef924f",
+    "experiments/c1_study.py": "2f1bb396360018a290e7a15b6b2e4beb1b2dda4d65be6c299dd07a78f5b56956",
+    "experiments/atlas.py": "628ac138aba0516ced7c4cad8e29b7fb49f4b4db3d3179c715391aa20f64f3ed",
+    "experiments/atlas_static.py": "27cab744ec16f2c5d24ca1d9643eb928295494d9ebdbb70bfcf7dea97cd3a8a1",
+    "experiments/atlas_fast.py": "e95650de49aa24db673184c7c0cbd3336e2c8dd2d356ff166e9bb1ca6266a9eb",
+    "experiments/atlas_hosts.py": "b8a5f53b97ee905af4aa641118ab252b25481ff9f3bff0dd0885d43ea57d3035",
+    "experiments/bounded_comparison.py": "512fcea23f0167f4eaca519c99234d5c212ca3afc17898c9cd4a3b4318022148",
+    "experiments/bounded_data.py": "d182cfe9c71cebae890abf19dcaaa9689b3c13f01bd3d535ef60c0553611abdd",
+    "experiments/bounded_screen.py": "d788cca061de2e49f390e4c756976ac3184c7d1905ab1d98995f5bebfbc7c7cd",
+    "experiments/kernel_demo.py": "d2d33cf03d76d4f95c7644abd72c359c362975225813249e25a44911204ae3c7"
+  },
+  "fallback": "If Fleet C1-S makes no reading (parent_failure, pairing_failure or instrument_failure), the BatchNorm hosts are unscreened: Fleet C1's registered screen on them never enters Fleet A, and John decides. Any re-run is a new plan that lists its deviations.",
+  "acceptance": "Both runs' arms.jsonl byte-identical for every seed; both analyses instrument ok with no pairing or identity mismatch; every corrected arm born at tau. The dry run's screen numbers on these three pre-flight seeds are not read."
+}

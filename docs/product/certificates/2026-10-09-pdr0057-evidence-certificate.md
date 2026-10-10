@@ -122,3 +122,15 @@ declined to endorse.
 suggested the sentence "the graft has not beaten any control in any rung".
 It beat no growth in rung 3, so §2 says instead that it has never beaten
 static on a pre-registered contrast.
+
+## Erratum (2026-10-10): E9 and the static arm on BatchNorm hosts
+
+E9's static − no growth figure on `mild` (+0.009 [−0.029, +0.046]) came from a static arm born
+at about 1/30 of τ. The runner calibrates τ on eval-mode host features, and a BatchNorm host's
+running statistics are untrained at step zero (`simic-e3803e8200`; the Fleet C1 pilot's birth
+witnesses show 0.0013–0.0018 against 0.05 on all three BatchNorm hosts). So E9 does not show
+that `mild` has no deficit to repair; it shows that this defective arm did not repair one.
+
+E6, E8 and E10 come from rungs 3 and 4 and the golden check, all on `under_normalized`. That
+host has no BatchNorm, so its static seed is born at τ and they stand. The deficit screen on the BatchNorm hosts is re-read by Fleet C1-S
+(PDR-0057 amendment, 2026-10-10).

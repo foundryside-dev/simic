@@ -348,3 +348,42 @@ owner informed by the delta note before launch).**
 for the box. This moves G0 item 7 (telemetry) ahead of his Fleet C1 checkpoint. The systems
 review's caution stands: work already built is not a reason to adopt anything at that
 checkpoint, and items 8–9 still wait for it.
+
+**2026-10-10, Fleet C1-S: the deficit screen with static born at τ (owner decision).** Found
+after Fleet C1 launched. Fleet C1's static arm reads τ's host features in eval mode
+(`simic-e3803e8200`). On a BatchNorm host at step zero those features come from untrained
+running statistics, so the static seed is born far below τ.
+- The Fleet C1 pilot's birth witnesses give realised ratios of 0.0013–0.0018 against 0.05 on
+  `mild`, `channel_starved` and `no_spatial_mix`, and 0.0500 on `under_normalized`, which has no
+  BatchNorm. The graft, born after an epoch, is at 0.052.
+- **Unaffected:** G1 and λ, which do not use static.
+- **Affected:** the deficit screen and the graft − static co-reading on the three BatchNorm
+  hosts. The certificate's E9 rests on the same defect (erratum in the certificate).
+- **Process miss:** the issue said "fix before any BN-host study", and the C1 pre-flight did not
+  check it.
+
+John chose, in session, from three options (supplement after the fleet; stop and re-seal now;
+read as registered): **keep Fleet C1 running untouched, then run Fleet C1-S**
+([plan](../../prereg/fleet-c1s.json), `experiments/c1s_study.py`).
+- Fleet C1-S trains the corrected arm (`static_calibrated`, τ read in train mode;
+  `experiments/atlas_static.py`) on Fleet C1's own 768 seeds for the three BatchNorm hosts. It
+  reads it against Fleet C1's sealed no-growth and graft arms.
+- On seeds 10001–10048 it re-trains no-growth on those hosts, and the corrected arm on
+  `under_normalized`, where the two static arms are the same function. Both must equal Fleet
+  C1's records bit for bit, or there is no reading.
+- The screen's criteria are unchanged (gain > 0.05 nats, 95% lower bound > 0, static divergence
+  ≤ 10%).
+- At the checkpoint, the Fleet A host list takes the BatchNorm hosts from Fleet C1-S and
+  `under_normalized` from Fleet C1. Fleet C1's registered BatchNorm-host screen is reported
+  beside it, as registered.
+- About 3 hours on two GPUs. It launches when Fleet C1 finishes, **before** Fleet C1's own
+  analysis, and a fresh launch is refused once that analysis has published. Every module the arm
+  and the reading run through is pinned by hash in the plan. Nothing in Fleet C1-S can therefore
+  be chosen after Fleet C1's results are known (statistics review). Its analysis waits for Fleet
+  C1's.
+- Pre-registered fallback: if Fleet C1-S makes no reading (Fleet C1's instrument failed, a
+  pairing or identity mismatch, or too many failed units), the BatchNorm hosts are unscreened.
+  Fleet C1's registered screen on them never enters Fleet A, and John decides.
+- The PyTorch and statistics reviews endorsed it with changes, all taken: every seed is tied to
+  Fleet C1's starting state, every corrected arm must be born at τ, and the completed-runs-only
+  gain is reported beside the divergence rate.

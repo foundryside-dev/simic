@@ -1,0 +1,237 @@
+{
+  "analysis_git": {
+    "commit": "af4699778bb0b2521858c2a950ad1f7079f3d209",
+    "status": ""
+  },
+  "analyzed_unix": 1791629184.8353336,
+  "corrected_minus_registered_static": {
+    "channel_starved": {
+      "half_width": 0.3087007242483662,
+      "lower": -0.3154944678269591,
+      "mean": -0.006793743578592896,
+      "n": 3,
+      "sd": 0.12426876448441936,
+      "upper": 0.3019069806697733
+    },
+    "mild": {
+      "half_width": 0.23007167994211308,
+      "lower": -0.24453261946072377,
+      "mean": -0.01446093951861068,
+      "n": 3,
+      "sd": 0.092616314648677,
+      "upper": 0.2156107404235024
+    },
+    "no_spatial_mix": {
+      "half_width": 0.12684031473961804,
+      "lower": -0.08197424632344635,
+      "mean": 0.04486606841617169,
+      "n": 3,
+      "sd": 0.05106009789217605,
+      "upper": 0.17170638315578973
+    }
+  },
+  "deficit_screen": {
+    "channel_starved": {
+      "n": 3,
+      "passes": false,
+      "registered": {
+        "n": 3,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.19821451129561146,
+          "lower": -0.11755821483047955,
+          "mean": 0.08065629646513191,
+          "sd": 0.07979207849791427,
+          "upper": 0.27887080776074336
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.23791639254177985,
+        "lower": -0.15046635249805504,
+        "mean": 0.08745004004372481,
+        "sd": 0.09577423643480028,
+        "upper": 0.3253664325855047
+      },
+      "unstable": false
+    },
+    "mild": {
+      "n": 3,
+      "passes": false,
+      "registered": {
+        "n": 3,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.12535731579313444,
+          "lower": -0.10737010298155848,
+          "mean": 0.017987212811575965,
+          "sd": 0.050463110479010975,
+          "upper": 0.14334452860471042
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.16780051306709484,
+        "lower": -0.1353523607369082,
+        "mean": 0.03244815233018664,
+        "sd": 0.06754879661999984,
+        "upper": 0.20024866539728148
+      },
+      "unstable": false
+    },
+    "no_spatial_mix": {
+      "n": 3,
+      "passes": false,
+      "registered": {
+        "n": 3,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.020895860081447767,
+          "lower": -0.02920427089552103,
+          "mean": -0.00830841081407326,
+          "sd": 0.008411715655942637,
+          "upper": 0.012587449267374507
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.12090938982940731,
+        "lower": -0.17408386905965226,
+        "mean": -0.05317447923024495,
+        "sd": 0.048672579325006196,
+        "upper": 0.06773491059916237
+      },
+      "unstable": false
+    }
+  },
+  "failed_seeds": [],
+  "failed_units": 0,
+  "failures": {
+    "channel_starved": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 3,
+        "upper_95": 0.7075982261787133,
+        "upper_one_sided_95": 0.6315968501359612
+      }
+    },
+    "mild": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 3,
+        "upper_95": 0.7075982261787133,
+        "upper_one_sided_95": 0.6315968501359612
+      }
+    },
+    "no_spatial_mix": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 3,
+        "upper_95": 0.7075982261787133,
+        "upper_one_sided_95": 0.6315968501359612
+      }
+    }
+  },
+  "graft_minus_static_calibrated": {
+    "channel_starved": {
+      "half_width": 0.29057523913552674,
+      "lower": -0.3024445921543935,
+      "mean": -0.011869353018866787,
+      "n": 3,
+      "sd": 0.11697227483044272,
+      "upper": 0.27870588611666
+    },
+    "mild": {
+      "half_width": 0.11355216033667771,
+      "lower": -0.06572263837334615,
+      "mean": 0.04782952196333157,
+      "n": 3,
+      "sd": 0.045710895897421305,
+      "upper": 0.16138168230000927
+    },
+    "no_spatial_mix": {
+      "half_width": 0.06828541489454173,
+      "lower": -0.12950719416683307,
+      "mean": -0.06122177927229133,
+      "n": 3,
+      "sd": 0.027488578661135354,
+      "upper": 0.007063635622250403
+    }
+  },
+  "pairing": {
+    "mismatches": [],
+    "seeds": [
+      9903,
+      9904,
+      9905
+    ]
+  },
+  "parent": {
+    "commit": "1e37d4a5305e15a39df94b03c63a33373eb4cac4",
+    "control_host_screen": {
+      "n": 3,
+      "passes": false,
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.44287198698235447,
+        "lower": -0.2865058716030209,
+        "mean": 0.15636611537933356,
+        "sd": 0.17827996607736601,
+        "upper": 0.5992381023616881
+      },
+      "unstable": false
+    },
+    "plan": "docs/prereg/fleet-c1-dryrun.json",
+    "plan_sha256": "0756c265ab36639b0ddbe7e2f43e900e67d231278f1c443e66a0ab7fdd5d9ba7",
+    "reading": {
+      "c1": "pilot_no_reading",
+      "fleet_a_hosts": [],
+      "instrument": "ok",
+      "pilot": true
+    },
+    "report_sha256": "e63e2c34e36afc8ab6179983657796a73cc051d290b138ec41bd3e6082a7268b",
+    "study": "fleet-c1-dryrun"
+  },
+  "plan_sha256": "3c29130ad1b4affcd9f53cf6b3c865d59daa30d97d47f3c59b209b7ddcd8d4dd",
+  "reading": {
+    "fleet_a_hosts": [],
+    "instrument": "ok",
+    "pilot": true
+  },
+  "static_gain_completed_only": {
+    "channel_starved": {
+      "half_width": 0.23791639254177985,
+      "lower": -0.15046635249805504,
+      "mean": 0.08745004004372481,
+      "n": 3,
+      "sd": 0.09577423643480028,
+      "upper": 0.3253664325855047
+    },
+    "mild": {
+      "half_width": 0.16780051306709484,
+      "lower": -0.1353523607369082,
+      "mean": 0.03244815233018664,
+      "n": 3,
+      "sd": 0.06754879661999984,
+      "upper": 0.20024866539728148
+    },
+    "no_spatial_mix": {
+      "half_width": 0.12090938982940731,
+      "lower": -0.17408386905965226,
+      "mean": -0.05317447923024495,
+      "n": 3,
+      "sd": 0.048672579325006196,
+      "upper": 0.06773491059916237
+    }
+  },
+  "study": "fleet-c1s-dryrun"
+}
