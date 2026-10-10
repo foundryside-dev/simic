@@ -52,3 +52,10 @@ What the GPU runs show, and do not: reproduction of the instrument for
 `under_normalized` × `norm` on GPU. The RNG-restore and divergence paths are proven
 by CPU tests only, because seeds 8001–8008 had no ambient draws or divergences. BN hosts,
 the other seed types and co-tenancy are not yet checked on GPU.
+
+## Static arm (G0 item 6, 2026-10-10)
+
+**Result: pass.** The atlas static arm (seed attached fully coupled at birth) reproduces
+rung 4's static records bitwise on seeds 8001–8008, every cell, alongside the no-growth and
+scheduled arms. The reports carry their own source hashes and record counts:
+[`static-arm/`](static-arm/).

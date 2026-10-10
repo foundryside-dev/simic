@@ -99,8 +99,19 @@ Fleet C1. G0 items 1–5 are done
 [co-tenancy](../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
-launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,
-4,608/4,608 runs clean; its data stay in `runs/rung4-timing-horizon/`.
+launched): **Fleet C1** (PDR-0057 G1), launched 2026-10-10 20:52:06 AEDT
+on John's go.
+- Seeds 10001–10768, plan [`fleet-c1.json`](../prereg/fleet-c1.json), two
+  workers, one per GPU, under `nice -n 19`.
+- Commit `1f58080` (the exact-records speed tier;
+  [pre-flight](../results/2026-10-10-fleet-c1-preflight.md)), from the clean
+  worktree `/home/john/simic-worktrees/fleet-c1`.
+- Root `runs/fleet-c1` in that worktree; launch log `runs/fleet-c1.launch.out`.
+- ETA about 20 hours, so around 17:00 AEDT on 2026-10-11; a loaded CPU
+  stretches it.
+- Resume after an interruption: the launch command with `--resume`, same
+  worktree and commit. Analyse once from the snapshot when
+  `launch-finished.json` exists (commands in the pre-flight note).
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

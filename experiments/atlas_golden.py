@@ -2,7 +2,7 @@
 
 For each seed, one 10-epoch trunk with decision points 0, 1, 2, 3, 5 and a `norm` fork at each
 must equal the rung-4 cells T0..T5. One 20-epoch trunk with a fork at 2 must equal H20. The
-trunk must equal every cell's no_growth arm. Run on the same SKU, driver and build as rung 4:
+trunk must equal every cell's no_growth arm, and the atlas static arm every cell's static arm. Run on the same SKU, driver and build as rung 4:
 
     CUDA_VISIBLE_DEVICES=0 .venv/bin/python -B -m experiments.atlas_golden \
         --root runs/rung4-timing-horizon --data-root runs/cifar-fit-only --seeds 8001 8002 --out <json>
@@ -53,6 +53,7 @@ def check_seed(root: Path, data_root: Path, seed: int) -> dict[str, Any]:
         cells = {c: t for c, (t, e) in CELLS.items() if e == epochs}
         unit = atlas.Unit.load(spec, data_root)
         trunk = unit.trunk(decision_points=tuple(sorted(set(cells.values()))))
+        static = [_strip(r) for r in unit.static(spec.seed_type).records]
         for cell, t in cells.items():
             run = unit_dir / cell
             no_growth = first_difference([_strip(r) for r in trunk.records], _reference(run, "no_growth"))
@@ -60,13 +61,15 @@ def check_seed(root: Path, data_root: Path, seed: int) -> dict[str, Any]:
             got = [_strip(r, "scheduled") for r in trunk.records[:t]] + [_strip(r) for r in branch.records]
             want_ng, want_sch = _reference(run, "no_growth"), _reference(run, "scheduled")
             scheduled = first_difference(got, want_sch)
+            want_static = _reference(run, "static")
             result["cells"][cell] = {
                 "no_growth": no_growth,
                 "scheduled": scheduled,
+                "static": first_difference(static, want_static),
                 "reference_sha256": file_hash(run / "training.jsonl"),
-                "records_compared": {"no_growth": len(want_ng), "scheduled": len(want_sch)},
+                "records_compared": {"no_growth": len(want_ng), "scheduled": len(want_sch), "static": len(want_static)},
             }
-    result["equal"] = all(cell["no_growth"] is None and cell["scheduled"] is None for cell in result["cells"].values())
+    result["equal"] = all(cell[arm] is None for cell in result["cells"].values() for arm in ("no_growth", "scheduled", "static"))
     return result
 
 

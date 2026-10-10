@@ -327,3 +327,24 @@ G0's speed work should cut these.
 - G0 cannot reproduce rung 4 bitwise: the pathway pauses.
 - Fleet C1 refutes C1, or fewer than two hosts pass the deficit screen:
   John decides before anything else is built.
+
+## Amendments
+
+**2026-10-10, Fleet C1 sizing and seed ranges (Claude, under "Claude decides: sizing, seeds";
+owner informed by the delta note before launch).**
+- Fleet C1 runs **768 seeds (10001–10768)**, not 192. The 24-seed pilot showed 192 seeds gives
+  power 0.26–0.41 to show non-inferiority when the graft only equals the scale-up; 768 gives
+  0.88–0.95 at the pilot sd's 80% upper limit
+  ([sizing script](../../prereg/fleet-c1-sizing.py.txt),
+  [pilot](../../results/2026-10-10-fleet-c1-pilot.md)). About 31 hours on two GPUs.
+- Seed ranges re-declared: Fleet A 13001–13192; G3 revision audit 13401–13448; G4 14001–14192;
+  host family 15001+. Seeds up to 9424 are seen.
+- Divergence caps are 2.5% for the graft and for each stepped comparator, below the 10% trim
+  (statistics review of the C1 module).
+- John chose to hold the launch until nyx is free ("Hold for the full box").
+
+**2026-10-10, telemetry built before the Fleet C1 read (owner direction).** John, in session:
+*"You've time for additional hardening, telemetry and building out"* while the launch waits
+for the box. This moves G0 item 7 (telemetry) ahead of his Fleet C1 checkpoint. The systems
+review's caution stands: work already built is not a reason to adopt anything at that
+checkpoint, and items 8–9 still wait for it.
