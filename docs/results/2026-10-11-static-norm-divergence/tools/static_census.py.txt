@@ -1,0 +1,96 @@
+"""Read-only census of static (and paired no-growth) arms in finished bounded studies.
+
+Reads only training.jsonl and manifest.json. Never opens stdout/stderr or sealed files.
+Skips the scheduled arm entirely (positive-control-v2 sealed its values).
+"""
+import json
+import sys
+from pathlib import Path
+
+RUNS = Path("/home/john/simic/runs")
+ROOTS = [
+    "positive-control-v1",
+    "positive-control-v2",
+    "lifecycle-v2-validation",
+    "graft-capture-v2-norm",
+    "graft-capture-v2-conv-heavy",
+    "rung4-timing-horizon",
+    "bounded-screen-v1",
+]
+ARMS = ("static", "no_growth")
+
+
+def rows_of(path):
+    out = {a: {"start": None, "epochs": [], "diverged": None} for a in ARMS}
+    for line in path.open():
+        r = json.loads(line)
+        arm = r.get("arm")
+        if arm not in ARMS:
+            continue
+        kind = r.get("kind")
+        if kind == "arm_start":
+            out[arm]["start"] = r
+        elif kind == "epoch":
+            out[arm]["epochs"].append(r)
+        elif kind == "diverged":
+            out[arm]["diverged"] = r
+    return out
+
+
+def summary(root, path):
+    d = rows_of(path)
+    s, n = d["static"], d["no_growth"]
+    if s["start"] is None:
+        return None
+    birth = s["start"].get("birth") or {}
+    rec = {
+        "root": root,
+        "unit": str(path.parent.relative_to(RUNS / root)),
+        "initial_dev": s["start"]["initial_dev"]["ce"],
+        "gain_at_birth": birth.get("gain_at_birth"),
+        "static_state_at_start": s["start"].get("host_initial_parameter_sha256"),
+        "static": [
+            {
+                "e": e["epoch"],
+                "dev": e["dev"]["ce"],
+                "train": e["train_ce"],
+                "g_host": e["gradient_norm_max"]["host"],
+                "g_gain": e.get("gradient_norm_max", {}).get("seed_gain"),
+                "g_body": e.get("gradient_norm_max", {}).get("seed_body"),
+                "gmax": e.get("witness", {}).get("gain_max"),
+                "gmin": e.get("witness", {}).get("gain_min"),
+            }
+            for e in s["epochs"]
+        ],
+        "no_growth": [
+            {"e": e["epoch"], "dev": e["dev"]["ce"], "g_host": e["gradient_norm_max"]["host"]}
+            for e in n["epochs"]
+        ],
+        "diverged": None
+        if s["diverged"] is None
+        else {k: s["diverged"].get(k) for k in ("epoch", "step", "stage", "reason", "witness")},
+        "ng_diverged": n["diverged"] is not None,
+    }
+    return rec
+
+
+def main(out):
+    n = 0
+    with open(out, "w") as f:
+        for root in ROOTS:
+            base = RUNS / root
+            if not base.exists():
+                continue
+            for p in sorted(base.rglob("training.jsonl")):
+                if "src" in p.relative_to(base).parts[:1]:
+                    continue
+                rec = summary(root, p)
+                if rec is None:
+                    continue
+                f.write(json.dumps(rec) + "\n")
+                n += 1
+    print(n, "static runs")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

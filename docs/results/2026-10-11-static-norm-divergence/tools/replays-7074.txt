@@ -1,0 +1,3 @@
+graft-capture-v2-norm seed-7074 static 20 gc2n-7074-static-v2
+graft-capture-v2-norm seed-7074 no_growth 20 gc2n-7074-no_growth-v2
+# gc2n-7074: the first probe version, static_probe_v1.py.txt (static arm, no power iteration), run by hand.

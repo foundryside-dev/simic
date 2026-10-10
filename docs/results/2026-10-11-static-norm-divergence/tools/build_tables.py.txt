@@ -1,0 +1,534 @@
+"""Every number in docs/results/2026-10-11-static-norm-divergence.md, from records (simic-9c5c3a2acf).
+
+Reads the finished studies' unit records under runs/ (training.jsonl, manifest.json, launch.json only;
+never stdout/stderr or sealed files) and the probe replays in this folder. Run:
+    python3 build_tables.py > tables.md
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import statistics as st
+from collections import Counter
+from math import comb
+from pathlib import Path
+
+RUNS = Path("/home/john/simic/runs")
+HERE = RUNS / "static-norm-diagnosis-2026-10-11"
+PROBE = HERE / "probe"
+C_STAR = 2 * (1 + 0.9) / (0.05 * (1 + 2 * 0.9))  # Nesterov limit at lr 0.05, momentum 0.9 (bounded_comparison.c_star)
+STUDIES = [
+    "positive-control-v1",
+    "positive-control-v2",
+    "lifecycle-v2-validation",
+    "graft-capture-v2-norm",
+    "graft-capture-v2-conv-heavy",
+    "rung4-timing-horizon",
+    "bounded-screen-v1",
+]
+# Uncapped replays: tag -> (study, unit directory relative to the study, arm)
+REPLAYS = {
+    "gc2n-7074": ("graft-capture-v2-norm", "seed-7074", "static"),
+    "gc2n-7074-static-v2": ("graft-capture-v2-norm", "seed-7074", "static"),
+    "gc2n-7074-no_growth-v2": ("graft-capture-v2-norm", "seed-7074", "no_growth"),
+    "lv2-4004": ("lifecycle-v2-validation", "units/A/seed-4004/v2", "static"),
+    "r4-8207-T0": ("rung4-timing-horizon", "units/seed-8207/T0", "static"),
+    "r4-8526-T0": ("rung4-timing-horizon", "units/seed-8526/T0", "static"),
+    "r4-8346-T0": ("rung4-timing-horizon", "units/seed-8346/T0", "static"),
+    "r4-8229-H20": ("rung4-timing-horizon", "units/seed-8229/H20", "static"),
+    "r4-8195-H20": ("rung4-timing-horizon", "units/seed-8195/H20", "static"),
+    "r4-8605-H20": ("rung4-timing-horizon", "units/seed-8605/H20", "static"),
+    "gc2n-7001": ("graft-capture-v2-norm", "seed-7001", "static"),
+    "gc2n-7002": ("graft-capture-v2-norm", "seed-7002", "static"),
+    "r4-8001-H20": ("rung4-timing-horizon", "units/seed-8001/H20", "static"),
+    "r4-8002-H20": ("rung4-timing-horizon", "units/seed-8002/H20", "static"),
+    "r4-8003-H20": ("rung4-timing-horizon", "units/seed-8003/H20", "static"),
+}
+STATIC_PROBED = [t for t, (_, _, arm) in REPLAYS.items() if arm == "static" and t != "gc2n-7074"]
+CAPPED = ["gc2n-7074", "lv2-4004", "r4-8207-T0", "r4-8526-T0", "r4-8346-T0", "r4-8229-H20", "r4-8195-H20", "r4-8605-H20", "gc2n-7001", "r4-8001-H20"]
+
+
+def jsonl(path: Path) -> list[dict]:
+    return [json.loads(line) for line in path.open()]
+
+
+def arm_rows(rows: list[dict], arm: str) -> list[dict]:
+    return [r for r in rows if r.get("arm") == arm]
+
+
+def diverged(rows: list[dict], arm: str) -> dict | None:
+    d = [r for r in arm_rows(rows, arm) if r["kind"] == "diverged"]
+    return d[0] if d else None
+
+
+def epochs(rows: list[dict], arm: str) -> list[dict]:
+    return [r for r in arm_rows(rows, arm) if r["kind"] == "epoch"]
+
+
+def snapshot_commit(study: str) -> str:
+    launch = json.loads((RUNS / study / "launch.json").read_text())
+    return launch["git"]["commit"][:7]
+
+
+def unit_dirs(study: str) -> list[Path]:
+    return sorted(p.parent for p in (RUNS / study).rglob("training.jsonl") if "src" not in p.relative_to(RUNS / study).parts[:1])
+
+
+def section(title: str) -> None:
+    print(f"\n## {title}\n")
+
+
+def replay_checks() -> None:
+    section("1. Replays reproduce the records bit for bit")
+    print("| Replay | Study (snapshot commit) | Unit | Arm | Epoch hashes + dev equal | Divergence equal | Birth equal |")
+    print("|---|---|---|---|---|---|---|")
+    for tag, (study, unit, arm) in REPLAYS.items():
+        rec = jsonl(RUNS / study / unit / "training.jsonl")
+        rep = jsonl(PROBE / tag / "training.jsonl")
+        ea = {r["epoch"]: r for r in epochs(rec, arm)}
+        eb = {r["epoch"]: r for r in epochs(rep, arm)}
+        same_epochs = sorted(ea) == sorted(eb) and all(
+            ea[e]["training_state_sha256"] == eb[e]["training_state_sha256"] and ea[e]["dev"] == eb[e]["dev"] for e in ea
+        )
+        da, db = diverged(rec, arm), diverged(rep, arm)
+        same_div = (da is None and db is None) or (
+            da is not None and db is not None and (da["epoch"], da["step"], da["witness"]) == (db["epoch"], db["step"], db["witness"])
+        )
+        sa = [r for r in arm_rows(rec, arm) if r["kind"] == "arm_start"][0]
+        sb = [r for r in arm_rows(rep, arm) if r["kind"] == "arm_start"][0]
+        same_birth = sa["birth"] == sb["birth"] and sa["initial_dev"] == sb["initial_dev"]
+        print(f"| {tag} | {study} ({snapshot_commit(study)}) | {unit} | {arm} | {same_epochs} ({len(ea)} epochs) | {same_div} | {same_birth} |")
+
+
+def divergence_rates() -> None:
+    section("2. Static-arm divergences, once per static trajectory")
+    print("rung4-timing-horizon's T0-T5 directories share one 10-epoch static trajectory per seed (checked below);")
+    print("H20 is a separate 20-epoch run. lifecycle-v2-validation's v1 and v2 share static (checked below).\n")
+    counts: Counter = Counter()
+    divs: Counter = Counter()
+    shared_ok = True
+    for study in STUDIES:
+        for unit in unit_dirs(study):
+            rel = unit.relative_to(RUNS / study).parts
+            rows = jsonl(unit / "training.jsonl")
+            if not arm_rows(rows, "static"):
+                continue
+            if study == "rung4-timing-horizon" and rel[-1] in ("T1", "T2", "T3", "T5"):
+                t0 = jsonl(unit.parent / "T0" / "training.jsonl")
+                if [(r["kind"], r.get("training_state_sha256"), r.get("step")) for r in arm_rows(rows, "static")] != [
+                    (r["kind"], r.get("training_state_sha256"), r.get("step")) for r in arm_rows(t0, "static")
+                ]:
+                    shared_ok = False
+                continue
+            if study == "lifecycle-v2-validation" and rel[-1] == "v1":
+                v2 = jsonl(unit.parent / "v2" / "training.jsonl")
+                if [(r["kind"], r.get("training_state_sha256"), r.get("step")) for r in arm_rows(rows, "static")] != [
+                    (r["kind"], r.get("training_state_sha256"), r.get("step")) for r in arm_rows(v2, "static")
+                ]:
+                    shared_ok = False
+                continue
+            manifest = json.loads((unit / "manifest.json").read_text())
+            host = manifest["host"].removeprefix("kernel-demo-")  # top-level keys exist in every schema version
+            key = (study, host, manifest["seed_type"], manifest["spec"]["epochs"])
+            counts[key] += 1
+            d = diverged(rows, "static")
+            if d is not None:
+                divs[key] += 1
+    print(f"Shared static trajectories identical where claimed: {shared_ok}\n")
+    print("| Study | Host | Seed | Epochs | Static diverged |")
+    print("|---|---|---|---:|---:|")
+    for key in sorted(counts):
+        print(f"| {key[0]} | {key[1]} | {key[2]} | {key[3]} | {divs[key]}/{counts[key]} |")
+    for epochs_ in (10, 20):
+        n = sum(v for k, v in counts.items() if k[1] == "under_normalized" and k[2] == "norm" and k[3] == epochs_)
+        k = sum(v for k_, v in divs.items() if k_[1] == "under_normalized" and k_[2] == "norm" and k_[3] == epochs_)
+        print(f"\nunder_normalized x norm, {epochs_} epochs: {k}/{n}")
+    n = sum(v for k, v in counts.items() if k[2] == "conv_heavy")
+    k = sum(v for k_, v in divs.items() if k_[2] == "conv_heavy")
+    print(f"conv_heavy static, all hosts and horizons: {k}/{n}")
+
+
+def gain_curvature() -> None:
+    section("3. The issue's hypothesis: curvature of CE along the static gain against c*")
+    print(f"c* = {C_STAR:.4f}. Final three steps before a divergence excluded.\n")
+    print("| Replay | Outcome | Steps | H_gg median | p99 | max | Steps above c* |")
+    print("|---|---|---:|---:|---:|---:|---:|")
+    total = over = 0
+    for tag in STATIC_PROBED:
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        d = diverged(jsonl(PROBE / tag / "training.jsonl"), "static")
+        body = rows[:-3] if d else rows
+        h = sorted(r["H_gg"] for r in body if math.isfinite(r["H_gg"]))
+        o = sum(x > C_STAR for x in h)
+        total, over = total + len(h), over + o
+        outcome = f"diverged e{d['epoch']} s{d['step']}" if d else "completed"
+        print(f"| {tag} | {outcome} | {len(h)} | {st.median(h):.3f} | {h[int(0.99 * len(h))]:.2f} | {h[-1]:.2f} | {o} |")
+    print(f"\nAll probed static steps: {over}/{total} above c*.")
+
+
+def sharpness_7074() -> None:
+    section("4. Seed 7074: network sharpness and scale, static against no growth")
+    print("lam_max: power iteration (20 steps) on the minibatch Hessian of CE over all parameters; lr is 0.05 for every group, so c* applies directly.\n")
+    print("| Arm | Epoch | lam_max median | max | steps > c* | top-eigenvector block at the max | |W1| | |W2| | h_ms median | h_ms max | train CE median |")
+    print("|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|")
+    for tag, arm in (("gc2n-7074-static-v2", "static"), ("gc2n-7074-no_growth-v2", "no_growth")):
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        for e in sorted({r["epoch"] for r in rows}):
+            E = [r for r in rows if r["epoch"] == e]
+            lam = [r["lam_max"] for r in E if math.isfinite(r["lam_max"])]
+            top = max(E, key=lambda r: r["lam_max"] if math.isfinite(r["lam_max"]) else -1)
+            block = max(top["eig_share"].items(), key=lambda kv: kv[1])
+            w1 = st.median(r["weight_sq"]["stage1"] for r in E) ** 0.5
+            w2 = st.median(r["weight_sq"]["stage2"] for r in E) ** 0.5
+            print(
+                f"| {arm} | {e} | {st.median(lam):.2f} | {max(lam):.4g} | {sum(x > C_STAR for x in lam)}/{len(E)} | {block[0]} {block[1]:.2f} | {w1:.2f} | {w2:.2f} | "
+                f"{st.median(r['h_ms'] for r in E):.4g} | {max(r['h_ms'] for r in E):.4g} | {st.median(r['ce'] for r in E):.3f} |"
+            )
+
+
+def windows() -> None:
+    section("5. Steps leading into each divergence (static replays)")
+    for tag in [t for t in STATIC_PROBED if t.startswith(("gc2n-7074-static", "lv2", "r4-82", "r4-85", "r4-83", "r4-81", "r4-86"))]:
+        d = diverged(jsonl(PROBE / tag / "training.jsonl"), "static")
+        if d is None:
+            continue
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        print(f"\n{tag} (diverged epoch {d['epoch']} step {d['step']}):\n")
+        print("| Epoch | Step | gain | dCE/dgain | h_ms | slot out_ms | logit_ms | CE |")
+        print("|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for r in rows[-26:]:
+            print(f"| {r['epoch']} | {r['step']} | {r['gain']:+.4g} | {r['dce_dg']:+.3g} | {r['h_ms']:.3g} | {r['slot_out_ms']:.3g} | {r['logit_ms']:.3g} | {r['ce']:.4g} |")
+
+
+def gain_steps() -> None:
+    section("6. Single-step gain changes")
+    print("|dg| between consecutive probed steps; the final three steps before a divergence excluded.\n")
+    print("| Replay | Outcome | median abs(dg) | max abs(dg) | steps with abs(dg) > 0.5 | gain, 2nd-half median | steps from the max to divergence |")
+    print("|---|---|---:|---:|---:|---:|---:|")
+    for tag in STATIC_PROBED:
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        d = diverged(jsonl(PROBE / tag / "training.jsonl"), "static")
+        g = [r["gain"] for r in rows]
+        dg = [abs(b - a) for a, b in zip(g, g[1:], strict=False)]
+        body = dg[:-3] if d else dg
+        outcome = f"diverged e{d['epoch']} s{d['step']}" if d else "completed"
+        late = rows[len(rows) // 2 :]
+        at = max(range(len(body)), key=lambda k: body[k])
+        to_div = str(len(rows) - at) if d else "-"
+        print(f"| {tag} | {outcome} | {st.median(body):.4f} | {max(body):.3f} | {sum(x > 0.5 for x in body)} | {st.median(r['gain'] for r in late):+.3f} | {to_div} |")
+
+
+def hidden_scale() -> None:
+    section("7. Hidden scale over training (20-epoch replays): median h_ms / median gain per epoch")
+    tags = [t for t in STATIC_PROBED if t.endswith("H20")]
+    print("| Replay | " + " | ".join(f"e{e}" for e in range(0, 20, 2)) + " |")
+    print("|---|" + "---|" * 10)
+    for tag in tags:
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        cells = []
+        for e in range(0, 20, 2):
+            E = [r for r in rows if r["epoch"] == e]
+            cells.append(f"{st.median(r['h_ms'] for r in E):.3g} / {st.median(r['gain'] for r in E):+.2f}" if E else "")
+        print(f"| {tag} | " + " | ".join(cells) + " |")
+
+
+def basins() -> None:
+    section("8. rung-4 H20 static arms by gain basin (exploratory, post hoc)")
+    print("Basin: sign of the median over epochs 5-9 of each epoch's (gain_max + gain_min) / 2 witness.")
+    print("Late rise: rung-4's definition (mean dev CE over the last three epochs > earlier minimum + 0.1).\n")
+    runs = []
+    for unit in unit_dirs("rung4-timing-horizon"):
+        if unit.name != "H20":
+            continue
+        rows = jsonl(unit / "training.jsonl")
+        ep = epochs(rows, "static")
+        mids = [(e["witness"]["gain_max"] + e["witness"]["gain_min"]) / 2 for e in ep[5:10]]
+        basin = "early" if not mids else ("+" if st.median(mids) > 0 else "-")
+        d = diverged(rows, "static")
+        devs = [e["dev"]["ce"] for e in ep]
+        rise = d is None and len(devs) == 20 and st.mean(devs[-3:]) - min(devs[:-3]) > 0.1
+        final_gain = (ep[-1]["witness"]["gain_max"] + ep[-1]["witness"]["gain_min"]) / 2 if ep else None
+        runs.append({"basin": basin, "div": d, "rise": rise, "finite": d is None and len(devs) == 20, "final_gain": final_gain})
+    finite = [r for r in runs if r["finite"]]
+    print(f"Finite static runs: {len(finite)}; late risers: {sum(r['rise'] for r in finite)} (rung-4 report: 117/756)\n")
+    print("| Basin | Runs | Diverged | Diverged at epoch >= 13 | Late rise (finite runs) |")
+    print("|---|---:|---:|---:|---:|")
+    for b in ("+", "-", "early"):
+        R = [r for r in runs if r["basin"] == b]
+        F = [r for r in R if r["finite"]]
+        late_div = sum(1 for r in R if r["div"] and r["div"]["epoch"] >= 13)
+        print(f"| {b} | {len(R)} | {sum(1 for r in R if r['div'])} | {late_div} | {sum(r['rise'] for r in F)}/{len(F)} |")
+    a = sum(r["rise"] for r in finite if r["basin"] == "+")
+    b_ = sum(1 for r in finite if r["basin"] == "+") - a
+    c = sum(r["rise"] for r in finite if r["basin"] == "-")
+    d_ = sum(1 for r in finite if r["basin"] == "-") - c
+    n, r1, c1 = a + b_ + c + d_, a + b_, a + c
+    p = sum(comb(r1, k) * comb(n - r1, c1 - k) / comb(n, c1) for k in range(a, min(r1, c1) + 1))
+    print(f"\nFisher exact, one-sided (late rise more frequent in the + basin): p = {p:.2g}")
+    plus = [r for r in finite if r["basin"] == "+"]
+    print(
+        f"+ basin final-epoch gain (median): risers {st.median(r['final_gain'] for r in plus if r['rise']):.3f}, "
+        f"non-risers {st.median(r['final_gain'] for r in plus if not r['rise']):.3f}"
+    )
+
+
+def capped() -> None:
+    section("9. Exploratory intervention: cap the static gain's step at 0.1 (momentum buffer clipped to match)")
+    print("Identical to the recorded run until the first capped step. Diagnostic only; feeds no reading.\n")
+    print("| Seed | Uncapped (record) | Capped | Capped steps | Capped final dev CE | No-growth final dev CE (record) | Uncapped final dev CE |")
+    print("|---|---|---|---:|---:|---:|---:|")
+    for tag in CAPPED:
+        study, unit, _ = REPLAYS[tag]
+        rec = jsonl(RUNS / study / unit / "training.jsonl")
+        cap = jsonl(PROBE / f"cap-{tag}" / "training.jsonl")
+        log = json.loads((PROBE / f"cap-{tag}.log").read_text().strip().splitlines()[-1])
+
+        def status(rows: list[dict]) -> tuple[str, float | None]:
+            d = diverged(rows, "static")
+            ep = epochs(rows, "static")
+            return (f"diverged e{d['epoch']} s{d['step']}" if d else f"completed ({len(ep)} epochs)"), (None if d else ep[-1]["dev"]["ce"])
+
+        us, ud = status(rec)
+        cs, cd = status(cap)
+        ng = epochs(rec, "no_growth")[-1]["dev"]["ce"]
+        fmt = lambda x: "-" if x is None else f"{x:.3f}"  # noqa: E731
+        print(f"| {tag} | {us} | {cs} | {log['capped_steps']} | {fmt(cd)} | {ng:.3f} | {fmt(ud)} |")
+
+
+def clopper_pearson(k: int, n: int, level: float = 0.95) -> tuple[float, float]:
+    """Exact binomial interval by bisection: P(X >= k | lower) = a and P(X <= k | upper) = a."""
+    a = (1 - level) / 2
+
+    def at_most(p: float, upto: int) -> float:
+        return sum(comb(n, i) * p**i * (1 - p) ** (n - i) for i in range(upto + 1))
+
+    def bisect(f, target: float) -> float:  # f decreasing in p
+        lo, hi = 0.0, 1.0
+        for _ in range(80):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if f(mid) > target else (lo, mid)
+        return (lo + hi) / 2
+
+    lower = 0.0 if k == 0 else bisect(lambda p: at_most(p, k - 1), 1 - a)
+    upper = 1.0 if k == n else bisect(lambda p: at_most(p, k), a)
+    return lower, upper
+
+
+def fisher_one_sided(a: int, b: int, c: int, d: int) -> float:
+    n, r1, c1 = a + b + c + d, a + b, a + c
+    return sum(comb(r1, k) * comb(n - r1, c1 - k) / comb(n, c1) for k in range(a, min(r1, c1) + 1))
+
+
+FAILED = ["gc2n-7074-static-v2", "lv2-4004", "r4-8207-T0", "r4-8526-T0", "r4-8346-T0", "r4-8229-H20", "r4-8195-H20", "r4-8605-H20"]
+HEALTHY = ["gc2n-7001", "gc2n-7002", "r4-8001-H20", "r4-8002-H20", "r4-8003-H20"]
+
+
+def extras() -> None:
+    section("10. Further numbers the note cites")
+    # 10a: curvature crossings per group and per run
+    def crossings(tags: list[str]) -> tuple[int, int, int]:
+        over = total = runs = 0
+        for tag in tags:
+            rows = jsonl(PROBE / tag / "probe.jsonl")
+            d = diverged(jsonl(PROBE / tag / "training.jsonl"), "static")
+            body = rows[:-3] if d else rows
+            h = [r["H_gg"] for r in body if math.isfinite(r["H_gg"])]
+            o = sum(x > C_STAR for x in h)
+            over, total, runs = over + o, total + len(h), runs + (o > 0)
+        return over, total, runs
+
+    print("| Replay | Steps above c* | Longest run of consecutive steps above c* |")
+    print("|---|---:|---:|")
+    for tag in FAILED + HEALTHY:
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        d = diverged(jsonl(PROBE / tag / "training.jsonl"), "static")
+        body = rows[:-3] if d else rows
+        longest = run = 0
+        for r in body:
+            run = run + 1 if math.isfinite(r["H_gg"]) and r["H_gg"] > C_STAR else 0
+            longest = max(longest, run)
+        print(f"| {tag} | {sum(1 for r in body if math.isfinite(r['H_gg']) and r['H_gg'] > C_STAR)} | {longest} |")
+    print()
+    fo, ft, fr = crossings(FAILED)
+    ho, ht, hr = crossings(HEALTHY)
+    print(f"10a. Steps with H_gg > c*: failed runs {fo}/{ft}, runs with at least one {fr}/{len(FAILED)}; healthy runs {ho}/{ht}, runs with at least one {hr}/{len(HEALTHY)}.\n")
+    # 10b: the kick: first step in the final 60 with a gain step > 0.5 (failed); largest gain step (healthy)
+    print("10b. The kick: failed runs, first step in the final 60 before divergence whose gain step exceeds 0.5; healthy runs, their largest gain step.\n")
+    print("| Replay | Epoch | Step | gain before | gain step | dCE/dgain | H_gg | h_ms | steps to divergence |")
+    print("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for tag in FAILED + HEALTHY:
+        rows = jsonl(PROBE / tag / "probe.jsonl")
+        g = [r["gain"] for r in rows]
+        dg = [b - a for a, b in zip(g, g[1:], strict=False)]
+        if tag in FAILED:
+            k = next((i for i in range(max(0, len(rows) - 60), len(dg)) if abs(dg[i]) > 0.5), None)
+        else:
+            k = max(range(len(dg)), key=lambda i: abs(dg[i]))
+        if k is None:
+            print(f"| {tag} | - | - | - | - | - | - | - | - |")
+            continue
+        r = rows[k]
+        to_div = str(len(rows) - k) if tag in FAILED else "-"
+        print(f"| {tag} | {r['epoch']} | {r['step']} | {r['gain']:+.3f} | {dg[k]:+.3f} | {r['dce_dg']:+.3g} | {r['H_gg']:.4g} | {r['h_ms']:.4g} | {to_div} |")
+    # 10c: 7074 glide
+    rows = jsonl(PROBE / "gc2n-7074-static-v2" / "probe.jsonl")
+    glide = [r for r in rows if r["epoch"] == 2 and 108 <= r["step"] <= 124]
+    print("\n10c. Seed 7074, epoch 2, steps 108-124 (gain, dCE/dgain): " + ", ".join(f"s{r['step']} {r['gain']:+.2f} ({r['dce_dg']:+.3g})" for r in glide))
+    pre = [r["h_ms"] for r in rows if r["epoch"] == 2 and 100 <= r["step"] <= 107]
+    print(f"     h_ms over epoch 2 steps 100-107: {min(pre):.4g} to {max(pre):.4g}")
+    # 10d: capped 8207
+    rows = jsonl(PROBE / "cap-r4-8207-T0" / "probe.jsonl")
+    w1 = [r["weight_sq"]["stage1"] ** 0.5 for r in rows]
+    late = rows[-8:-3]
+    print(f"10d. Capped 8207: min h_ms over its last 8 probed steps before the final 3 = {min(r['h_ms'] for r in late):.4g}; |W1| {w1[0]:.2f} at step 0 to {w1[-4]:.2f} four rows before divergence ({w1[-4] / w1[0]:.2f}x); gain there {late[-1]['gain']:+.4f}.")
+    rows = jsonl(PROBE / "r4-8346-T0" / "probe.jsonl")
+    print("\n10i. Seed 8346, epoch 9, steps 25-29: " + "; ".join(
+        f"s{r['step']} gain {r['gain']:+.3f} CE {r['ce']:.3f} h_ms {r['h_ms']:.3g} stage-3 squared gradient {r['grad_sq'].get('stage3', 0):.4g}"
+        for r in rows if r["epoch"] == 9 and 25 <= r["step"] <= 29))
+    # 10e: early-cap departures
+    print("\n10e. Early-onset cap (section 9): the first step at which the uncapped gain step exceeds 0.1, i.e. where each capped run departs from its record.\n")
+    print("| Seed | Departure (epoch, step) | Probed steps before the recorded divergence |")
+    print("|---|---|---:|")
+    for tag, rec in (("gc2n-7074", "gc2n-7074-static-v2"), ("lv2-4004", "lv2-4004"), ("r4-8207-T0", "r4-8207-T0"), ("r4-8526-T0", "r4-8526-T0"), ("r4-8346-T0", "r4-8346-T0"), ("r4-8229-H20", "r4-8229-H20"), ("r4-8195-H20", "r4-8195-H20"), ("r4-8605-H20", "r4-8605-H20")):
+        rows = jsonl(PROBE / rec / "probe.jsonl")
+        g = [r["gain"] for r in rows]
+        k = next(i for i in range(len(g) - 1) if abs(g[i + 1] - g[i]) > 0.1)
+        print(f"| {tag} | e{rows[k]['epoch']} s{rows[k]['step']} | {len(rows) - k} |")
+    # 10f: rates with intervals, no-growth divergences
+    counts = {10: [0, 0, 0], 20: [0, 0, 0]}  # static diverged, n, no-growth diverged
+    for study in STUDIES:
+        for unit in unit_dirs(study):
+            rel = unit.relative_to(RUNS / study).parts
+            if (study == "rung4-timing-horizon" and rel[-1] in ("T1", "T2", "T3", "T5")) or (study == "lifecycle-v2-validation" and rel[-1] == "v1"):
+                continue
+            manifest = json.loads((unit / "manifest.json").read_text())
+            if manifest["host"] != "kernel-demo-under_normalized" or manifest["seed_type"] != "norm":
+                continue
+            rows = jsonl(unit / "training.jsonl")
+            c = counts[manifest["spec"]["epochs"]]
+            c[0] += diverged(rows, "static") is not None
+            c[1] += 1
+            c[2] += diverged(rows, "no_growth") is not None
+    for ep, (k, n, ng) in counts.items():
+        lo, hi = clopper_pearson(k, n)
+        print(f"10f. under_normalized x norm, {ep} epochs: static {k}/{n} = {100 * k / n:.2f}% (95% Clopper-Pearson {100 * lo:.2f}-{100 * hi:.2f}%); no growth diverged {ng}/{n}.")
+    h20_t0_same = 0
+    for unit in unit_dirs("rung4-timing-horizon"):
+        if unit.name != "H20":
+            continue
+        a = {r["epoch"]: r["training_state_sha256"] for r in epochs(jsonl(unit / "training.jsonl"), "static")}
+        b = {r["epoch"]: r["training_state_sha256"] for r in epochs(jsonl(unit.parent / "T0" / "training.jsonl"), "static")}
+        h20_t0_same += all(a.get(e) == b.get(e) for e in b)
+    print(f"10g. rung-4 seeds whose H20 static run equals T0's over every epoch T0 recorded: {h20_t0_same}/768.")
+    # 10h: basins, robustness, no-growth late rise, fit
+    print("\n10h. rung-4 H20 basins: robustness and context.\n")
+    data = []
+    for unit in unit_dirs("rung4-timing-horizon"):
+        if unit.name != "H20":
+            continue
+        rows = jsonl(unit / "training.jsonl")
+        ep = epochs(rows, "static")
+        ng = epochs(rows, "no_growth")
+        data.append({"ep": ep, "ng": ng, "div": diverged(rows, "static")})
+
+    def mid(e: dict) -> float:
+        return (e["witness"]["gain_max"] + e["witness"]["gain_min"]) / 2
+
+    def rise(devs: list[float]) -> bool:
+        return st.mean(devs[-3:]) - min(devs[:-3]) > 0.1
+
+    for lo_e, hi_e in ((2, 5), (5, 10), (10, 15)):
+        plus_r = plus_n = minus_r = minus_n = 0
+        for d in data:
+            if d["div"] is not None or len(d["ep"]) != 20:
+                continue
+            b = st.median(mid(e) for e in d["ep"][lo_e:hi_e]) > 0
+            r = rise([e["dev"]["ce"] for e in d["ep"]])
+            if b:
+                plus_n, plus_r = plus_n + 1, plus_r + r
+            else:
+                minus_n, minus_r = minus_n + 1, minus_r + r
+        print(f"basin from epochs {lo_e}-{hi_e - 1}: late rise + {plus_r}/{plus_n}, - {minus_r}/{minus_n}; one-sided Fisher p = {fisher_one_sided(plus_r, plus_n - plus_r, minus_r, minus_n - minus_r):.2g}")
+    finite = [d for d in data if d["div"] is None and len(d["ep"]) == 20]
+    plus = [d for d in finite if st.median(mid(e) for e in d["ep"][5:10]) > 0]
+    minus = [d for d in finite if st.median(mid(e) for e in d["ep"][5:10]) <= 0]
+    for name, grp in (("+", plus), ("-", minus)):
+        ng_rise = sum(rise([e["dev"]["ce"] for e in d["ng"]]) for d in grp if len(d["ng"]) == 20)
+        print(
+            f"basin {name}: median gain midrange epochs 5-9 {st.median(st.median(mid(e) for e in d['ep'][5:10]) for d in grp):+.3f}, final epoch {st.median(mid(d['ep'][-1]) for d in grp):+.3f}; "
+            f"no-growth late rise on the same seeds {ng_rise}/{len(grp)}; static min dev CE median {st.median(min(e['dev']['ce'] for e in d['ep']) for d in grp):.3f}, "
+            f"no-growth {st.median(min(e['dev']['ce'] for e in d['ng']) for d in grp):.3f}"
+        )
+    risers = [d for d in plus if rise([e["dev"]["ce"] for e in d["ep"]])]
+    calm = [d for d in plus if not rise([e["dev"]["ce"] for e in d["ep"]])]
+    print("+ basin median gain midrange by epoch, risers / non-risers: " + ", ".join(
+        f"e{e} {st.median(mid(d['ep'][e]) for d in risers):.2f}/{st.median(mid(d['ep'][e]) for d in calm):.2f}" for e in (9, 13, 15, 17, 18, 19)
+    ))
+
+
+def late_onset() -> None:
+    section("11. Late-onset cap against a sham, from the same onset (exploratory)")
+    print("Onset: the first step, within the final 60 probed steps before the recorded divergence, at which the gain's step exceeds 0.1.")
+    print("Cap: the gain's step capped at 0.1 from the onset (momentum buffer clipped to match). Sham: the gain's step scaled by 0.999 from the onset.")
+    print("Prefix: probed steps up to and including the onset step whose gain, CE, h_ms and dCE/dgain equal the uncapped replay's exactly")
+    print("(the intervention acts at the onset step's optimiser update, after that step is probed).\n")
+    print("| Seed | Onset | Probed steps from onset to recorded divergence | Recorded | Sham | Cap | Sham final dev CE | Cap final dev CE | No-growth final dev CE (record) | Prefix steps identical (sham, cap) |")
+    print("|---|---|---:|---|---|---|---:|---:|---:|---|")
+    discordant = {"cap_only": 0, "sham_only": 0}
+    for line in (HERE / "tools" / "replays-late-cap.txt").read_text().splitlines():
+        study, unit, arm, _power, tag, onset = line.split()
+        rec = jsonl(RUNS / study / unit / "training.jsonl")
+        e0 = int(onset.split(":")[0])
+        out = []
+        prefix = []
+        for kind in ("late-sham-", "late-cap-"):
+            t = tag.replace("late-cap-", kind)
+            path = PROBE / t / "training.jsonl"
+            if not path.exists():
+                out.append(("missing", None))
+                prefix.append("-")
+                continue
+            rows = jsonl(path)
+            d = diverged(rows, arm)
+            ep = epochs(rows, arm)
+            out.append((f"diverged e{d['epoch']} s{d['step']}" if d else f"completed ({len(ep)} ep)", None if d else ep[-1]["dev"]["ce"]))
+            base_rows = jsonl(PROBE / {"7074": "gc2n-7074-static-v2"}.get(tag.split("-")[-1], tag.removeprefix("late-cap-")) / "probe.jsonl")
+            mine = jsonl(PROBE / t / "probe.jsonl")
+            e_on, s_on = (int(v) for v in onset.split(":"))
+            k_on = next(i for i, r in enumerate(base_rows) if (r["epoch"], r["step"]) == (e_on, s_on))
+            keys = ("epoch", "step", "gain", "ce", "h_ms", "dce_dg")
+            same = sum(all(a[x] == b[x] for x in keys) for a, b in zip(base_rows[: k_on + 1], mine[: k_on + 1], strict=False))
+            prefix.append(f"{same}/{k_on + 1}")
+        d = diverged(rec, arm)
+        cap_dev = "-" if out[1][1] is None else f"{out[1][1]:.3f}"
+        sham_dev = "-" if out[0][1] is None else f"{out[0][1]:.3f}"
+        ng = epochs(rec, "no_growth")[-1]["dev"]["ce"]
+        sham_ok, cap_ok = out[0][0].startswith("completed"), out[1][0].startswith("completed")
+        discordant["cap_only"] += cap_ok and not sham_ok
+        discordant["sham_only"] += sham_ok and not cap_ok
+        base = jsonl(PROBE / {"7074": "gc2n-7074-static-v2"}.get(tag.split("-")[-1], tag.removeprefix("late-cap-")) / "probe.jsonl")
+        e_on, s_on = (int(v) for v in onset.split(":"))
+        k_on = next(i for i, r in enumerate(base) if (r["epoch"], r["step"]) == (e_on, s_on))
+        print(f"| {tag.removeprefix('late-cap-')} | e{onset.replace(':', ' s')} | {len(base) - k_on} | diverged e{d['epoch']} s{d['step']} | {out[0][0]} | {out[1][0]} | {sham_dev} | {cap_dev} | {ng:.3f} | {prefix[0]}, {prefix[1]} |")
+    def mcnemar(b: int, c: int) -> float:
+        return min(1.0, 2 * sum(comb(b + c, k) for k in range(max(b, c), b + c + 1)) / 2 ** (b + c)) if b + c else 1.0
+
+    b, c = discordant["cap_only"], discordant["sham_only"]
+    print(f"\nDiscordant pairs: cap survives and sham fails {b}; sham survives and cap fails {c}. Exact McNemar (two-sided) p = {mcnemar(b, c):.3g}.")
+    print(f"Counting 8346's capped run (final dev CE at chance) as not rescued: {b - 1} against {c}, p = {mcnemar(b - 1, c):.3g}.")
+
+
+if __name__ == "__main__":
+    print("# Static norm-arm divergence: tables (generated by build_tables.py)")
+    replay_checks()
+    divergence_rates()
+    gain_curvature()
+    sharpness_7074()
+    gain_steps()
+    hidden_scale()
+    basins()
+    capped()
+    extras()
+    late_onset()
+    windows()

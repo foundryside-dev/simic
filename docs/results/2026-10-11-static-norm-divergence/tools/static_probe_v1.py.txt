@@ -1,0 +1,116 @@
+"""Replay one finished unit's static arm with a per-step curvature probe (simic-9c5c3a2acf).
+
+Usage (cwd = the study's immutable snapshot, PYTHONPATH=$PWD:$PWD/src):
+    python -B static_probe.py <manifest.json> <output-dir> <data-root>
+
+Training runs through the snapshot's own bounded_comparison.train with ARMS narrowed to
+("static",). The probe runs on deep copies between backward and the optimizer step, so the
+live trajectory is untouched; the caller checks that by comparing training_state_sha256 per
+epoch against the recorded unit. Per step it records, for the batch the step trained on:
+  h_ms  = mean(h^2) at the slot          f_ms = mean(f(h)^2), f = GN(h) - h for the norm seed
+  gn_ms = mean(GN(h)^2)                  gain, ce, dce_dg
+  H_gg  = d^2 CE / d gain^2 (exact, double backward)
+  The linearised momentum-SGD iteration is unstable along the gain coordinate when
+  seed_lr * H_gg exceeds 2(1+mu)/(1+2mu), i.e. H_gg > c* (the Rayleigh quotient of the
+  lr-preconditioned Hessian along e_gain lower-bounds its top eigenvalue).
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import sys
+from pathlib import Path
+
+import torch
+
+import experiments.bounded_comparison as bc
+from experiments.bounded_data import validated_spec
+
+manifest_path, out_dir, data_root = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+spec = validated_spec(json.loads(manifest_path.read_text())["spec"])
+bc.ARMS = ("static",)
+
+state: dict = {"x": None, "y": None, "epoch": None, "step": -1, "rows": []}
+_augment = bc.augment
+_ce = torch.nn.functional.cross_entropy
+_train_epoch = bc.train_epoch
+
+
+def augment(x, crops, flips):
+    out = _augment(x, crops, flips)
+    state["x"] = out.detach()
+    state["step"] += 1
+    return out
+
+
+def cross_entropy(logits, target, *args, **kwargs):
+    if state["x"] is not None and state["y"] is None:
+        state["y"] = target.detach()
+    return _ce(logits, target, *args, **kwargs)
+
+
+def probe(host, slot) -> dict:
+    memo = {}
+    for value in vars(slot).values():
+        if isinstance(value, torch.Tensor) and value.grad_fn is not None:
+            memo[id(value)] = None
+    hc, sc = copy.deepcopy((host, slot), memo)
+    for module in [*hc.modules(), *sc.modules()]:
+        module._forward_hooks.clear()
+        module._forward_pre_hooks.clear()
+    x, y = state["x"], state["y"]
+    gain = sc.seed.gain
+    for p in [*hc.parameters(), *sc.parameters()]:
+        p.grad = None
+    logits = hc(x, sc)
+    ce = _ce(logits, y)
+    (dg,) = torch.autograd.grad(ce, gain, create_graph=True)
+    (hgg,) = torch.autograd.grad(dg, gain)
+    with torch.no_grad():
+        h = hc.forward_to_slot(x)
+        f = sc.seed.f(h)
+        row = {
+            "epoch": state["epoch"],
+            "step": state["step"],
+            "gain": float(gain.detach()),
+            "ce": float(ce.detach()),
+            "dce_dg": float(dg.detach()),
+            "H_gg": float(hgg),
+            "h_ms": float(h.pow(2).mean()),
+            "f_ms": float(f.pow(2).mean()),
+        }
+        if hasattr(sc.seed, "gn"):
+            row["gn_ms"] = float(sc.seed.gn(h).pow(2).mean())
+    return row
+
+
+def train_epoch(host, slot, opt, spec_, future, x, y, epoch):
+    state["epoch"], state["step"] = epoch, -1
+    original_step = opt.step
+
+    def step(*args, **kwargs):
+        if slot.seed is not None and state["x"] is not None and state["y"] is not None:
+            try:
+                state["rows"].append(probe(host, slot))
+            finally:
+                state["x"] = state["y"] = None
+        return original_step(*args, **kwargs)
+
+    opt.step = step
+    try:
+        return _train_epoch(host, slot, opt, spec_, future, x, y, epoch)
+    finally:
+        del opt.step
+        state["x"] = state["y"] = None
+
+
+bc.augment = augment
+torch.nn.functional.cross_entropy = cross_entropy
+bc.train_epoch = train_epoch
+
+result = bc.train(spec, out_dir, data_root)
+with (out_dir / "probe.jsonl").open("x") as fh:
+    for row in state["rows"]:
+        fh.write(json.dumps(row) + "\n")
+print(json.dumps({"rows": len(state["rows"]), "arm_status": result["arm_status"], "c_star": bc.c_star(spec.kernel_config())}))
