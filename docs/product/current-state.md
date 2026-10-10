@@ -107,8 +107,8 @@ on John's go.
   [pre-flight](../results/2026-10-10-fleet-c1-preflight.md)), from the clean
   worktree `/home/john/simic-worktrees/fleet-c1`.
 - Root `runs/fleet-c1` in that worktree; launch log `runs/fleet-c1.launch.out`.
-- ETA about 20 hours, so around 17:00 AEDT on 2026-10-11; a loaded CPU
-  stretches it.
+- ETA (corrected at 48/768 seeds, 22:13, no failures; 200 s per seed
+  on a shared CPU): around 18:00–19:00 AEDT on 2026-10-11.
 - Resume after an interruption: the launch command with `--resume`, same
   worktree and commit. Analyse once from the snapshot when
   `launch-finished.json` exists (commands in the pre-flight note).
