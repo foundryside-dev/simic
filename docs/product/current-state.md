@@ -113,6 +113,17 @@ on John's go.
   worktree and commit. Analyse once from the snapshot when
   `launch-finished.json` exists (commands in the pre-flight note).
 
+**Queued after Fleet C1: Fleet C1-S** (John's choice, 2026-10-10; PDR-0057
+amendment). Fleet C1's static arm is born at about 1/30 of τ on the three
+BatchNorm hosts (`simic-e3803e8200`), so its deficit screen there can't
+separate "no deficit" from the defect. G1 and λ are unaffected.
+- Fleet C1-S re-screens those hosts with the corrected arm on the same
+  seeds, paired with Fleet C1's sealed arms and checked bitwise on 48
+  seeds.
+- [Plan](../prereg/fleet-c1s.json), `experiments/c1s_study.py`, worktree
+  `/home/john/simic-worktrees/fleet-c1s`.
+- About 3 hours. It launches after Fleet C1 finishes and is analysed.
+
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
   `simic-ae339f0555`. Re-entry: an explicit DECIDE recorded as a PDR.
