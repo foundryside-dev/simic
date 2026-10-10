@@ -1,0 +1,81 @@
+{
+  "study": {
+    "id": "fleet-c1-dryrun",
+    "status": "pre-flight dry run on the launch commit: every host and arm, two seeds, run twice; no reading",
+    "pilot": true,
+    "based_on": [
+      "docs/prereg/fleet-c1.json"
+    ]
+  },
+  "units": {
+    "first_seed": 9903,
+    "count": 3
+  },
+  "hosts": [
+    "under_normalized",
+    "channel_starved",
+    "no_spatial_mix",
+    "mild"
+  ],
+  "decision_epoch": 1,
+  "scales": [
+    1.1,
+    1.25,
+    1.5,
+    2.0
+  ],
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "batch_size": 32,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "lr": 0.05,
+    "tau": 0.05,
+    "lam": 1.0,
+    "trust_safety": 0.5,
+    "device": "cuda",
+    "lifecycle": "v2",
+    "data": "cifar",
+    "epochs": 10
+  },
+  "data_identity": {
+    "source_files": {
+      "batches.meta": "f962466ef690d46b226450fb9aadc74ba4bc64a76aa526b5827fe4bc5c7125cb",
+      "data_batch_1": "54636561a3ce25bd3e19253c6b0d8538147b0ae398331ac4a2d86c6d987368cd",
+      "data_batch_2": "766b2cef9fbc745cf056b3152224f7cf77163b330ea9a15f9392beb8b89bc5a8",
+      "data_batch_3": "0f00d98ebfb30b3ec0ad19f9756dc2630b89003e10525f5e148445e82aa6a1f9",
+      "data_batch_4": "3f7bb240661948b8f4d53e36ec720d8306f5668bd0071dcb4e6c947f78e9682b",
+      "data_batch_5": "d91802434d8376bbaeeadf58a737e3a1b12ac839077e931237e0dcd43adcb154"
+    },
+    "fit_sha256": "38c8f9588b2a719b6ecc150ce3a39d332f1dfa32837a6845d2fb58ac9b2b5176",
+    "dev_sha256": "19c7bf0f74c76a2db37295510cbb3b36b30c0fef7ee45181509d834665535a20"
+  },
+  "criteria": {
+    "margin": 0.02,
+    "family_alpha": 0.025,
+    "co_primary_hosts": [
+      "under_normalized",
+      "mild"
+    ],
+    "step_down": [
+      1.25,
+      1.5,
+      2.0
+    ],
+    "deficit_min_gain": 0.05,
+    "static_divergence_cap": 0.1,
+    "trim": 0.1,
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261010,
+    "max_failed_units": 0,
+    "comparator_divergence_cap": 0.025,
+    "graft_divergence_cap": 0.025
+  },
+  "disclosures": [
+    "Dry-run seeds 9903-9905 come from the reserved probe range 9901-9910. Run twice into two roots; every arms.jsonl must match byte for byte."
+  ]
+}
