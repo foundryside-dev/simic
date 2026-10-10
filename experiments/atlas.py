@@ -31,6 +31,7 @@ from typing import Any
 
 import torch
 
+from experiments.atlas_fast import score, train_epoch  # exact-records tier: the frozen runner's records, fewer syncs
 from experiments.atlas_hosts import HostConfig, config_hash
 from experiments.atlas_hosts import build as build_config_host
 from experiments.bounded_comparison import (
@@ -48,10 +49,8 @@ from experiments.bounded_comparison import (
     parameter_hash,
     read_json,
     runtime,
-    score,
     source_identity,
     strict_json,
-    train_epoch,
     write_json,
 )
 from experiments.bounded_data import RunSpec, file_hash, load_fit_dev, tensor_hash
