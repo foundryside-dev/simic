@@ -1,0 +1,14 @@
+import sys
+import json, sys
+ARM = sys.argv[3] if len(sys.argv) > 3 else "static"
+rec, rep = sys.argv[1], sys.argv[2]
+def rows(p, arm=None):
+    return [json.loads(l) for l in open(p) if json.loads(l).get("arm") == (arm or ARM)]
+a, b = rows(rec), rows(rep)
+ea = {r["epoch"]: r for r in a if r["kind"] == "epoch"}; eb = {r["epoch"]: r for r in b if r["kind"] == "epoch"}
+ok = sorted(ea) == sorted(eb) and all(ea[e]["training_state_sha256"] == eb[e]["training_state_sha256"] and ea[e]["dev"] == eb[e]["dev"] for e in ea)
+da = [r for r in a if r["kind"] == "diverged"]; db = [r for r in b if r["kind"] == "diverged"]
+ok_div = [(r["epoch"], r["step"], r["witness"]) for r in da] == [(r["epoch"], r["step"], r["witness"]) for r in db]
+sa = [r for r in a if r["kind"] == "arm_start"][0]; sb = [r for r in b if r["kind"] == "arm_start"][0]
+ok_start = sa["birth"] == sb["birth"] and sa["initial_dev"] == sb["initial_dev"]
+print(f"epochs {sorted(ea)} hashes+dev equal: {ok}; divergence equal: {ok_div}; birth equal: {ok_start}")

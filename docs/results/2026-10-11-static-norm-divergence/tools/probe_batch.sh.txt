@@ -1,0 +1,15 @@
+#!/bin/bash
+# usage: probe_batch.sh <list-file>; each line: <study> <unit-relative-dir> <arm> <power_iters> <tag> [onset epoch:step]
+# env: GAIN_CAP (cap the static gain's step), SHAM (scale it by 1 - SHAM), both acting from the onset
+while read -r study unit arm power tag onset; do
+  [ -z "$study" ] && continue
+  out=/home/john/simic/runs/static-norm-diagnosis-2026-10-11/probe/$tag
+  [ -e "$out/complete.json" ] && { echo "skip $tag"; continue; }
+  src=/home/john/simic/runs/$study/src
+  unitdir=/home/john/simic/runs/$study/$unit
+  start=$(date +%s)
+  (cd $src && CUDA_VISIBLE_DEVICES=1 nice -n 19 env OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 CUBLAS_WORKSPACE_CONFIG=:4096:8 GAIN_CAP=${GAIN_CAP:-} ONSET=$onset SHAM=${SHAM:-} PYTHONPATH=$src:$src/src /home/john/simic/.venv/bin/python -B /home/john/simic/runs/static-norm-diagnosis-2026-10-11/tools/static_probe2.py $unitdir/manifest.json $out /home/john/simic/runs/cifar-fit-only $arm $power > $out.log 2>&1)
+  rc=$?
+  v=$(python3 /home/john/simic/runs/static-norm-diagnosis-2026-10-11/tools/verify_replay.py $unitdir/training.jsonl $out/training.jsonl $arm 2>&1 | tail -1)
+  echo "$tag rc=$rc $(( $(date +%s) - start ))s | $v"
+done < "$1"

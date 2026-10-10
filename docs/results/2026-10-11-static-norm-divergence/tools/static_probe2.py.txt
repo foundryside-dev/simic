@@ -1,0 +1,188 @@
+"""Replay one finished unit's static arm with a per-step curvature probe (simic-9c5c3a2acf).
+
+Usage (cwd = the study's immutable snapshot, PYTHONPATH=$PWD:$PWD/src):
+    python -B static_probe2.py <manifest.json> <output-dir> <data-root> <arm> [power_iters]
+
+Training runs through the snapshot's own bounded_comparison.train with ARMS narrowed to
+("static",). The probe runs on deep copies between backward and the optimizer step, so the
+live trajectory is untouched; the caller checks that by comparing training_state_sha256 per
+epoch against the recorded unit. Per step it records, for the batch the step trained on:
+  h_ms  = mean(h^2) at the slot          f_ms = mean(f(h)^2), f = GN(h) - h for the norm seed
+  gn_ms = mean(GN(h)^2)                  gain, ce, dce_dg
+  H_gg  = d^2 CE / d gain^2 (exact, double backward)
+  The linearised momentum-SGD iteration is unstable along the gain coordinate when
+  seed_lr * H_gg exceeds 2(1+mu)/(1+2mu), i.e. H_gg > c* (the Rayleigh quotient of the
+  lr-preconditioned Hessian along e_gain lower-bounds its top eigenvalue).
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import sys
+from pathlib import Path
+
+import torch
+
+import experiments.bounded_comparison as bc
+from experiments.bounded_data import validated_spec
+
+manifest_path, out_dir, data_root = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+ARM = sys.argv[4]
+POWER_ITERS = int(sys.argv[5]) if len(sys.argv) > 5 else 20
+spec = validated_spec(json.loads(manifest_path.read_text())["spec"])
+bc.ARMS = (ARM,)
+import os
+GAIN_CAP = float(os.environ["GAIN_CAP"]) if os.environ.get("GAIN_CAP") else None  # exploratory intervention, off by default
+# Late onset: act only from (epoch, step) >= ONSET. SHAM scales the gain's step by (1 - SHAM) instead of capping it.
+ONSET = tuple(int(v) for v in os.environ["ONSET"].split(":")) if os.environ.get("ONSET") else (0, 0)
+SHAM = float(os.environ["SHAM"]) if os.environ.get("SHAM") else None
+state_caps = {"capped_steps": 0}
+
+state: dict = {"x": None, "y": None, "epoch": None, "step": -1, "rows": []}
+_augment = bc.augment
+_ce = torch.nn.functional.cross_entropy
+_train_epoch = bc.train_epoch
+
+
+def augment(x, crops, flips):
+    out = _augment(x, crops, flips)
+    state["x"] = out.detach()
+    state["step"] += 1
+    return out
+
+
+def cross_entropy(logits, target, *args, **kwargs):
+    if state["x"] is not None and state["y"] is None:
+        state["y"] = target.detach()
+    return _ce(logits, target, *args, **kwargs)
+
+
+def blocks(host, slot):
+    named = [(f"host.{n}", p) for n, p in host.named_parameters()]
+    if slot.seed is not None:
+        named += [(f"seed.{n}", p) for n, p in slot.seed.named_parameters()]
+    return named
+
+
+def block_of(name):
+    parts = name.split(".")
+    if parts[0] == "seed":
+        return "seed.gain" if parts[-1] == "gain" else "seed.body"
+    return parts[1]  # stage1 / stage2 / stage3 / fc
+
+
+def probe(host, slot) -> dict:
+    live = blocks(host, slot)
+    grad_sq = {}
+    for name, p in live:
+        if p.grad is not None:
+            grad_sq[block_of(name)] = grad_sq.get(block_of(name), 0.0) + float(p.grad.detach().square().sum())
+    weight_sq = {}
+    for name, p in live:
+        if p.ndim > 1:
+            weight_sq[block_of(name)] = weight_sq.get(block_of(name), 0.0) + float(p.detach().square().sum())
+    memo = {}
+    for value in vars(slot).values():
+        if isinstance(value, torch.Tensor) and value.grad_fn is not None:
+            memo[id(value)] = None
+    hc, sc = copy.deepcopy((host, slot), memo)
+    for module in [*hc.modules(), *sc.modules()]:
+        module._forward_hooks.clear()
+        module._forward_pre_hooks.clear()
+    x, y = state["x"], state["y"]
+    named = blocks(hc, sc)
+    params = [p for _, p in named]
+    for p in params:
+        p.grad = None
+    logits = hc(x, sc)
+    ce = _ce(logits, y)
+    grads = torch.autograd.grad(ce, params, create_graph=True)
+    row = {"epoch": state["epoch"], "step": state["step"], "ce": float(ce.detach())}
+    if sc.seed is not None:
+        gi = [i for i, (n, _) in enumerate(named) if n.endswith("gain")][0]
+        (hgg,) = torch.autograd.grad(grads[gi], params[gi], retain_graph=True)
+        row["H_gg"] = float(hgg)
+        row["gain"] = float(params[gi].detach())
+        row["dce_dg"] = float(grads[gi].detach())
+    gen = torch.Generator(device=x.device).manual_seed(0)
+    v = [torch.randn(p.shape, generator=gen, device=p.device, dtype=p.dtype) for p in params]
+    norm = torch.sqrt(sum((t * t).sum() for t in v))
+    v = [t / norm for t in v]
+    lam = float("nan")
+    for _ in range(POWER_ITERS):
+        hv = torch.autograd.grad(grads, params, grad_outputs=v, retain_graph=True)
+        lam = float(sum((a * b).sum() for a, b in zip(v, hv)))
+        norm = torch.sqrt(sum((t * t).sum() for t in hv))
+        if not torch.isfinite(norm) or float(norm) == 0.0:
+            break
+        v = [t / norm for t in hv]
+    share = {}
+    for (name, _), t in zip(named, v):
+        share[block_of(name)] = share.get(block_of(name), 0.0) + float((t * t).sum())
+    row["lam_max"] = lam
+    row["eig_share"] = share
+    row["grad_sq"] = grad_sq
+    row["weight_sq"] = weight_sq
+    with torch.no_grad():
+        h = hc.forward_to_slot(x)
+        row["h_ms"] = float(h.pow(2).mean())
+        if sc.seed is not None:
+            row["f_ms"] = float(sc.seed.f(h).pow(2).mean())
+            if hasattr(sc.seed, "gn"):
+                row["gn_ms"] = float(sc.seed.gn(h).pow(2).mean())
+        out = sc(h)
+        row["slot_out_ms"] = float(out.pow(2).mean())
+        row["logit_ms"] = float(logits.detach().pow(2).mean())
+    return row
+
+
+def train_epoch(host, slot, opt, spec_, future, x, y, epoch):
+    state["epoch"], state["step"] = epoch, -1
+    original_step = opt.step
+
+    def step(*args, **kwargs):
+        if state["x"] is not None and state["y"] is not None:
+            try:
+                state["rows"].append(probe(host, slot))
+            finally:
+                state["x"] = state["y"] = None
+        if (GAIN_CAP is None and SHAM is None) or slot.seed is None or (state["epoch"], state["step"]) < ONSET:
+            return original_step(*args, **kwargs)
+        gain = slot.seed.gain
+        before = gain.detach().clone()
+        result = original_step(*args, **kwargs)
+        with torch.no_grad():
+            delta = gain - before
+            if SHAM is not None:
+                state_caps["capped_steps"] += 1
+                gain.copy_(before + delta * (1.0 - SHAM))
+            elif bool(delta.abs() > GAIN_CAP):
+                state_caps["capped_steps"] += 1
+                gain.copy_(before + delta.clamp(-GAIN_CAP, GAIN_CAP))
+                buf = opt.state[gain].get("momentum_buffer")
+                if buf is not None:
+                    lr = next(g["lr"] for g in opt.param_groups if any(p is gain for p in g["params"]))
+                    buf.clamp_(-GAIN_CAP / lr, GAIN_CAP / lr)
+        return result
+
+    opt.step = step
+    try:
+        return _train_epoch(host, slot, opt, spec_, future, x, y, epoch)
+    finally:
+        del opt.step
+        state["x"] = state["y"] = None
+
+
+bc.augment = augment
+torch.nn.functional.cross_entropy = cross_entropy
+bc.train_epoch = train_epoch
+
+try:
+    result = bc.train(spec, out_dir, data_root)
+except RuntimeError as error:  # an intervened arm can trip the runner's end-of-arm learning checks
+    result = {"arm_status": {ARM: f"runtime-error: {error}"}}
+with (out_dir / "probe.jsonl").open("x") as fh:
+    for row in state["rows"]:
+        fh.write(json.dumps(row) + "\n")
+print(json.dumps({"rows": len(state["rows"]), "arm_status": result["arm_status"], "c_star": bc.c_star(spec.kernel_config()), "gain_cap": GAIN_CAP, "onset": list(ONSET), "sham": SHAM, "capped_steps": state_caps["capped_steps"]}))
