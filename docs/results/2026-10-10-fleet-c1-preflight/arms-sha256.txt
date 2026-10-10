@@ -4,3 +4,6 @@ d3db524b59d68fb2177ca1cdad3804bb20e16cd0beb81040fc839ca7d9b585a0  fleet-c1-dryru
 d3db524b59d68fb2177ca1cdad3804bb20e16cd0beb81040fc839ca7d9b585a0  fleet-c1-dryrun-b/units/seed-9904/arms.jsonl
 8bb8147e958a53990aecacaed4a4d569e1ed73c6ceb344d38df58d0d2fc597ff  fleet-c1-dryrun-a/units/seed-9905/arms.jsonl
 8bb8147e958a53990aecacaed4a4d569e1ed73c6ceb344d38df58d0d2fc597ff  fleet-c1-dryrun-b/units/seed-9905/arms.jsonl
+24004a4d627ee3e582dc1496052f115d3ad0f5c0a3787cb7fe68f3a8bf27c76e  fleet-c1-dryrun-fast/units/seed-9903/arms.jsonl
+d3db524b59d68fb2177ca1cdad3804bb20e16cd0beb81040fc839ca7d9b585a0  fleet-c1-dryrun-fast/units/seed-9904/arms.jsonl
+8bb8147e958a53990aecacaed4a4d569e1ed73c6ceb344d38df58d0d2fc597ff  fleet-c1-dryrun-fast/units/seed-9905/arms.jsonl
