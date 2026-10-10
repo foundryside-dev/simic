@@ -40,7 +40,9 @@ cd /home/john/simic-worktrees/fleet-c1 && nice -n 19 env OMP_NUM_THREADS=1 MKL_N
 
 **Resume** after an interruption: the same command with `--resume`, same worktree and commit (`1f58080`).
 
-**Analyse once** when `launch-finished.json` exists:
+**First launch Fleet C1-S** ([its pre-flight](2026-10-10-fleet-c1s-preflight.md) has the command). A fresh C1-S launch is refused once this fleet's `c1_report.json` exists (PDR-0057 amendment, 2026-10-10).
+
+**Then analyse once** when `launch-finished.json` exists:
 
 ```bash
 cd /home/john/simic-worktrees/fleet-c1/runs/fleet-c1/src && PYTHONPATH=$PWD:$PWD/src /home/john/simic/.venv/bin/python -B -m experiments.c1_study analyze --root /home/john/simic-worktrees/fleet-c1/runs/fleet-c1 --plan /home/john/simic-worktrees/fleet-c1/docs/prereg/fleet-c1.json
