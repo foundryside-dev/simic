@@ -79,6 +79,21 @@ def screen_table(report: dict[str, Any], supplement: dict[str, Any] | None) -> s
     return _table(header, rows)
 
 
+def corrected_detail_table(supplement: dict[str, Any]) -> str:
+    """Descriptive beside the corrected screen: the gain over completed runs only, and corrected minus registered static."""
+    rows = []
+    for host in _hosts(supplement["deficit_screen"]):
+        done = supplement["static_gain_completed_only"].get(host)
+        rows.append(
+            [
+                host,
+                f"{_ci(done)} (n {done['n']})" if done else "—",
+                _ci(supplement["corrected_minus_registered_static"][host]),
+            ]
+        )
+    return _table(["Host", "Corrected static gain, completed runs only [95%]", "Corrected - registered static [95%]"], rows)
+
+
 def graft_static_table(report: dict[str, Any], supplement: dict[str, Any] | None) -> str:
     rows = []
     corrected = supplement["graft_minus_static_calibrated"] if supplement else {}
@@ -137,6 +152,7 @@ def render(report: dict[str, Any], supplement: dict[str, Any] | None = None) -> 
         "",
         screen_table(report, supplement),
         "",
+        *([corrected_detail_table(supplement), ""] if supplement is not None else []),
         "### Graft minus static (descriptive)",
         "",
         graft_static_table(report, supplement),

@@ -122,7 +122,9 @@ separate "no deficit" from the defect. G1 and λ are unaffected.
   seeds.
 - [Plan](../prereg/fleet-c1s.json), `experiments/c1s_study.py`, worktree
   `/home/john/simic-worktrees/fleet-c1s`.
-- About 3 hours. It launches after Fleet C1 finishes and is analysed.
+- About 3 hours. Launch it as soon as Fleet C1 finishes, **before** Fleet
+  C1's analysis (a fresh launch is refused once Fleet C1's report exists).
+  Then analyse Fleet C1, and Fleet C1-S once it finishes.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue

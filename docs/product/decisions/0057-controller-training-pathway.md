@@ -376,4 +376,14 @@ read as registered): **keep Fleet C1 running untouched, then run Fleet C1-S**
 - At the checkpoint, the Fleet A host list takes the BatchNorm hosts from Fleet C1-S and
   `under_normalized` from Fleet C1. Fleet C1's registered BatchNorm-host screen is reported
   beside it, as registered.
-- About 3 hours on two GPUs, after Fleet C1 and its own analysis.
+- About 3 hours on two GPUs. It launches when Fleet C1 finishes, **before** Fleet C1's own
+  analysis, and a fresh launch is refused once that analysis has published. Every module the arm
+  and the reading run through is pinned by hash in the plan. Nothing in Fleet C1-S can therefore
+  be chosen after Fleet C1's results are known (statistics review). Its analysis waits for Fleet
+  C1's.
+- Pre-registered fallback: if Fleet C1-S makes no reading (Fleet C1's instrument failed, a
+  pairing or identity mismatch, or too many failed units), the BatchNorm hosts are unscreened.
+  Fleet C1's registered screen on them never enters Fleet A, and John decides.
+- The PyTorch and statistics reviews endorsed it with changes, all taken: every seed is tied to
+  Fleet C1's starting state, every corrected arm must be born at τ, and the completed-runs-only
+  gain is reported beside the divergence rate.

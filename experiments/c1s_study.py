@@ -18,9 +18,16 @@ reads it against Fleet C1's sealed no-growth and graft arms (the parent fleet):
   the supplement makes no reading (`pairing_failure`).
 
 The control host's screen is the parent's: there the two arms are one arm, which the pairing
-check confirms on GPU. Launch waits for the parent fleet to finish; the analysis waits for the
-parent's own analysis, so the parent's data are never looked at first through this module.
-`c1_study` is unchanged: the parent's snapshot analyses the parent.
+check confirms on GPU. On every seed the corrected arm must also start where the parent's static
+arm started (birth hashes that do not depend on the calibration mode, the future and the data),
+and must have been born at tau.
+
+Order (statistics review): a confirmatory launch needs the parent finished and is refused once
+the parent's own report exists, so nothing here is chosen after the parent's results are known;
+the plan pins the source of every module the arm and the reading run through. The analysis waits
+for the parent's report. The registered BatchNorm screen never enters Fleet A: if this
+supplement makes no reading, those hosts are unscreened and John decides. `c1_study` is
+unchanged: the parent's snapshot analyses the parent.
 """
 
 from __future__ import annotations
@@ -44,7 +51,7 @@ import numpy as np
 from experiments import atlas
 from experiments import c1_study as c1
 from experiments.bounded_comparison import REPO, append_record, git_identity, read_json, runtime, source_identity, strict_json, write_json
-from experiments.bounded_data import file_hash
+from experiments.bounded_data import RunSpec, file_hash
 from experiments.bounded_screen import binomial_bounds, interval, make_snapshot, visible_gpus
 from experiments.kernel_demo import DESIGNED_WINNER, PATHOLOGIES
 
@@ -52,8 +59,45 @@ ARM = "static_calibrated"
 REPORT = "c1s_report.json"
 SCHEMA = "c1s-v1"
 NO_BN_HOSTS = ("under_normalized",)  # kernel_demo Host: use_bn = pathology != "under_normalized"
-PLAN_KEYS = {"study", "parent", "units", "hosts", "control_host", "pairing_seeds", "config", "data_identity", "criteria"}
-OPTIONAL_PLAN_KEYS = {"predictions", "disclosures", "deviations"}
+PLAN_KEYS = {
+    "study",
+    "parent",
+    "units",
+    "hosts",
+    "control_host",
+    "pairing_seeds",
+    "config",
+    "data_identity",
+    "criteria",
+    "source_sha256",
+    "fallback",
+}
+OPTIONAL_PLAN_KEYS = {"predictions", "disclosures", "deviations", "acceptance"}
+SOURCE_FILES = tuple(
+    f"experiments/{name}"
+    for name in (
+        "c1s_study.py",
+        "c1_study.py",
+        "atlas.py",
+        "atlas_static.py",
+        "atlas_fast.py",
+        "atlas_hosts.py",
+        "bounded_comparison.py",
+        "bounded_data.py",
+        "bounded_screen.py",
+        "kernel_demo.py",
+    )
+)
+# Birth fields that do not depend on the calibration mode: the corrected arm must start where the parent's static did.
+IDENTITY_BIRTH_KEYS = (
+    "body_init_sha256",
+    "seed_before_calibration_sha256",
+    "calibration_inputs_sha256",
+    "calibration_examples",
+    "host_unchanged_sha256",
+    "host_optimizer_preserved_sha256",
+)
+TAU_TOLERANCE = 0.05  # relative; kernel_demo's tau self-test tolerance
 CRITERIA_KEYS = {"deficit_min_gain", "static_divergence_cap", "max_failed_units"}
 DESCRIPTIVE_LEVEL = c1.DESCRIPTIVE_LEVEL
 
@@ -86,17 +130,26 @@ def load_plan(path: Path) -> dict[str, Any]:
         if plan["criteria"][key] != parent["criteria"][key]:
             raise ValueError(f"criteria.{key} must equal the parent's: the screen is unchanged, only the arm is corrected")
     hosts, control = plan["hosts"], plan["control_host"]
-    if not hosts or len(set(hosts)) != len(hosts) or not set(hosts) <= set(parent["hosts"]):
-        raise ValueError("hosts must be distinct hosts of the parent fleet")
-    if any(h in NO_BN_HOSTS for h in hosts):
-        raise ValueError("hosts are the BatchNorm hosts; a host without BatchNorm is the control")
+    if len(set(hosts)) != len(hosts) or set(hosts) != {h for h in parent["hosts"] if h not in NO_BN_HOSTS}:
+        raise ValueError("hosts must be exactly the parent's BatchNorm hosts; a host without BatchNorm is the control")
     if control not in NO_BN_HOSTS or control not in parent["hosts"]:
         raise ValueError("the control host must be a parent host without BatchNorm")
     if type(plan["pairing_seeds"]) is not int or not 1 <= plan["pairing_seeds"] <= plan["units"]["count"]:
         raise ValueError("pairing_seeds must be an int between 1 and the unit count")
     if type(plan["criteria"]["max_failed_units"]) is not int or plan["criteria"]["max_failed_units"] < 0:
         raise ValueError("max_failed_units must be a non-negative int")
+    if set(plan["source_sha256"]) != set(SOURCE_FILES):
+        raise ValueError(f"source_sha256 must pin exactly {list(SOURCE_FILES)}")
+    if not isinstance(plan["fallback"], str) or not plan["fallback"]:
+        raise ValueError("the plan must state what happens when the supplement makes no reading")
     return plan
+
+
+def check_sources(plan: dict[str, Any], root: Path) -> None:
+    """The arm and the reading run through exactly the pinned source (statistics review)."""
+    changed = [name for name in SOURCE_FILES if file_hash(root / name) != plan["source_sha256"][name]]
+    if changed:
+        raise RuntimeError(f"source differs from the plan's pins: {changed}")
 
 
 def unit_seeds(plan: dict[str, Any]) -> list[int]:
@@ -206,6 +259,14 @@ def verify_unit(root: Path, plan: dict[str, Any], *, seed: int, plan_sha256: str
             raise ValueError(f"inconsistent status for {r['host']}/{r['arm']}")
         if r["late_ce"] is not None and not math.isfinite(r["late_ce"]):
             raise ValueError("a completed arm must have a finite late CE")
+        if r["arm"] == ARM:  # the correction must have taken effect (PyTorch review)
+            birth = r["birth"] or {}
+            ratio = birth.get("realised_ratio_at_birth")
+            tau = RunSpec(**plan["config"]).tau  # as the run's spec has it, default included
+            if birth.get("calibration_mode") != "train":
+                raise ValueError(f"{r['host']}/{ARM} was not calibrated in train mode")
+            if not isinstance(ratio, float) or not math.isfinite(ratio) or abs(ratio - tau) > TAU_TOLERANCE * tau:
+                raise ValueError(f"{r['host']}/{ARM} was born at ratio {ratio}, not tau = {tau}")
     return rows
 
 
@@ -223,16 +284,34 @@ def pairing_check(own: list[dict[str, Any]], parent: list[dict[str, Any]], contr
     for r in own:
         if r["arm"] == "no_growth":
             want = theirs[(r["host"], "no_growth")]
-            same = r["records"] == want["records"] and r["initial_dev"] == want["initial_dev"] and r["diverged"] == want["diverged"]
+            records = r["records"]
+            same = records == want["records"]
         elif r["host"] == control_host:
             want = theirs[(r["host"], "static")]
             records = [{**rec, "arm": "static"} for rec in r["records"]]
             birth = {k: v for k, v in (r["birth"] or {}).items() if k != "calibration_mode"}
-            same = records == want["records"] and birth == want["birth"] and r["diverged"] == want["diverged"]
+            same = records == want["records"] and birth == want["birth"]
         else:
             continue
+        same = same and all(r[k] == want[k] for k in ("initial_dev", "diverged", "costs"))
         if not same:
             problems.append(f"seed {r['seed']} {r['host']}/{r['arm']}")
+    return problems
+
+
+def identity_check(
+    own: list[dict[str, Any]], parent: list[dict[str, Any]], own_manifest: dict[str, Any], parent_manifest: dict[str, Any]
+) -> list[str]:
+    """Every seed: the same future and data as the parent, and each corrected arm born from the parent's static start."""
+    seed = own_manifest["seed"]
+    problems = [f"seed {seed} {key}" for key in ("future_sha256", "data") if own_manifest[key] != parent_manifest[key]]
+    theirs = {(r["host"], r["arm"]): r for r in parent}
+    for r in own:
+        if r["arm"] != ARM:
+            continue
+        want = theirs[(r["host"], "static")]["birth"] or {}
+        if any((r["birth"] or {}).get(k) != want.get(k) for k in IDENTITY_BIRTH_KEYS):
+            problems.append(f"seed {seed} {r['host']}/{ARM} birth")
     return problems
 
 
@@ -245,6 +324,8 @@ def evaluate(units: list[dict[str, Any]], criteria: dict[str, Any], parent_scree
     screen: dict[str, Any] = {}
     graft_minus: dict[str, Any] = {}
     failures: dict[str, Any] = {}
+    completed_only: dict[str, Any] = {}
+    corrected_minus_registered: dict[str, Any] = {}
     for host in hosts:
         rows = sorted((u for u in units if u["host"] == host), key=lambda u: u["seed"])
         score = {arm: np.array([c1._score(u["arms"][arm]) for u in rows]) for arm in ("no_growth", "graft", "static", ARM)}
@@ -262,7 +343,19 @@ def evaluate(units: list[dict[str, Any]], criteria: dict[str, Any], parent_scree
         }
         graft_minus[host] = {"n": len(rows), **interval(score["graft"] - score[ARM], DESCRIPTIVE_LEVEL)}
         failures[host] = {ARM: {"diverged": k, "n": len(rows), **binomial_bounds(k, len(rows))}}
-    return {"deficit_screen": screen, "graft_minus_static_calibrated": graft_minus, "failures": failures}
+        # Descriptive (statistics review): "failed by instability" apart from "no deficit", and the defect's size.
+        both = [i for i, u in enumerate(rows) if u["arms"][ARM]["status"] == u["arms"]["no_growth"]["status"] == "completed"]
+        completed_only[host] = (
+            {"n": len(both), **interval((score["no_growth"] - score[ARM])[both], DESCRIPTIVE_LEVEL)} if len(both) > 1 else None
+        )
+        corrected_minus_registered[host] = {"n": len(rows), **interval(score[ARM] - score["static"], DESCRIPTIVE_LEVEL)}
+    return {
+        "deficit_screen": screen,
+        "graft_minus_static_calibrated": graft_minus,
+        "static_gain_completed_only": completed_only,
+        "corrected_minus_registered_static": corrected_minus_registered,
+        "failures": failures,
+    }
 
 
 # --- launch and analyze ---
@@ -282,6 +375,9 @@ def launch(root: Path, data_root: Path, workers: int, plan_path: Path, resume: b
         raise RuntimeError("the parent fleet has not finished; the supplement runs after it")
     if read_json(parent_root / "launch.json")["prereg_sha256"] != plan["parent"]["plan_sha256"]:
         raise RuntimeError("the parent root was launched from another plan")
+    if not resume and not plan["study"].get("pilot", False) and (parent_root / c1.REPORT).exists():
+        raise RuntimeError("the parent's report exists: a confirmatory supplement launches before the parent's results are read")
+    check_sources(plan, REPO)
     try:
         plan_in_repo = plan_path.resolve().relative_to(REPO)
     except ValueError as error:
@@ -377,6 +473,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
         raise ValueError("pre-registration changed after launch")
     if launched["analysis_module_sha256"] != analysis_module_hash():
         raise ValueError("analysis module changed since launch")
+    check_sources(plan, REPO)
     if git_identity()["status"]:
         raise RuntimeError("refusing to analyze from a dirty tree")
     out = root / REPORT
@@ -407,12 +504,13 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
                 parent_dir, parent_plan, seed=seed, plan_sha256=parent_launch["prereg_sha256"], commit=parent_launch["git"]["commit"]
             )
             parent_rows = [json.loads(line) for line in (parent_dir / "arms.jsonl").read_text().splitlines()]
-            own = verify_unit(
-                root / "units" / f"seed-{seed}", plan, seed=seed, plan_sha256=launched["prereg_sha256"], commit=launched["git"]["commit"]
-            )
+            own_dir = root / "units" / f"seed-{seed}"
+            own = verify_unit(own_dir, plan, seed=seed, plan_sha256=launched["prereg_sha256"], commit=launched["git"]["commit"])
+            manifests = read_json(own_dir / "manifest.json"), read_json(parent_dir / "manifest.json")
         except Exception as error:  # every failure is recorded, never silently dropped
             failures.append({"seed": seed, "error": f"{type(error).__name__}: {error}", "traceback": traceback.format_exc()})
             continue
+        mismatches += identity_check(own, parent_rows, *manifests)
         mismatches += pairing_check(own, parent_rows, plan["control_host"])
         by_host = {s["host"]: s for s in parent_summary}
         for r in own:
@@ -431,6 +529,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
             "commit": parent_launch["git"]["commit"],
             "report_sha256": file_hash(parent_report_path),
             "control_host_screen": parent_report["deficit_screen"].get(plan["control_host"]),
+            "reading": parent_report["reading"],
         },
         "analysis_git": git_identity(),
         "analyzed_unix": time.time(),
@@ -441,7 +540,11 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     failed_units = len(failures) * len(plan["hosts"])
     report["failed_units"] = failed_units
     checked = [s for s in pairing_seeds(plan) if s not in {f["seed"] for f in failures}]
-    if mismatches or not checked:
+    parent_reading = parent_report["reading"]
+    parent_ok = parent_reading["instrument"] == "ok" and (plan["study"].get("pilot", False) or not parent_reading.get("pilot", False))
+    if not parent_ok:  # a voided parent voids the control's screen and the pairing (statistics review)
+        instrument = "parent_failure"
+    elif mismatches or not checked:
         instrument = "pairing_failure"
     elif failed_units > plan["criteria"]["max_failed_units"]:
         instrument = "instrument_failure"
@@ -452,11 +555,7 @@ def analyze(root: Path, plan_path: Path) -> dict[str, Any]:
     if instrument == "ok":
         hosts_passing = [plan["control_host"]] if control and control["passes"] else []
         hosts_passing += [h for h in plan["hosts"] if report["deficit_screen"].get(h, {}).get("passes")]
-    report["reading"] = {
-        "instrument": instrument,
-        "fleet_a_hosts": hosts_passing,
-        "registered_fleet_a_hosts": parent_report["reading"].get("fleet_a_hosts", []),
-    }
+    report["reading"] = {"instrument": instrument, "fleet_a_hosts": hosts_passing}  # the registered BN screen never enters
     if plan["study"].get("pilot", False):
         report["reading"] = {"instrument": instrument, "pilot": True, "fleet_a_hosts": []}
     out.write_text(json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n")

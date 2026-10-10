@@ -43,3 +43,4 @@ def test_the_supplement_adds_the_corrected_screen_and_marks_the_control_as_the_s
     assert "Corrected static gain" in text and "same arm (no BatchNorm)" in text
     assert c1_tables._ci(supplement["deficit_screen"]["mild"]["static_gain"]) in text
     assert "mismatches 0" in text and "['under_normalized', 'mild']" in text
+    assert c1_tables._ci(supplement["corrected_minus_registered_static"]["mild"]) in text
