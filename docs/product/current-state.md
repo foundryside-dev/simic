@@ -99,8 +99,14 @@ Fleet C1. G0 items 1–5 are done
 [co-tenancy](../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
-launched): nothing. The rung-4 fleet finished 2026-10-09 21:53 local,
-4,608/4,608 runs clean; its data stay in `runs/rung4-timing-horizon/`.
+launched):
+- **Fleet C1 pilot** (`fleet-c1-pilot`, plan `docs/prereg/fleet-c1-pilot.json`).
+  Root `runs/fleet-c1-pilot/`; seeds 9401–9424 × four hosts × seven arms, on
+  both GPUs from a snapshot of its launch commit, under `nice -n 19` (nyx
+  CPU is contended). Launched 2026-10-10 about 12:45 local; about 75 minutes
+  unloaded, longer under load. Read for spread and arm stability only, to size Fleet
+  C1. Progress: `runs/fleet-c1-pilot/progress.jsonl`. To stop it, kill the
+  `c1_study launch` process; it resumes with `--resume`.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
