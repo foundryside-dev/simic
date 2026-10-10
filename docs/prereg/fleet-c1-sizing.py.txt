@@ -1,0 +1,68 @@
+"""Fleet C1 sizing (PDR-0057 G1), from the pilot's own per-seed differences.
+
+Reproduce from the repository root, with the pilot's run root:
+    .venv/bin/python docs/prereg/fleet-c1-sizing.py.txt <pilot run root> <plan.json> [REPS]
+
+For each co-primary host it resamples the pilot's per-seed graft - scale_x1.25 differences
+at m = 1.25 and 2.0 (failures scored at ln 10, as the analysis scores them), recentres them on a true difference
+delta, and simulates the pre-registered G1 step at that m for candidate fleet sizes n: one-sided
+level 1 - alpha with alpha = family_alpha / co-primaries, non-inferior only when both the paired-t
+upper bound and the bootstrap trimmed-mean upper bound sit below the margin. Spread is also
+inflated to the pilot sd's 80% upper confidence limit (the rung-4 lesson: a heavy-tailed arm
+outran its pilot sd 1.7x), by scaling the recentred differences.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+from scipy import stats
+
+sys.path.insert(0, ".")
+from experiments import c1_study as c1  # noqa: E402
+
+root, plan_path = Path(sys.argv[1]), Path(sys.argv[2])
+reps = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+plan = c1.load_plan(plan_path)
+launched = json.loads((root / "launch.json").read_text())
+crit = plan["criteria"]
+alpha = crit["family_alpha"] / len(crit["co_primary_hosts"])
+units = []
+for seed in c1.unit_seeds(plan):
+    units += c1.verify_unit(root / "units" / f"seed-{seed}", plan, seed=seed, plan_sha256=launched["prereg_sha256"], commit=launched["git"]["commit"])
+
+
+def diffs(host: str, m: float) -> np.ndarray:
+    rows = [u for u in units if u["host"] == host]
+    return np.array([c1._score(u["arms"]["graft"]) - c1._score(u["arms"][c1.scale_arm(m)]) for u in rows])
+
+
+def g1_pass(d: np.ndarray, rng: np.random.Generator, boot: int) -> bool:
+    n = len(d)
+    upper = d.mean() + stats.t.ppf(1 - alpha, n - 1) * d.std(ddof=1) / math.sqrt(n)
+    tb = np.array([stats.trim_mean(d[rng.integers(0, n, n)], crit["trim"]) for _ in range(boot)])
+    return bool(upper < crit["margin"] and np.quantile(tb, 1 - alpha) < crit["margin"])
+
+
+out: dict[str, object] = {"alpha_one_sided": alpha, "reps": reps, "hosts": {}}
+rng = np.random.default_rng(20261010)
+for host, m in [(h, m) for h in crit["co_primary_hosts"] for m in (1.25, 2.0)]:
+    d0 = diffs(host, m)
+    k = len(d0)
+    ucl = math.sqrt((k - 1) / stats.chi2.ppf(0.20, k - 1))  # 80% UCL factor on the sd
+    centred = d0 - d0.mean()
+    row: dict[str, object] = {"pilot_n": k, "pilot_mean": float(d0.mean()), "pilot_sd": float(d0.std(ddof=1)), "sd_ucl80_factor": ucl}
+    grid = {}
+    for n in (192, 384, 576, 768):
+        for delta in (0.0, -0.01, 0.01):
+            for label, scale in (("point", 1.0), ("ucl80", ucl)):
+                wins = sum(g1_pass(delta + scale * rng.choice(centred, n), rng, 200) for _ in range(reps))
+                grid[f"n{n}_delta{delta:+.2f}_{label}"] = wins / reps
+    row["power_non_inferior"] = grid
+    out["hosts"][f"{host}@x{m:g}"] = row  # type: ignore[index]
+    print(host, m, json.dumps(row), flush=True)
+print(json.dumps(out))

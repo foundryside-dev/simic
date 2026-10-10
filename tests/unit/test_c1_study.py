@@ -549,3 +549,22 @@ def test_lambda_keeps_units_whose_no_growth_diverged_and_reports_a_failure_sensi
     lam = c1.evaluate(units, CRITERIA)["lambda"]
     assert lam["lambda"] == pytest.approx(0.08, abs=0.01) and lam["excluded_runs"] == 8
     assert lam["sensitivity_failures_at_chance"]["slope"] < lam["slope"]  # chance CE at the base (x = 0) steepens the fall
+
+
+def test_the_committed_fleet_c1_plan_matches_pdr_0057() -> None:
+    """The confirmatory plan carries the signed design, fresh seeds, and no pilot flag."""
+    plan = c1.load_plan(REPO / "docs" / "prereg" / "fleet-c1.json")
+    crit = plan["criteria"]
+    assert plan["study"]["pilot"] is False and plan["decision_epoch"] == 1
+    assert plan["hosts"] == ["under_normalized", "channel_starved", "no_spatial_mix", "mild"]
+    assert crit["co_primary_hosts"] == ["under_normalized", "mild"] and crit["step_down"] == [1.25, 1.5, 2.0]
+    assert (crit["margin"], crit["family_alpha"], crit["deficit_min_gain"], crit["trim"]) == (0.02, 0.025, 0.05, 0.1)
+    assert crit["comparator_divergence_cap"] < crit["trim"] and crit["graft_divergence_cap"] < crit["trim"]
+    seeds = set(c1.unit_seeds(plan))
+    assert seeds == set(range(10001, 10769))
+    seen = set(range(1001, 9425)) | set(range(9901, 9911))  # every bounded study, pilot and probe so far
+    assert seeds.isdisjoint(seen)
+    reserved = set(range(13001, 13193)) | set(range(13401, 13449)) | set(range(14001, 14193))  # Fleet A, G3 audit, G4
+    assert seeds.isdisjoint(reserved) and max(seeds) < 15001  # host family starts at 15001
+    pilot = c1.load_plan(REPO / "docs" / "prereg" / "fleet-c1-pilot.json")
+    assert plan["data_identity"] == pilot["data_identity"] and plan["config"] == pilot["config"]

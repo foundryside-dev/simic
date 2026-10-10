@@ -1,0 +1,102 @@
+{
+  "study": {
+    "id": "fleet-c1",
+    "status": "confirmatory (PDR-0057 G1; ADR-0019); sketch approved 2026-10-10, sized from the pilot",
+    "question": "Is a targeted graft (about 1.0x parameters) non-inferior to uniform scale-up of the host at 1.25x, 1.5x and 2.0x parameters? Plus the deficit screen for Fleet A and the cost price lambda.",
+    "based_on": [
+      "PDR-0057",
+      "ADR-0019",
+      "docs/results/2026-10-10-fleet-c1-pilot/"
+    ],
+    "pilot": false
+  },
+  "units": {
+    "first_seed": 10001,
+    "count": 768
+  },
+  "hosts": [
+    "under_normalized",
+    "channel_starved",
+    "no_spatial_mix",
+    "mild"
+  ],
+  "decision_epoch": 1,
+  "scales": [
+    1.1,
+    1.25,
+    1.5,
+    2.0
+  ],
+  "config": {
+    "data_seed": 20261004,
+    "train_size": 4096,
+    "dev_size": 5000,
+    "batch_size": 32,
+    "stage_k": 1,
+    "stage_m": 2,
+    "stage_f": 1,
+    "threads": 1,
+    "lr": 0.05,
+    "tau": 0.05,
+    "lam": 1.0,
+    "trust_safety": 0.5,
+    "device": "cuda",
+    "lifecycle": "v2",
+    "data": "cifar",
+    "epochs": 10
+  },
+  "data_identity": {
+    "source_files": {
+      "batches.meta": "f962466ef690d46b226450fb9aadc74ba4bc64a76aa526b5827fe4bc5c7125cb",
+      "data_batch_1": "54636561a3ce25bd3e19253c6b0d8538147b0ae398331ac4a2d86c6d987368cd",
+      "data_batch_2": "766b2cef9fbc745cf056b3152224f7cf77163b330ea9a15f9392beb8b89bc5a8",
+      "data_batch_3": "0f00d98ebfb30b3ec0ad19f9756dc2630b89003e10525f5e148445e82aa6a1f9",
+      "data_batch_4": "3f7bb240661948b8f4d53e36ec720d8306f5668bd0071dcb4e6c947f78e9682b",
+      "data_batch_5": "d91802434d8376bbaeeadf58a737e3a1b12ac839077e931237e0dcd43adcb154"
+    },
+    "fit_sha256": "38c8f9588b2a719b6ecc150ce3a39d332f1dfa32837a6845d2fb58ac9b2b5176",
+    "dev_sha256": "19c7bf0f74c76a2db37295510cbb3b36b30c0fef7ee45181509d834665535a20"
+  },
+  "criteria": {
+    "margin": 0.02,
+    "family_alpha": 0.025,
+    "co_primary_hosts": [
+      "under_normalized",
+      "mild"
+    ],
+    "step_down": [
+      1.25,
+      1.5,
+      2.0
+    ],
+    "deficit_min_gain": 0.05,
+    "static_divergence_cap": 0.1,
+    "trim": 0.1,
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20261010,
+    "max_failed_units": 30,
+    "comparator_divergence_cap": 0.025,
+    "graft_divergence_cap": 0.025
+  },
+  "predictions": {
+    "sizing": "docs/prereg/fleet-c1-sizing.py.txt over the pilot (24 seeds): power of the G1 step at a true graft - scale-up difference of 0 (graft equals scale-up), resampling the pilot's own per-seed differences, at the pilot sd and at its 80% upper confidence limit.",
+    "power_at_delta0_ucl80_n768": {
+      "under_normalized@x1.25": 0.88,
+      "under_normalized@x2": 0.91,
+      "mild@x1.25": 0.95,
+      "mild@x2": 0.9
+    },
+    "power_at_delta0_ucl80_n192": {
+      "under_normalized@x1.25": 0.26,
+      "under_normalized@x2": 0.33,
+      "mild@x1.25": 0.39,
+      "mild@x2": 0.41
+    }
+  },
+  "disclosures": [
+    "Sized at 768 seeds from the pilot (statistics review F2): 192 seeds, as sketched, gives power 0.26-0.41 at a true difference of 0. Cost about 31 hours on two GPUs at the pilot's pace, against about 10 sketched.",
+    "Seed ranges re-declared to make room: Fleet C1 10001-10768; Fleet A 13001-13192; G3 revision audit 13401-13448; G4 14001-14192; host family 15001+. Seeds 1001-9424 are seen.",
+    "The pilot (seeds 9401-9424) is read for spread and stability only. Pilot observations, never a reading: 0 divergences in 672 runs; under_normalized graft ahead of every scale-up; only under_normalized showed a repairable deficit.",
+    "max_failed_units 30 of 3,072 units (about 1%)."
+  ]
+}
