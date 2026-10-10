@@ -1,0 +1,1 @@
+{"finished_unix": 1791627798.5742466, "units": [{"gpu": "0", "returncode": 0, "seed": 9903, "wall_s": 74.31398572598118}, {"gpu": "1", "returncode": 0, "seed": 9904, "wall_s": 77.67559701297432}, {"gpu": "0", "returncode": 0, "seed": 9905, "wall_s": 73.88263296498917}]}
