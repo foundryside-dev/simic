@@ -548,12 +548,20 @@ def run_unit(
     decision_points: tuple[int, ...],
     actions: tuple[str, ...],
     replicates: tuple[int, ...],
+    telemetry: bool = False,
 ) -> dict[str, Any]:
-    """One seed: a no-op trunk, then every (decision point, replicate, no-op or action) branch."""
+    """One seed: a no-op trunk, then every (decision point, replicate, no-op or action) branch.
+
+    With telemetry, one feature row per reached decision point goes to telemetry.jsonl, read from a
+    throwaway copy of the snapshot (experiments/atlas_telemetry.py); it changes no other record.
+    """
+    from experiments import atlas_telemetry  # local: atlas_telemetry imports this module
+
     _check_plan(spec, decision_points, actions, replicates)
     if output.exists():
         raise FileExistsError("output must be a fresh directory")
     unit = Unit.load(spec, data_root)
+    probe = atlas_telemetry.load_probe(spec, data_root) if telemetry else None
     output.mkdir(parents=True)
     write_json(
         output / "manifest.json",
@@ -569,6 +577,9 @@ def run_unit(
             "common_future_sha256": unit.future.hash,
             "host_init_seed": derive(spec.seed, "host-init"),
             "seed_body_init_seed": derive(spec.seed, "seed-body-init"),
+            "telemetry": None
+            if probe is None
+            else {"schema": atlas_telemetry.SCHEMA, "probe_sha256": probe.sha256, "probe_rule": probe.rule},
         },
     )
     trunk = unit.trunk(decision_points)
@@ -601,13 +612,19 @@ def run_unit(
                         },
                     )
                     count += 1
-    completion = {
+    completion: dict[str, Any] = {
         "schema": ATLAS_SCHEMA,
         "status": "complete",
         "branches": count,
         "trunk": {"diverged": trunk.diverged, "epochs": len(trunk.records)},
         "artifacts": {name: file_hash(output / name) for name in ("manifest.json", "trunk.jsonl", "branches.jsonl")},
     }
+    if probe is not None:
+        with (output / "telemetry.jsonl").open("x") as fh:
+            for t in decision_points:
+                if t in trunk.snapshots:
+                    append_record(fh, atlas_telemetry.decision_telemetry(unit, trunk, t, probe))
+        completion["artifacts"]["telemetry.jsonl"] = file_hash(output / "telemetry.jsonl")
     write_json(output / "complete.json", completion)
     return completion
 
@@ -619,6 +636,9 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
 def verify_unit(root: Path) -> dict[str, Any]:
     """Refuse a unit missing a no-op or an action, with a duplicate branch, or whose no-op twin left the trunk."""
     manifest, completion = read_json(root / "manifest.json"), read_json(root / "complete.json")
+    for name, digest in completion["artifacts"].items():
+        if file_hash(root / name) != digest:
+            raise ValueError(f"{name} changed after completion")
     plan = manifest["plan"]
     trunk = {r["epoch"]: _plain(r) for r in _jsonl(root / "trunk.jsonl")}
     rows = _jsonl(root / "branches.jsonl")
@@ -649,7 +669,19 @@ def verify_unit(root: Path) -> dict[str, Any]:
                 completed and len(twin) != len(trunk) - row["decision_epoch"]
             ):
                 raise ValueError(f"no-op twin at epoch {row['decision_epoch']} does not continue the trunk")
-    return {"branches": len(rows), "decision_points": reached, "noop_twin_matches_trunk": True, "trunk_diverged": trunk_diverged}
+    telemetry_rows = 0
+    if manifest.get("telemetry") is not None:
+        tel = _jsonl(root / "telemetry.jsonl")
+        if [r["epoch"] for r in tel] != reached or any(r["probe_sha256"] != manifest["telemetry"]["probe_sha256"] for r in tel):
+            raise ValueError("telemetry rows do not cover every reached decision point with the manifest's probe")
+        telemetry_rows = len(tel)
+    return {
+        "branches": len(rows),
+        "decision_points": reached,
+        "noop_twin_matches_trunk": True,
+        "trunk_diverged": trunk_diverged,
+        "telemetry_rows": telemetry_rows,
+    }
 
 
 def effects(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
