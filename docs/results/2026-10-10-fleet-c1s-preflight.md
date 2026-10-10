@@ -1,7 +1,8 @@
 # Fleet C1-S pre-flight check — 2026-10-10
 
-**Result: ready to launch, on `af46997`, as soon as Fleet C1 finishes and before Fleet C1's own
-analysis.** Fleet C1-S re-reads Fleet C1's deficit screen on the three BatchNorm hosts with the
+**Result: ready to launch as soon as Fleet C1 finishes and before Fleet C1's own analysis.** The
+checks below ran on `af46997`. The launch commit is the later merge that corrects one disclosure
+in the plan's text; its code is byte-identical, and the plan's source pins check that at launch. Fleet C1-S re-reads Fleet C1's deficit screen on the three BatchNorm hosts with the
 static arm born at τ (`simic-e3803e8200`; John's choice and the rules are in the PDR-0057
 amendment of 2026-10-10; [plan](../prereg/fleet-c1s.json)).
 
@@ -14,7 +15,7 @@ amendment of 2026-10-10; [plan](../prereg/fleet-c1s.json)).
 | Pairing and identity on GPU | Pass | Against the Fleet C1 dry run, which ran the frozen path at `1e37d4a`: re-trained no-growth and the control's corrected arm equal its records bit for bit on every seed; every corrected arm starts from its static arm's start (birth hashes, future, data). So the pairing holds across commits and across the frozen and fast paths |
 | The review revision changed no record | Pass | `arms.jsonl` from `5cc456f` ([rev1](2026-10-10-fleet-c1s-preflight/rev1-5cc456f/)) and `af46997` are byte-identical: the fixes add checks, not training |
 | Tests | Pass | 32 C1-S tests, 15 for the corrected arm, 2 for the tables; full suite on `af46997`: 630 passed, run in the worktree |
-| Clean launch tree | Pass | A detached worktree at `af46997` (`/home/john/simic-worktrees/fleet-c1s`), clean |
+| Clean launch tree | Pass | A detached worktree (`/home/john/simic-worktrees/fleet-c1s`), clean; moved to the launch commit before launch |
 
 **Order.** A confirmatory launch needs Fleet C1's `launch-finished.json` and is refused once
 Fleet C1's `c1_report.json` exists. So, when Fleet C1 finishes:
