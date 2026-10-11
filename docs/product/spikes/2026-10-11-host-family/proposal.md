@@ -7,6 +7,12 @@
 - Stopping, deferring, screening and reopening the regime question are all John's to choose
   (§11). Where this document gives a recommendation, it is labelled as mine.
 
+**Update, 2026-10-11 evening: John chose option B, a reversible DEFER, and started a training-regime
+design review.** See [`../2026-10-11-regime-review/defer-record.md`](../2026-10-11-regime-review/defer-record.md).
+This revision is otherwise unchanged and kept as reviewed: its options, its labelled recommendation (A),
+the recorded dissent and the superseded-statement table. The defer is not a falsification and not a
+termination.
+
 It starts from the Fleet C1 checkpoint (PR #44, `70707bb`;
 [checkpoint](../../../results/2026-10-11-fleet-c1-checkpoint.md)). Only `under_normalized` passed
 the deficit screen. PDR-0057 registered: "fewer than two passing hosts means the host set is
