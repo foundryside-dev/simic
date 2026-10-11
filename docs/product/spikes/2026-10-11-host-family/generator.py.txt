@@ -33,6 +33,7 @@ import numpy as np
 import experiments.kernel_demo as kd
 
 DRAW_SEED = 15000  # declared in the proposal; the family seed range starts at 15001
+G5_DRAW_SEED = 16000  # declared in the proposal for G5's report hosts; not used by this screen
 WIDTH_STEP = 8  # see the docstring: GroupNorm(8, w2) at the slot
 LAMBDA = 0.02708523208878989  # Fleet C1, frozen for every later gate
 CAP = 1.10  # proposed eligibility cap on a counted seed's realised parameter multiple

@@ -86,7 +86,7 @@ For mapping, I split this into six claims:
 
 | | Original claim | Primary source |
 |---|---|---|
-| **L1** | In-training repair: a bottleneck that arises while a host trains is repaired by structure grafted during training, improving the final artefact | [HLD:77,93,235,330] |
+| **L1** | In-training repair: a learning bottleneck identified while a host trains is repaired by structure grafted during training, improving the final artefact | [HLD:77,93,235,330] |
 | **L2** | Parameter efficiency: a given performance for fewer parameters than conventional training | [HLD:240]; target "10 to 100 times fewer parameters… compared to full model fine-tuning" [HLD:160-162] |
 | **L3** | Diagnosis: the controller decides if, when, where and how, including doing nothing | [HLD:115,734-738]; [PAPER:474,509] |
 | **L4** | Learned beats fixed: a learned policy beats random, heuristic or fixed selection | [HLD:113,2225] |
@@ -236,7 +236,9 @@ generator (`S1:335-341`) plus S3's depth class (`S3:331`), made concrete:
 - **Base width:** b ~ U[0.75, 1.25], widths rounded to multiples of 8.
   - Multiples of 8 are what `0057:159` and `S3:333` say, and not `atlas_hosts.WIDTH_STEP = 4`.
   - The reason: the norm seed is `GroupNorm(8, w2)` at the slot. A first draw at step 4 gave
-    w2 = 60 and failed to build, so the generator was fixed before any host was used.
+    w2 = 60 and failed to build, so the generator was fixed before any host was used. Both draws
+    are recorded in [`draw.md`](draw.md). The seed and the random stream were unchanged, so no
+    host was re-drawn, and 15000 is the only draw seed tried.
 - **Severity:**
   - capacity: the impaired stage's middle width = round8(r × that stage's output width), with
     r ~ U[12/64, 48/64] (S1's starvation range at stage 2's 64 channels, as a ratio);
@@ -292,20 +294,27 @@ full-width reference also give a descriptive width ladder: CE against log2 of pa
 
 **Screen rule for a counted host.** The registered thresholds are unchanged: mean gain > 0.05
 nats, 95% two-sided lower bound > 0, static divergence ≤ 10%. They are applied to **one seed
-type per host, chosen on separate data:**
+type per host, chosen on separate seeds** (the fit and dev sets are the same pinned ones, as in
+every Simic study):
 
 1. **Selection, phase 1:** seeds 15001–15048. Arms: no growth plus every eligible seed. The chosen
    seed is the eligible seed with the largest mean gain; a tie goes to library order.
 2. **Confirmation, phase 2:** seeds 15049–15240, 192 seeds. Arms: no growth plus the chosen seed
    only. The host **confirms** if the registered thresholds hold on these seeds.
 
-The choice is mechanical: the analysis module makes it, and nobody reads phase 1 before phase 2
-launches.
+The phases are sequential, and the choice is mechanical:
+- the analysis module makes the choice and commits it by hash into phase 2's pinned plan;
+- phase 2 launches without a human decision in between, and nobody reads phase 1's numbers
+  before it does;
+- a phase 2 that is abandoned or pre-empted, for example by another project's GPU slot, gives
+  **no reading**.
 
 **How strict this is, and against what:**
 - **Compared with pre-naming one seed per host and testing it on 192 seeds:** the same error
   rates, because the confirming data never took part in the choice. That is revision 1's
-  checkpoint pilot size, with the designed-winner choice removed.
+  checkpoint pilot's size, with the designed-winner choice removed. PDR-0057 first registered
+  Fleet C1 itself at 192 seeds (`0057:194`); 768 came from the later sizing amendment
+  (`0057:335-339`).
 - **Compared with Fleet C1's 768 seeds:** looser. With a point-threshold mean bar, the chance that
   a host just under the bar passes falls as n grows. A confirmation phase at 768 seeds per host
   would cost 4× more.
@@ -326,8 +335,8 @@ launches.
 capacity, spatial and depth.
 - **`family_viable`:** at least one of capacity, spatial or depth has a confirmed host. That makes
   two classes, which meets PDR-0057's two-pass bar on classes rather than hosts.
-- **Stricter than host counting.** It could only differ by admitting `under_normalized` plus
-  another normalisation host, and none is drawn.
+- **Compared with host counting:** stricter in general, but equivalent on this draw. It could
+  only differ by admitting `under_normalized` plus another normalisation host, and none is drawn.
 
 **Descriptive only, decided by nothing:**
 - phase 1's gains for every eligible seed;
@@ -339,8 +348,13 @@ capacity, spatial and depth.
 - Seeds 15001–15240, from the reserved host-family range (`0057:340-341`), plus 10001–10048 for
   pairing only.
 - The same pinned fit and dev data as Fleet C1. Outer and test data are not read.
-- Every screened host, F1–F6, S1–S2 and N0, is "seen". G5's report hosts must be drawn later
-  from G-0 with a different declared seed, excluding them (B15).
+- Every screened host, F1–F6, S1–S2 and N0, is "seen".
+- **G5's report hosts are declared now** (B15):
+  - they are drawn from G-0 with draw seed **16000**, declared here before any family data,
+    and exclude every screened host;
+  - G5 needs two changes to G-0, also declared now: a second slot site (D1), and the
+    normalisation class drawn alongside the other three, since transfer must cover every class;
+  - nothing else in G-0 may change for G5 without a new owner decision.
 
 ## 7. Compute budget
 
@@ -410,11 +424,11 @@ it is stricter.
 
 | Move | When | Direction | Note |
 |---|---|---|---|
-| Rebuilding the host set after a registered fail | After Fleet C1 | Towards continuing | A registered option (`0057:212-216`), but it is still the continuing branch |
+| Rebuilding the host set after a registered fail | After Fleet C1 | Towards continuing | A registered option (`0057:212-216`), but it is still the continuing branch. It takes six new attempts at the second pass: at a true gain of 0.04 on every counted host, one confirms with probability 0.48 (§6) |
 | One seed per host chosen on separate data, instead of a designed seed | After C1 | Neither looser nor stricter than a pre-named seed at n = 192; looser than C1's n = 768 | Removes designed winners (D3) |
-| Counting classes instead of hosts | After C1 | Stricter | Excludes normalisation variants (B1) |
+| Counting classes instead of hosts | After C1 | Stricter in general; equivalent on this draw | Excludes normalisation variants (B1); none is drawn |
 | Eligibility cap of 1.10× | After C1 | Stricter | Excludes capacity-carried passes (B11). 1.10× is C1's smallest declared scale-up step |
-| Generator G-0, the depth-per-stage definition, width step 8 | Here, before any family data | Neutral | Made before any family host trains |
+| Generator G-0, the depth-per-stage definition, width step 8, G5's draw seed | Here, before any family data | Neutral | Made before any family host trains |
 | Honest-small hosts | After C1 | Descriptive only | Never counted (B14) |
 
 ## 10. Specialist correctness review panel
@@ -526,7 +540,7 @@ parameters.
 
 **Simic:**
 - `docs/product/vision.md:21-23,37-41,59-61`;
-- `docs/product/decisions/0057-controller-training-pathway.md:32-43,50-77,98-107,143-300,302-314,333-389`;
+- `docs/product/decisions/0057-controller-training-pathway.md:32-43,50-77,98-107,143-300,302-314,333-389` (the original 192-seed Fleet C1 at :194);
 - `docs/product/decisions/0046-round-two-positive-control-and-graft-plans.md:19-20,30-33,86-89`;
 - `docs/product/decisions/0053-vision-update-acceptance-gates-and-ladder.md:42-51`;
 - `docs/adr/0019-reopen-comparison-uniform-scaleup.md:63-65`;
@@ -544,6 +558,7 @@ parameters.
 
 **Research and review behind this note,** all read-only and all 2026-10-11:
 - two subagent maps, one of the original loop and one of Simic;
-- one adversarial benchmark-shopping review of revision 1.
+- one adversarial benchmark-shopping review of revision 1, and its re-review of revision 2: no
+  blockers remain, and the generator draw reproduces byte for byte.
 
 The §10 panel should re-resolve every cited line.
