@@ -99,33 +99,32 @@ Fleet C1. G0 items 1–5 are done
 [co-tenancy](../results/2026-10-09-atlas-g0-cotenancy/README.md)).
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
-launched): **Fleet C1** (PDR-0057 G1), launched 2026-10-10 20:52:06 AEDT
-on John's go.
-- Seeds 10001–10768, plan [`fleet-c1.json`](../prereg/fleet-c1.json), two
-  workers, one per GPU, under `nice -n 19`.
-- Commit `1f58080` (the exact-records speed tier;
-  [pre-flight](../results/2026-10-10-fleet-c1-preflight.md)), from the clean
-  worktree `/home/john/simic-worktrees/fleet-c1`.
-- Root `runs/fleet-c1` in that worktree; launch log `runs/fleet-c1.launch.out`.
-- ETA (corrected at 233/768 seeds, 02:38 on 2026-10-11, no failures; the
-  last 48 seeds averaged 169 s per seed per GPU): around 15:00 AEDT on
-  2026-10-11.
+launched): **Fleet C1-S** (PDR-0057 amendment, John's choice of
+2026-10-10), launched 2026-10-11 14:47:53 AEDT, straight after Fleet C1
+finished and before Fleet C1's analysis.
+- Re-screens the three BatchNorm hosts with the static arm born at τ
+  (`simic-e3803e8200`), on Fleet C1's seeds 10001–10768, paired with Fleet
+  C1's sealed arms; 48 seeds carry the bitwise pairing check.
+- Plan [`fleet-c1s.json`](../prereg/fleet-c1s.json), two workers, one per
+  GPU, under `nice -n 19`.
+- Commit `5a07be3`, from the clean worktree
+  `/home/john/simic-worktrees/fleet-c1s`
+  ([pre-flight](../results/2026-10-10-fleet-c1s-preflight.md)).
+- Root `runs/fleet-c1s` in that worktree; launch log
+  `runs/fleet-c1s.launch.out`.
+- ETA: about 3–4 hours (pre-flight estimate), so around 18:00–19:00 AEDT
+  on 2026-10-11.
 - Resume after an interruption: the launch command with `--resume`, same
-  worktree and commit. Analyse once from the snapshot when
-  `launch-finished.json` exists (commands in the pre-flight note).
+  worktree and commit. Analyse once when `launch-finished.json` exists
+  (command in the pre-flight note), then render the checkpoint tables.
 
-**Queued after Fleet C1: Fleet C1-S** (John's choice, 2026-10-10; PDR-0057
-amendment). Fleet C1's static arm is born at about 1/30 of τ on the three
-BatchNorm hosts (`simic-e3803e8200`), so its deficit screen there can't
-separate "no deficit" from the defect. G1 and λ are unaffected.
-- Fleet C1-S re-screens those hosts with the corrected arm on the same
-  seeds, paired with Fleet C1's sealed arms and checked bitwise on 48
-  seeds.
-- [Plan](../prereg/fleet-c1s.json), `experiments/c1s_study.py`, worktree
-  `/home/john/simic-worktrees/fleet-c1s`.
-- About 3 hours. Launch it as soon as Fleet C1 finishes, **before** Fleet
-  C1's analysis (a fresh launch is refused once Fleet C1's report exists).
-  Then analyse Fleet C1, and Fleet C1-S once it finishes.
+**Finished: Fleet C1** (PDR-0057 G1), launched 2026-10-10 20:52:06 AEDT
+on John's go, finished 2026-10-11 14:47:27 AEDT: 768/768 seeds, no failed
+units, launcher exit 0.
+- Commit `1f58080`, worktree `/home/john/simic-worktrees/fleet-c1`, root
+  `runs/fleet-c1` ([pre-flight](../results/2026-10-10-fleet-c1-preflight.md)).
+- Analysed once from its snapshot after Fleet C1-S launched. The result
+  goes to John's checkpoint with Fleet C1-S's.
 
 ## Parked, with re-entry conditions
 - **Kernel demo campaign.** Its items depend on the parking issue
