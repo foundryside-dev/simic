@@ -7,6 +7,12 @@
 | no_spatial_mix | 116,626 | 1.037 | 1.037 | 1.102 | 1.229 | 1.460 | 1.990 |
 | mild | 142,006 | 1.063 | 1.063 | 1.112 | 1.260 | 1.517 | 1.985 |
 
+Parameters the graft adds:
+- under_normalized: 161,139 - 161,010 = 129 (0.080%)
+- channel_starved: 190,059 - 129,922 = 60,137 (46.287%)
+- no_spatial_mix: 120,963 - 116,626 = 4,337 (3.719%)
+- mild: 150,903 - 142,006 = 8,897 (6.265%)
+
 ## E2. Arms that did not complete
 
 - seed 10203, under_normalized, graft: diverged at epoch 3 step 74, stage blending, non-finite training objective; witness gain_min -1.605e+08, gain_max 113.7
@@ -15,9 +21,14 @@
 
 Fleet C1: 0/768 did not complete; worst late CE among completed runs 2.013 (chance is ln 10 = 2.303).
 
-| Comparison | Earlier | Fleet C1 | P(0 failures at the earlier rate) | One-sided Fisher p (earlier rate higher) |
+Fisher exact tests on 2x2 counts. The one-sided direction (earlier rate higher) was chosen after seeing 0/768, so the two-sided p is also given.
+
+| Comparison | Earlier | Fleet C1 | Fisher p, one-sided | Fisher p, two-sided |
 |---|---:|---:|---:|---:|
-| rung 4, 10 epochs (same config and arm) | 3/768 | 0/768 | 0.049 | 0.125 |
-| all five studies, 10 epochs | 6/984 | 0/768 | 0.009 | 0.031 |
+| rung 4, 10 epochs (same config and arm; like for like) | 3/768 | 0/768 | 0.125 | 0.250 |
+| the four small studies, 10 epochs | 3/216 | 0/768 | 0.010 | 0.010 |
+| all five studies, 10 epochs (the diagnosis's prior) | 6/984 | 0/768 | 0.031 | 0.038 |
+
+Rung 4 against the four small studies (3/768 vs 3/216), one-sided Fisher p = 0.124.
 
 Pooled 10-epoch rate including Fleet C1: 6/1752 = 0.34% (95% Clopper-Pearson 0.13-0.74%).
