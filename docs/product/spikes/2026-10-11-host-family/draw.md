@@ -1,6 +1,15 @@
 # Draws of generator G-0
 
-Seed 15000 is the only draw seed tried.
+**This file is the record of the draw.** The plan would pin these hosts as explicit configs and
+never re-derive them at run time. The generator used numpy 2.5.1 (`uv.lock`), `default_rng`
+(PCG64) and Python's `round`, which rounds half to even. numpy does not promise identical streams
+across versions.
+
+Seed 15000 is the only draw seed tried. That rests on the author's word. The first committed
+generator (`6804678`) already uses width step 8, so git cannot show draw 0.
+
+Draw 1's N0 row is the full-width reference, a descriptive control in revision 3. It does not
+decide the reading.
 
 ## Draw 1 (current): widths rounded to multiples of 8
 
@@ -21,7 +30,7 @@ The output of `generator.py.txt`, verbatim; a re-run reproduces it byte for byte
 ## Draw 0 (failed, superseded): widths rounded to multiples of 4
 
 The same seed and the same random stream; only the rounding differs, so every host keeps its class, stage, base width and r.
-The run stopped at F1, where `GroupNorm(8, 60)` cannot be built for the norm seed. It printed no table and trained nothing.
+The run stopped at F1, where `GroupNorm(8, 60)` cannot be built for the norm seed. It printed the table header, then failed. It printed no host rows and trained nothing.
 The widths below were reconstructed on CPU from the same stream, not taken from the failed run's
 output. The crash site matches: F1 is the first host with w2 = 60.
 
@@ -34,4 +43,11 @@ output. The crash site matches: F1 is the first host with w2 = 60.
 | F5 | depth | 2 | 1.236 | 28/80/100 | — | yes |
 | F6 | depth | 1 | 0.951 | 24/60/76 | — | no |
 
-Three of six hosts had a slot width the norm seed cannot use, so the rule changed to multiples of 8, which is what PDR-0057:159 and S3:333 already say. No host was re-drawn.
+Three of six hosts had a slot width the norm seed cannot use, so the rule changed to multiples of 8, which is what PDR-0057:159 and S3:333 already say. No host was re-drawn: class, stage, b and r are unchanged.
+
+The rounding change did alter realised widths and one severity:
+- F1: 24/60/76 with middle width 12 became 24/64/80 with middle width 16;
+- F2: 20/56/72 became 24/56/72;
+- F3 and F6: 24/60/76 became 24/64/80;
+- F4: 20/56/72 became 24/56/72;
+- F5: 28/80/100 became 32/80/96.
