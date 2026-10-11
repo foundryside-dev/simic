@@ -1,0 +1,285 @@
+{
+  "analysis_git": {
+    "commit": "5a07be3d36c13afbdfc2a63169cebca685d6bc66",
+    "status": ""
+  },
+  "analyzed_unix": 1791701229.073321,
+  "corrected_minus_registered_static": {
+    "channel_starved": {
+      "half_width": 0.007294706473981685,
+      "lower": -0.0066258057103864175,
+      "mean": 0.0006689007635952675,
+      "n": 768,
+      "sd": 0.10298037743211472,
+      "upper": 0.007963607237576952
+    },
+    "mild": {
+      "half_width": 0.007363973106805463,
+      "lower": -0.008400828274225008,
+      "mean": -0.0010368551674195447,
+      "n": 768,
+      "sd": 0.10395822404144522,
+      "upper": 0.006327117939385918
+    },
+    "no_spatial_mix": {
+      "half_width": 0.005785559243085187,
+      "lower": -0.0057504416462213085,
+      "mean": 3.511759686387894e-05,
+      "n": 768,
+      "sd": 0.08167553782099833,
+      "upper": 0.005820676839949066
+    }
+  },
+  "deficit_screen": {
+    "channel_starved": {
+      "n": 768,
+      "passes": false,
+      "registered": {
+        "n": 768,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.006984141950064851,
+          "lower": -0.007018911616735785,
+          "mean": -3.476966667093391e-05,
+          "sd": 0.09859609521266527,
+          "upper": 0.0069493722833939165
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.0069686003124698,
+        "lower": -0.007672270742736001,
+        "mean": -0.0007036704302662015,
+        "sd": 0.09837669177112038,
+        "upper": 0.006264929882203599
+      },
+      "unstable": false
+    },
+    "mild": {
+      "n": 768,
+      "passes": false,
+      "registered": {
+        "n": 768,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.007209724916030434,
+          "lower": -0.004318130530923074,
+          "mean": 0.00289159438510736,
+          "sd": 0.101780681057243,
+          "upper": 0.010101319301137793
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.007263832940189356,
+        "lower": -0.0033353833876624515,
+        "mean": 0.003928449552526904,
+        "sd": 0.1025445314972663,
+        "upper": 0.01119228249271626
+      },
+      "unstable": false
+    },
+    "no_spatial_mix": {
+      "n": 768,
+      "passes": false,
+      "registered": {
+        "n": 768,
+        "passes": false,
+        "static_divergence_rate": 0.0,
+        "static_gain": {
+          "half_width": 0.005739545272781816,
+          "lower": 0.014243257004152372,
+          "mean": 0.01998280227693419,
+          "sd": 0.08102595225564455,
+          "upper": 0.025722347549716005
+        },
+        "unstable": false
+      },
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.0059216902242953985,
+        "lower": 0.01402599445577491,
+        "mean": 0.01994768468007031,
+        "sd": 0.08359731765891686,
+        "upper": 0.025869374904365708
+      },
+      "unstable": false
+    }
+  },
+  "failed_seeds": [],
+  "failed_units": 0,
+  "failures": {
+    "channel_starved": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 768,
+        "upper_95": 0.004791711401137998,
+        "upper_one_sided_95": 0.0038930952434646357
+      }
+    },
+    "mild": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 768,
+        "upper_95": 0.004791711401137998,
+        "upper_one_sided_95": 0.0038930952434646357
+      }
+    },
+    "no_spatial_mix": {
+      "static_calibrated": {
+        "diverged": 0,
+        "lower_95": 0.0,
+        "n": 768,
+        "upper_95": 0.004791711401137998,
+        "upper_one_sided_95": 0.0038930952434646357
+      }
+    }
+  },
+  "graft_minus_static_calibrated": {
+    "channel_starved": {
+      "half_width": 0.006802255604767839,
+      "lower": -0.006570296184283867,
+      "mean": 0.00023195942048397292,
+      "n": 768,
+      "sd": 0.09602838058902115,
+      "upper": 0.007034215025251812
+    },
+    "mild": {
+      "half_width": 0.007376167376996559,
+      "lower": -0.005361778294434795,
+      "mean": 0.0020143890825617635,
+      "n": 768,
+      "sd": 0.10413037223565527,
+      "upper": 0.009390556459558323
+    },
+    "no_spatial_mix": {
+      "half_width": 0.0056298824081980935,
+      "lower": 0.002716693724903247,
+      "mean": 0.00834657613310134,
+      "n": 768,
+      "sd": 0.07947782647081712,
+      "upper": 0.013976458541299433
+    }
+  },
+  "pairing": {
+    "mismatches": [],
+    "seeds": [
+      10001,
+      10002,
+      10003,
+      10004,
+      10005,
+      10006,
+      10007,
+      10008,
+      10009,
+      10010,
+      10011,
+      10012,
+      10013,
+      10014,
+      10015,
+      10016,
+      10017,
+      10018,
+      10019,
+      10020,
+      10021,
+      10022,
+      10023,
+      10024,
+      10025,
+      10026,
+      10027,
+      10028,
+      10029,
+      10030,
+      10031,
+      10032,
+      10033,
+      10034,
+      10035,
+      10036,
+      10037,
+      10038,
+      10039,
+      10040,
+      10041,
+      10042,
+      10043,
+      10044,
+      10045,
+      10046,
+      10047,
+      10048
+    ]
+  },
+  "parent": {
+    "commit": "1f5808070f94bef9b8dd9ac2ceebb7092648d013",
+    "control_host_screen": {
+      "n": 768,
+      "passes": true,
+      "static_divergence_rate": 0.0,
+      "static_gain": {
+        "half_width": 0.008793836487890824,
+        "lower": 0.13307439039370345,
+        "mean": 0.14186822688159428,
+        "sd": 0.1241438026093732,
+        "upper": 0.15066206336948512
+      },
+      "unstable": false
+    },
+    "plan": "docs/prereg/fleet-c1.json",
+    "plan_sha256": "4d7322d425ded772d528dc163977434702a0686cf17d718951e166c0c06a0bcf",
+    "reading": {
+      "c1": "supported_at_bounded_scale",
+      "c1_mild": "inconclusive",
+      "fleet_a_hosts": [
+        "under_normalized"
+      ],
+      "instrument": "ok"
+    },
+    "report_sha256": "d09de1608ce945fa12f5002e788cd16cd79dcba9a3c291e3eb2a7f01314120ea",
+    "study": "fleet-c1"
+  },
+  "plan_sha256": "c9be1b21390c5a82a77ff9920bdc9f4d253df77ee246c608572fe98bed038ef4",
+  "reading": {
+    "fleet_a_hosts": [
+      "under_normalized"
+    ],
+    "instrument": "ok"
+  },
+  "static_gain_completed_only": {
+    "channel_starved": {
+      "half_width": 0.0069686003124698,
+      "lower": -0.007672270742736001,
+      "mean": -0.0007036704302662015,
+      "n": 768,
+      "sd": 0.09837669177112038,
+      "upper": 0.006264929882203599
+    },
+    "mild": {
+      "half_width": 0.007263832940189356,
+      "lower": -0.0033353833876624515,
+      "mean": 0.003928449552526904,
+      "n": 768,
+      "sd": 0.1025445314972663,
+      "upper": 0.01119228249271626
+    },
+    "no_spatial_mix": {
+      "half_width": 0.0059216902242953985,
+      "lower": 0.01402599445577491,
+      "mean": 0.01994768468007031,
+      "n": 768,
+      "sd": 0.08359731765891686,
+      "upper": 0.025869374904365708
+    }
+  },
+  "study": "fleet-c1s"
+}
