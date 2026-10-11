@@ -22,7 +22,8 @@ The output of `generator.py.txt`, verbatim; a re-run reproduces it byte for byte
 
 The same seed and the same random stream; only the rounding differs, so every host keeps its class, stage, base width and r.
 The run stopped at F1, where `GroupNorm(8, 60)` cannot be built for the norm seed. It printed no table and trained nothing.
-Widths reconstructed on CPU from the same stream:
+The widths below were reconstructed on CPU from the same stream, not taken from the failed run's
+output. The crash site matches: F1 is the first host with w2 = 60.
 
 | Host | Class | Stage | Base width | w1/w2/w3 at step 4 | Impaired mid width | w2 divisible by 8 |
 |---|---|---|---|---|---|---|
