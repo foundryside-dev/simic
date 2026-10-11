@@ -1,0 +1,38 @@
+import gzip, json, math, statistics as st
+from collections import defaultdict
+from statistics import NormalDist
+N=NormalDist()
+C1="/home/john/simic/docs/results/2026-10-11-fleet-c1/arms-summary.jsonl.gz"
+ep=defaultdict(dict)
+for l in gzip.open(C1,"rt"):
+    r=json.loads(l)
+    if r["status"]=="completed": ep[(r["host"],r["arm"])][r["seed"]]=r["dev_ce_by_epoch"]
+H=["under_normalized","mild","no_spatial_mix","channel_starved"]
+print("corr of paired diff (scale_x2 - ng) across epoch pairs; and corr of no_growth CE level across epochs")
+for h in H:
+    ss=sorted(set(ep[(h,"scale_x2")])&set(ep[(h,"no_growth")]))
+    D={e:[ep[(h,"scale_x2")][s][e]-ep[(h,"no_growth")][s][e] for s in ss] for e in range(10)}
+    L={e:[ep[(h,"no_growth")][s][e] for s in ss] for e in range(10)}
+    pr=[(4,9),(5,9),(6,9),(7,9),(8,9),(5,7)]
+    print(h,"diff:"," ".join(f"r{a}{b}={st.correlation(D[a],D[b]):+.2f}" for a,b in pr),"| ng level:"," ".join(f"r{a}{b}={st.correlation(L[a],L[b]):+.2f}" for a,b in pr))
+# power / precision
+def pw(delta, sd, n, a2):  # two-sided alpha a2
+    se=sd/math.sqrt(n); z=N.inv_cdf(1-a2/2); return 1-N.cdf(z-delta/se)
+print("\nE1 dlambda floor 0.023, alpha .025 two-sided per contrast")
+for n in (192,256,384):
+    print(n, " ".join(f"sd{sd}:{pw(0.023,sd,n,0.025):.2f}" for sd in (0.05,0.071,0.10,0.14)))
+print("E1 floor 0.0135:")
+for n in (192,256,384):
+    print(n, " ".join(f"sd{sd}:{pw(0.0135,sd,n,0.025):.2f}" for sd in (0.05,0.071,0.10,0.14)))
+print("\nE2a non-inferiority: P(UB<0.02), UB one-sided 0.0125 (z=2.241), true diff d")
+z=N.inv_cdf(1-0.0125)
+for n in (192,256):
+    for sd in (0.116,0.2,0.3):
+        se=sd/math.sqrt(n)
+        print(n,sd," ".join(f"d{d:+.2f}:{N.cdf((0.02-z*se-d)/se):.2f}" for d in (-0.07,-0.03,0.0,0.02)))
+# budget
+for n in (192,256):
+    for arm_eq in (24,30):
+        cons=n*arm_eq*9.3/3600; fit=n*(11+arm_eq*5.1)/3600
+        print(f"n={n} arm-eq/seed={arm_eq}: conservative {cons:.1f} GPU-h, fitted {fit:.1f} GPU-h")
+print("graft efficiency ratio:", 0.0961/(0.0271*math.log2(161139/161010)))

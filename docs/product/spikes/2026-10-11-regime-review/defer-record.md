@@ -14,6 +14,7 @@ the defer is John's to sign if he wants one.
 |---|---|
 | **A reversible DEFER** | **Yes.** The pathway is parked, not closed. It can resume through an owner decision, with nothing rebuilt or re-derived |
 | A scientific falsification of the founding loop or of C1–C3 | **No.** Nothing tested the founding loop: L1's emergent bottlenecks, L3's diagnosis of where, L4–L6, or L7's keep-or-cull closure (host-family proposal §1, §5) |
+| Neutral about the evidence | **No; for the record:** the only timing evidence so far runs against L1's timing. In rung 4 the best schedule was the one most like static, and static leads the graft by +0.046 on `under_normalized`. A hypothesis (H8 in the regime review) is that this partly reflects handicaps built in from step 0. The evidence is noted, not used to close anything |
 | A permanent termination | **No.** This is not option A (stop). The rebuild branch PDR-0057 registered (`0057:212-216`) is neither taken nor closed |
 | An approval of any experiment | **No.** The regime review is design only. No experiment follows automatically |
 

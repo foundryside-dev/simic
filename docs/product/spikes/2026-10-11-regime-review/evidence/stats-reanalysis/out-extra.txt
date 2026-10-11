@@ -1,0 +1,36 @@
+lambda pooled [0.02397, 0.03039] sd 0.00159
+lambda under_normalized [0.01584, 0.03019] sd 0.00359
+lambda mild [0.01669, 0.03018] sd 0.00340
+lambda no_spatial_mix [0.02493, 0.03475] sd 0.00248
+lambda channel_starved [0.02611, 0.03762] sd 0.00301
+lambda pooled_2arm [0.02399, 0.03121] sd 0.00179
+pooled 2-arm point 0.02741
+per-seed host-averaged 2-arm lambda: mean 0.0274 sd 0.0497
+per-host sd of scale_x2-ng [0.112, 0.1017, 0.0786, 0.0975] independence-predicted sd of host average 0.0491
+
+jitter decomposition of single-epoch paired diffs (e7..e9)
+under_normalized scale_x2 single-epoch var 0.01845 persistent(cov) 0.00958 jitter 0.00887 jitter share 0.48; late(3-ep mean) var 0.01254 -> sd 0.1120; sd if jitter removed 0.0979
+under_normalized static single-epoch var 0.02145 persistent(cov) 0.01239 jitter 0.00906 jitter share 0.42; late(3-ep mean) var 0.01541 -> sd 0.1241; sd if jitter removed 0.1113
+under_normalized graft single-epoch var 0.01013 persistent(cov) 0.00218 jitter 0.00795 jitter share 0.78; late(3-ep mean) var 0.00483 -> sd 0.0695; sd if jitter removed 0.0467
+mild scale_x2 single-epoch var 0.03117 persistent(cov) -0.00008 jitter 0.03125 jitter share 1.00; late(3-ep mean) var 0.01033 -> sd 0.1017; sd if jitter removed 0.0000
+mild static single-epoch var 0.03116 persistent(cov) -0.00004 jitter 0.03121 jitter share 1.00; late(3-ep mean) var 0.01036 -> sd 0.1018; sd if jitter removed 0.0000
+mild graft single-epoch var 0.01334 persistent(cov) -0.00003 jitter 0.01337 jitter share 1.00; late(3-ep mean) var 0.00443 -> sd 0.0665; sd if jitter removed 0.0000
+no_spatial_mix scale_x2 single-epoch var 0.01933 persistent(cov) -0.00039 jitter 0.01973 jitter share 1.02; late(3-ep mean) var 0.00618 -> sd 0.0786; sd if jitter removed 0.0000
+no_spatial_mix static single-epoch var 0.02110 persistent(cov) -0.00070 jitter 0.02181 jitter share 1.03; late(3-ep mean) var 0.00657 -> sd 0.0810; sd if jitter removed 0.0000
+no_spatial_mix graft single-epoch var 0.01122 persistent(cov) -0.00027 jitter 0.01149 jitter share 1.02; late(3-ep mean) var 0.00356 -> sd 0.0597; sd if jitter removed 0.0000
+channel_starved scale_x2 single-epoch var 0.02758 persistent(cov) 0.00046 jitter 0.02712 jitter share 0.98; late(3-ep mean) var 0.00950 -> sd 0.0975; sd if jitter removed 0.0215
+channel_starved static single-epoch var 0.02900 persistent(cov) 0.00008 jitter 0.02892 jitter share 1.00; late(3-ep mean) var 0.00972 -> sd 0.0986; sd if jitter removed 0.0090
+channel_starved graft single-epoch var 0.01448 persistent(cov) 0.00033 jitter 0.01416 jitter share 0.98; late(3-ep mean) var 0.00505 -> sd 0.0710; sd if jitter removed 0.0181
+
+keep/cull with rollback: rule value vs best fixed (min of always-keep, never), by decision epoch d
+under_normalized d2: +0.0181[+0.0142,+0.0220] d3: +0.0175[+0.0136,+0.0214] d4: +0.0230[+0.0188,+0.0271] d5: +0.0121[+0.0089,+0.0153] d6: +0.0098[+0.0067,+0.0129]
+mild d2: +0.0018[-0.0013,+0.0049] d3: +0.0011[-0.0021,+0.0043] d4: +0.0018[-0.0017,+0.0053] d5: +0.0002[-0.0031,+0.0035] d6: +0.0002[-0.0031,+0.0034]
+no_spatial_mix d2: +0.0047[+0.0015,+0.0078] d3: +0.0053[+0.0024,+0.0081] d4: +0.0051[+0.0022,+0.0080] d5: +0.0051[+0.0022,+0.0080] d6: +0.0054[+0.0025,+0.0083]
+channel_starved d2: +0.0009[-0.0025,+0.0042] d3: -0.0019[-0.0055,+0.0016] d4: +0.0010[-0.0026,+0.0046] d5: -0.0013[-0.0049,+0.0023] d6: +0.0011[-0.0025,+0.0047]
+
+rung 4 within-seed T2 vs H20 paired diffs
+scheduled n=763 sd10 0.0640 sd20 0.1188 corr 0.132 sd(change) 0.1273 mean change -0.0140
+   trimmed sd(change) (10%) 0.0509
+static n=756 sd10 0.1259 sd20 0.3850 corr 0.207 sd(change) 0.3795 mean change +0.0866
+   trimmed sd(change) (10%) 0.0655
+no_growth late CE change 10->20 ep -0.2350 sd 0.0691
