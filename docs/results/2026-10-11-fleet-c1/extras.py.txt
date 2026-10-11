@@ -1,0 +1,58 @@
+"""Fleet C1 note, extra tables: realised parameter multiples, divergences, static-rate comparison.
+
+    python3 extras.py.txt > extras.md      (cwd = this directory; needs scipy for the Fisher tests)
+
+Reads only arms-summary.jsonl.gz, extracted from the fleet's arms.jsonl after its single analysis.
+The earlier static counts are quoted from the static-divergence diagnosis
+(../2026-10-11-static-norm-divergence/tables.md, section 2).
+"""
+
+import collections
+import gzip
+import json
+
+from scipy import stats
+
+rows = [json.loads(line) for line in gzip.open("arms-summary.jsonl.gz", "rt")]
+HOSTS = ("under_normalized", "channel_starved", "no_spatial_mix", "mild")
+ARMS = ("graft", "static", "scale_x1.1", "scale_x1.25", "scale_x1.5", "scale_x2")
+
+installed = collections.defaultdict(set)
+for r in rows:
+    installed[(r["host"], r["arm"])].add(r["installed_parameters"])
+assert all(len(v) == 1 for v in installed.values()), "installed parameters vary within a (host, arm)"
+
+print("## E1. Realised installed parameters, as a multiple of the host's no-growth arm\n")
+print("| Host | No growth | " + " | ".join(ARMS) + " |")
+print("|---|---:|" + "---:|" * len(ARMS))
+for host in HOSTS:
+    (base,) = installed[(host, "no_growth")]
+    cells = [f"{next(iter(installed[(host, arm)])) / base:.3f}" for arm in ARMS]
+    print(f"| {host} | {base:,} | " + " | ".join(cells) + " |")
+
+print("\n## E2. Arms that did not complete\n")
+for r in rows:
+    if r["status"] != "completed":
+        d = r["diverged"]
+        print(
+            f"- seed {r['seed']}, {r['host']}, {r['arm']}: {r['status']} at epoch {d['epoch']} step {d['step']},"
+            f" stage {d['stage']}, {d['reason']}; witness gain_min {d['witness']['gain_min']:.4g},"
+            f" gain_max {d['witness']['gain_max']:.4g}"
+        )
+
+static = [r for r in rows if r["host"] == "under_normalized" and r["arm"] == "static"]
+k = sum(r["status"] != "completed" for r in static)
+n = len(static)
+worst = max(r["late_ce"] for r in static)
+print("\n## E3. under_normalized static arm against the earlier studies\n")
+print(f"Fleet C1: {k}/{n} did not complete; worst late CE among completed runs {worst:.3f} (chance is ln 10 = 2.303).\n")
+print("| Comparison | Earlier | Fleet C1 | P(0 failures at the earlier rate) | One-sided Fisher p (earlier rate higher) |")
+print("|---|---:|---:|---:|---:|")
+for label, ke, ne in (("rung 4, 10 epochs (same config and arm)", 3, 768), ("all five studies, 10 epochs", 6, 984)):
+    p0 = (1 - ke / ne) ** n
+    fisher = stats.fisher_exact([[ke, ne - ke], [k, n - k]], alternative="greater").pvalue
+    print(f"| {label} | {ke}/{ne} | {k}/{n} | {p0:.3f} | {fisher:.3f} |")
+pooled_k, pooled_n = 6 + k, 984 + n
+ci = stats.binomtest(pooled_k, pooled_n).proportion_ci(method="exact")
+print(f"\nPooled 10-epoch rate including Fleet C1: {pooled_k}/{pooled_n} = {100 * pooled_k / pooled_n:.2f}%"
+      f" (95% Clopper-Pearson {100 * ci.low:.2f}-{100 * ci.high:.2f}%).")
