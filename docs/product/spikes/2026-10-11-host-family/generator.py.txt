@@ -1,0 +1,104 @@
+"""Host-family generator G-0 and its frozen draw, for the host-family proposal (design only).
+
+    cd <repo root> && CUDA_VISIBLE_DEVICES= PYTHONPATH=. python -B docs/product/spikes/2026-10-11-host-family/generator.py.txt
+
+CPU only. It builds no host and trains nothing: it draws the screen's counted hosts from the
+generator below, computes each host's parameter count with the same stage formula as
+experiments/atlas_hosts.parameter_count, and each library seed's realised parameter multiple with
+experiments/kernel_demo.build_seed. Re-running it must print the same table; any change to the
+generator or the seed is a new draw, and both draws are recorded.
+
+The generator is S1's (docs/product/spikes/2026-10-09-controller-pathway/S1-learning-and-gates.md:335-341,
+unchanged since 4b70653, 2026-10-09) plus S3's depth class (S3-atlas-engineering.md:331), made
+concrete before any family host is trained:
+- class in {capacity, spatial, depth}. Normalisation is not drawn: under_normalized already holds
+  that class, and every library seed carries a normaliser (proposal B1, D6).
+- stage in {1, 2}, uniform. The slot stays after stage 2.
+- base width b ~ U[0.75, 1.25]; widths (w1, w2, w3) = round8(b * (24, 64, 80)). Multiples of 8, as
+  PDR-0057:159 and S3:333 say, not atlas_hosts.WIDTH_STEP = 4: the slot sits at w2 and the norm
+  seed is GroupNorm(8, w2), so w2 must divide by 8 (a first draw at step 4 gave w2 = 60 and failed).
+- capacity: the impaired stage's middle width = round8(r * that stage's output width),
+  r ~ U[12/64, 48/64] (S1's starvation range [12, 48] at stage 2's 64 channels, as a ratio).
+- spatial: the impaired stage's two convolutions are 1x1 (S1: kernel in {1, 3}; 3 is no impairment).
+- depth: the impaired stage has one conv (+BN, ReLU) instead of two (S3's shallow, per stage).
+- BatchNorm on, conv init gain 1.0, as the reference host.
+Draw order: class-major (capacity, spatial, depth), two hosts per class; for every host draw
+stage, then b, then r, whether or not r is used, so the stream never depends on the class.
+"""
+
+import math
+
+import numpy as np
+
+import experiments.kernel_demo as kd
+
+DRAW_SEED = 15000  # declared in the proposal; the family seed range starts at 15001
+WIDTH_STEP = 8  # see the docstring: GroupNorm(8, w2) at the slot
+LAMBDA = 0.02708523208878989  # Fleet C1, frozen for every later gate
+CAP = 1.10  # proposed eligibility cap on a counted seed's realised parameter multiple
+SEEDS = ("norm", "attn", "conv_light", "conv_heavy")
+
+
+def round8(width: float) -> int:
+    return max(WIDTH_STEP, round(width / WIDTH_STEP) * WIDTH_STEP)
+
+
+def stage_params(cin: int, mid: int, out: int, k: int, convs: int = 2) -> int:
+    if convs == 1:
+        return cin * out * k * k + 2 * out
+    return cin * mid * k * k + mid * out * k * k + 2 * (mid + out)
+
+
+def host_params(w1: int, w2: int, w3: int, impaired: int | None, cls: str | None, mid: int | None) -> int:
+    spec = {1: (3, w1, w1), 2: (w1, w2, w2), 3: (w2, w3, w3)}
+    total = 0
+    for stage, (cin, m, out) in spec.items():
+        k, convs = 3, 2
+        if stage == impaired:
+            if cls == "capacity":
+                m = mid
+            elif cls == "spatial":
+                k = 1
+            elif cls == "depth":
+                convs = 1
+        total += stage_params(cin, m, out, k, convs)
+    return total + w3 * 10 + 10
+
+
+def seed_params(name: str, channels: int) -> int:
+    return sum(p.numel() for p in kd.build_seed(name, channels, 0).parameters())
+
+
+def row(label: str, cls: str, stage: int | None, b: float, w: tuple[int, int, int], mid: int | None, counted: bool) -> None:
+    hp = host_params(*w, stage, cls, mid)
+    cells = []
+    for s in SEEDS:
+        m = (hp + seed_params(s, w[1])) / hp
+        mark = "" if m <= CAP else " (over cap)"
+        cells.append(f"{s} {m:.3f}x, λ-pred {LAMBDA * math.log2(m):.3f}{mark}")
+    print(f"| {label} | {cls} | {stage if stage else '—'} | {b:.3f} | {w[0]}/{w[1]}/{w[2]} | {mid if mid else '—'} | {hp:,} | "
+          + "; ".join(cells) + f" | {'counted' if counted else 'descriptive'} |")
+
+
+def main() -> None:
+    rng = np.random.default_rng(DRAW_SEED)
+    print("| Host | Class | Impaired stage | Base width | w1/w2/w3 | Impaired mid width | Host params | Seed multiples (λ-predicted gain) | Role |")
+    print("|---|---|---|---|---|---|---|---|---|")
+    n = 0
+    for cls in ("capacity", "spatial", "depth"):
+        for _ in range(2):
+            stage = int(rng.integers(1, 3))
+            b = float(rng.uniform(0.75, 1.25))
+            r = float(rng.uniform(12 / 64, 48 / 64))
+            w = (round8(b * 24), round8(b * 64), round8(b * 80))
+            out = {1: w[0], 2: w[1]}[stage]
+            mid = round8(r * out) if cls == "capacity" else None
+            n += 1
+            row(f"F{n}", cls, stage, b, w, mid, True)
+    for k, label in ((0.5, "S1"), (0.25, "S2")):
+        row(label, "honest-small", None, k, (round8(24 * k), round8(64 * k), round8(80 * k)), None, False)
+    row("N0", "reference (negative control)", None, 1.0, (24, 64, 80), None, False)
+
+
+if __name__ == "__main__":
+    main()
