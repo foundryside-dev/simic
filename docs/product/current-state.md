@@ -101,9 +101,15 @@ launched): nothing.
   slot from 19:00 AEDT. Simic released its reservation at 18:47, with
   nothing running. No Simic GPU work is authorised until John re-authorises
   it.
-- **In review:** a design-only host-family proposal (draft PR #45,
-  `docs/product/spikes/2026-10-11-host-family/proposal.md`). It recommends
-  the clean stop. Nothing is approved and nothing launches from it.
+- **Controller pathway: reversible DEFER** (John, 2026-10-11). It is
+  parked, not falsified and not terminated. The defer record is in the
+  training-regime review's draft PR
+  (`docs/product/spikes/2026-10-11-regime-review/defer-record.md`). The
+  host-family proposal stays as reviewed in draft PR #45 (revision 3);
+  John chose option B.
+- **In review: a training-regime design review**, design only
+  (`docs/product/spikes/2026-10-11-regime-review/`). No experiment follows
+  from it automatically, and no Simic GPU work is authorised.
 
 **At John's checkpoint (2026-10-11):** Fleet C1 and Fleet C1-S have both
 reported ([checkpoint note](../results/2026-10-11-fleet-c1-checkpoint.md)).
