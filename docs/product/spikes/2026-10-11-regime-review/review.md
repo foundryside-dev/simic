@@ -76,15 +76,17 @@ Each is an interpretation, with the result that would falsify it.
 
 | # | Hypothesis | Falsified by |
 |---|---|---|
-| H1 | The BatchNorm hosts are moving into a data/generalisation limit at 4,096 examples (O2) | At equal steps, 16,384 examples giving the same dev CE and gap |
-| H2 | They are also step-limited (O1) | Dev CE flattening by about 20 epochs at the current lr |
-| H3 | `under_normalized`'s deficit is an optimisation-rate deficit that normalisation removes as a lasting offset (O7, O8) | The median static gain ≤ 0.02 by 40 epochs, or no growth under a fixed, pre-declared schedule matching static |
-| H4 | Constant lr 0.05 is too high late in training. Static's divergence tail and its sd increase at 20 epochs fit that (O8, O9) | A pre-declared decayed schedule showing the same late-failure rate and sd |
+| H1 | The BatchNorm hosts are moving into a data/generalisation limit at 4,096 examples (O2) | At equal steps, 16,384 examples giving dev CE and gap equivalent to 4,096's within the study's stated resolution: an interval that excludes a material improvement, not merely a non-significant difference |
+| H2 | They were also step-limited at 10 epochs (O1) | More steps at the current lr not lowering no-growth dev CE: a 10→20-epoch change whose 95% interval excludes improvements larger than the study's stated resolution. Flattening that begins only after epoch 10 (e.g. by epoch 20) is consistent with H2, not against it |
+| H3 | `under_normalized`'s deficit is an optimisation-rate deficit that normalisation removes as a lasting offset (O7, O8) | The median static gain at 40 epochs with a 95% upper bound ≤ 0.02: the offset does not last. A pre-declared schedule letting no growth match static would bear on whether *structure* is needed, not on H3 |
+| H4 | Constant lr 0.05 is too high late in training. Static's divergence tail and its sd increase at 20 epochs fit that (O8, O9) | A pre-declared decayed schedule whose late-failure rate and sd are equivalent to constant lr's within the study's stated precision |
 | H5 | Capacity returns (λ) grow with horizon or data (O5's within-regime trend) | A longer or annealed regime whose λ has a 95% upper bound ≤ 0.0271 |
 | H6 | On the BatchNorm hosts in this regime, per-seed headroom is noise no per-seed decision can use (O4, O11) | On fresh seeds in this regime, a per-seed decision rule fixed in advance beating the best fixed policy (95% upper bound < 0) |
 | H7 | **The tension.** Unimpaired hosts already have the functions the library restores, so the one demonstrated repair route (O7) may never meet an emergent bottleneck | On a natural host, the loop (R3's H) beating never-graft and uniform width |
-| H8 | Static's lead over the graft (+0.046; rung 4's best schedule at T0) partly reflects handicaps built in from step 0, not the loop | Growing at least matching installing on a natural host: R3's (H − S_k) upper bound < +δ. An S_k clearly ahead (lower bound > 0) supports installing over growing |
+| H8 | Static's lead over the graft (+0.046; rung 4's best schedule at T0) partly reflects handicaps built in from step 0, not the loop | **Contradicted** by installing still ahead of growing on a natural host, with no authored handicap: R3's (H − S_k) 95% lower bound > 0. **Consistent with H8** (not a falsification): growing shown non-inferior to installing there, (H − S_k) upper bound < +δ |
 | H9 | Whether a ≤ 1.10× injection can reach 0.05 depends mainly on the deficit class, not on the seed or the regime (from O6, O7; neither seed nor regime was varied) | A capacity-class deficit repaired by > 0.05 at ≤ 1.10× in another regime |
+
+**An inconclusive or underpowered interval falsifies no hypothesis here.** Only an interval that excludes the hypothesised effect at the stated precision counts against it.
 
 ## 3. The five review topics
 
@@ -253,12 +255,18 @@ adds 32 × 16 = 512, about 1.3 GPU-h, for 8.0 in total.
   C40.
 
 **Readings, each a recommendation to John:**
-- **The 2× contrast doesn't reach 0.05 at any readout** → the regime is not hiding capacity at this
-  data size. H1 is left to R1d.
+- **Below threshold:** the 2× contrast's 95% upper bound is < 0.05 at every readout. A 2× capacity
+  effect of 0.05 or more is **not supported at these readouts and this precision** (48 seeds).
+  - It does not show that capacity effects are absent, nor that the regime "is not hiding
+    capacity".
+  - A longer horizon, more data or another schedule could still reveal them. H1 is left to R1d.
+- **Indeterminate:** at some readout the interval includes 0.05 without "reaching" it. **No
+  conclusion** at this precision; R1c is the sized follow-up, John's choice.
 - **The 2× contrast reaches 0.05 somewhere** → offer R1c.
-- **"Well below"** → recommend annealing as the measurement regime, **including for R3**.
+- **"Well below"** → recommend annealing as the measurement regime, **including for R3**. Otherwise
+  no recommendation about annealing at this precision.
 - **"Consistent with C1's pass"** → reported as consistent; confirmation would be R1c's statistical
-  check.
+  check. Not shown → no reading, and not evidence against C1's pass.
 
 **Reaches:** none of L1–L7. The graft arm measures synthetic compensation.
 
@@ -314,29 +322,45 @@ synthetic compensation.
 **The gate, written out** (all NEW and owner-gated except the frozen 0.05 bar, reused unchanged in
 its registered form):
 
-| Comparison | "Shown" | "Equivalent at this resolution" | Otherwise |
+Each comparison is read in one of three ways. The labels in the middle column are **NEW**
+interpretation labels: they describe an interval and decide nothing on their own. **An
+indeterminate interval is never read as evidence against a claim.**
+
+| Comparison | Shown | Evidence the other way, or equivalence | Indeterminate |
 |---|---|---|---|
-| H − N (gain) | mean > 0.05 and 95% lower bound > 0 | — | not shown |
-| H against U | (H − U) 95% upper bound < 0 | — | not shown |
-| H against FORK (L7) | (H − FORK) 95% upper bound < 0: the decision carries information | 95% CI within ±δ: nothing to decide at this resolution | **indeterminate** |
-| H against RS ("where") | (H − RS) 95% upper bound < 0 | — | not shown |
-| H against S_k (grow against install) | (H − S_k) 95% upper bound < +δ: growing is not worse | — | S_k ahead (lower bound > 0): installing beats growing |
+| H − N (gain; positive = the loop is better) | mean > 0.05 and 95% lower bound > 0 (the registered form, unchanged) | **Below threshold:** 95% upper bound < 0.05. A gain of 0.05 or more is not supported at this precision. If the lower bound is > 0, a positive below-threshold effect is shown; otherwise a zero effect is not excluded | Any other interval |
+| H against U (negative = H is better) | (H − U) 95% upper bound < 0 | **U ahead:** lower bound > 0. **Equivalent:** 95% CI within ±δ | Any other interval |
+| H against FORK (L7) | (H − FORK) upper bound < 0: the decision carries information | **The opposite choice was better:** lower bound > 0. **Equivalent:** CI within ±δ, so there is nothing to decide at this resolution | Any other interval |
+| H against RS ("where") | (H − RS) upper bound < 0 | **The random site was better:** lower bound > 0. **Equivalent:** CI within ±δ | Any other interval |
+| H against S_k (grow against install) | **Growing non-inferior:** (H − S_k) upper bound < +δ | **Installing ahead:** lower bound > 0 | Any other interval |
+
+When more than one label applies (for example U ahead by less than δ), all of them are reported.
 
 **Readings:**
 1. **No reading:** an instrument failure (anchor, fork-prefix bitwise mismatch, more than 10%
    divergence), a cap hit, or `no_trigger` (fewer than 50% of seeds germinate).
-2. **H − N not shown** → the loop adds nothing on this host. Return to John with options A and B.
-3. **H − N shown, H against U not shown** → L2 fails on this host. I would recommend A; the choice
-   is John's.
-4. **H − N and H against U shown, S_k not ahead, and the cell not capacity-limited by
-   construction** → the first evidence touching L1 on a natural host.
+2. **H − N below threshold** → a gain of 0.05 or more from the loop is not supported on this host
+   at this precision. That is not "the loop adds nothing": a smaller effect may be shown or not
+   excluded. Return to John with options A and B.
+3. **H − N indeterminate** → no conclusion about the loop's gain on this host at this precision.
+   Return to John with options A and B. Any re-run is a new, separately sized owner decision. I
+   would not recommend A on an indeterminate interval alone.
+4. **H − N shown; H against U shows U ahead or equivalent** → no advantage over uniform width at
+   this resolution, so L2 is not supported on this host. I would recommend A; the choice is John's.
+   **H against U indeterminate** → L2 undetermined; reported to John with no recommendation drawn
+   from it.
+5. **H − N and H against U shown, growing shown non-inferior to installing, and the cell not
+   capacity-limited by construction** → the first evidence touching L1 on a natural host.
    - Add **L3, where** if H beats RS.
    - Add **L7** if H beats FORK.
    - Then recommend reopening with L4 (learned against this heuristic) rather than Fleet A/G2′.
-5. **H − N and H against U shown, but S_k ahead** → targeted structure helps, but installing beats
-   growing here. That is evidence for targeted installation, not L1.
-6. **Any comparison not shown and not equivalent** → indeterminate **for that comparison only**,
-   with no reading for its claim.
+6. **H − N and H against U shown, installing ahead, and growing not shown non-inferior** →
+   targeted structure helps, but installing beats growing here. That is evidence for targeted
+   installation, not L1.
+7. **Any comparison with an indeterminate interval** → no reading for that comparison's claim.
+   Never read as evidence against it. In particular, if H − N and H against U are shown but the
+   S_k comparison is indeterminate, L1 is undetermined: structure helps, but grow-versus-install
+   is unresolved.
 
 **Budget** (8 arms × 96 seeds):
 - a 4,096 × 40 cell: 3,072 arm-equivalents per host, about 7.9 GPU-h conservative, 4.3 fitted;
@@ -348,8 +372,8 @@ its registered form):
 - Anything larger is a new decision.
 
 **Reaches** (each only if the corresponding row is shown):
-- **L1** on the qualified natural host, conditional on S_k not being ahead and the cell not being
-  capacity-limited by construction;
+- **L1** on the qualified natural host, conditional on growing being shown non-inferior to installing
+  ((H − S_k) upper bound < +δ) and the cell not being capacity-limited by construction;
 - **L3:** "when", only partly, as the trigger's timing; "where" only if RS is beaten;
 - **L7**, if FORK is beaten;
 - **L2** against U.
@@ -364,7 +388,7 @@ founding loop.**
 | R0 | No | No | No | n/a (no intervention) |
 | R1, R1c, R1d | No | No | No | Yes, for the graft arm; the rest is regime characterisation |
 | R2 | Precondition only (detectability, not usefulness) | Precondition for "where" | No | No (no intervention) |
-| R3 | **Conditionally** (row 4 above) | "When" partly; "where" if RS beaten; not "which" | **If FORK beaten** | No, except the anchor, which is an instrument |
+| R3 | **Conditionally** (reading 5 above) | "When" partly; "where" if RS beaten; not "which" | **If FORK beaten** | No, except the anchor, which is an instrument |
 | The host-family screen (revision 3, option C) | No | No | No | Yes |
 
 ## 5. Recommendation (mine; the choice is John's)
@@ -477,3 +501,21 @@ Revision 3 itself is unchanged; this is an addendum.
 | Nits | O6 corrected (`channel_starved`); O14 adds the 80.16% fixed-schedule arm; O4 cites the jitter decomposition; O8 has a verified script; O10 re-headlined; H5, H6 and H8's falsifiers fixed; H9 added (from §3); R1 terms defined and "not an artefact" softened; arm "H1" renamed "ONE"; the header no longer pre-claims the review |
 
 **Not taken:** none. **Disagreements kept:** §6, items 6–7.
+
+## 10. Revision note
+
+This commit corrects interpretation and logic only, at the request relayed for John. No threshold
+or owner decision gate changes, and no experiment is added.
+- **R1:** "doesn't reach 0.05 → the regime is not hiding capacity" now reads either "below
+  threshold: not supported at this precision" or "indeterminate: no conclusion".
+- **R3:** "H − N not shown → the loop adds nothing" and "H against U not shown → L2 fails" now read
+  as below-threshold, equivalence or "U ahead" evidence, kept apart from indeterminate intervals.
+  The gate table gives each comparison its three outcomes. L1's condition now requires growing to
+  be *shown* non-inferior.
+- **The hypothesis table:**
+  - H8's direction is corrected: growing matching installing on a natural host is *consistent with*
+    H8, and installing still ahead contradicts it.
+  - H2 now says flattening after epoch 10 is consistent with being step-limited at 10.
+  - H1 and H4 now require equivalence at a stated precision.
+  - H3's schedule clause moves to a note.
+  - An inconclusive interval falsifies nothing.
