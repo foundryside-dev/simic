@@ -96,7 +96,14 @@ checkpoint. G0 items 1–6 are done
 and Fleet C1-S have reported. Items 7–9 and Fleet A wait for John's read.
 
 **Running now** (PDR-0056: every fleet on nyx is listed here when
-launched): nothing. Both GPUs are idle.
+launched): nothing.
+- **GPU released to Sultai** (John, 2026-10-11): Sultai has the next GPU
+  slot from 19:00 AEDT. Simic released its reservation at 18:47, with
+  nothing running. No Simic GPU work is authorised until John re-authorises
+  it.
+- **In review:** a design-only host-family proposal (draft PR #45,
+  `docs/product/spikes/2026-10-11-host-family/proposal.md`). It recommends
+  the clean stop. Nothing is approved and nothing launches from it.
 
 **At John's checkpoint (2026-10-11):** Fleet C1 and Fleet C1-S have both
 reported ([checkpoint note](../results/2026-10-11-fleet-c1-checkpoint.md)).
