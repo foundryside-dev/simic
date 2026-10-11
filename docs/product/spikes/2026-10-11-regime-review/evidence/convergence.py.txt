@@ -1,0 +1,82 @@
+"""Exploratory convergence tables for the training-regime design review (2026-10-11). CPU only.
+
+    cd <repo root> && nice -n 19 python3 docs/product/spikes/2026-10-11-regime-review/evidence/convergence.py.txt > docs/product/spikes/2026-10-11-regime-review/evidence/convergence.md
+
+Reads FINISHED, already-analysed records only:
+- Fleet C1 unit records (/home/john/simic-worktrees/fleet-c1/runs/fleet-c1/units/*/arms.jsonl; analysed
+  once on 2026-10-11 14:48, so reading them now changes no reading), for per-epoch train_ce, which the
+  published per-arm summary omits;
+- Fleet C1-S unit records (/home/john/simic-worktrees/fleet-c1s/runs/fleet-c1s/units/*/arms.jsonl;
+  analysed once on 2026-10-11 17:47);
+- rung 4's published per-epoch table (docs/results/2026-10-09-rung4-timing-horizon/tables/per-epoch.jsonl.gz).
+Never opens *.stdout / *.stderr / sealed files. Descriptive only: no test, no reading, no threshold.
+
+Caveat on train_ce: it is the mean training-objective cross-entropy over each epoch's augmented
+batches with the model in train mode (BatchNorm batch statistics), not a clean evaluation of the fit
+set. It is biased upward relative to a clean train-set evaluation, so the train-dev gap below
+UNDERSTATES the true generalisation gap.
+"""
+
+import glob
+import gzip
+import json
+import statistics as st
+from collections import defaultdict
+
+C1 = "/home/john/simic-worktrees/fleet-c1/runs/fleet-c1/units"
+C1S = "/home/john/simic-worktrees/fleet-c1s/runs/fleet-c1s/units"
+R4 = "docs/results/2026-10-09-rung4-timing-horizon/tables/per-epoch.jsonl.gz"
+
+
+def collect(root, arms):
+    tr, dv = defaultdict(lambda: defaultdict(list)), defaultdict(lambda: defaultdict(list))
+    for f in sorted(glob.glob(root + "/seed-*/arms.jsonl")):
+        for line in open(f):
+            r = json.loads(line)
+            if r["arm"] not in arms or r["status"] != "completed":
+                continue
+            for e in r["records"]:
+                if e.get("kind") == "epoch":
+                    tr[(r["host"], r["arm"])][e["epoch"]].append(e["train_ce"])
+                    dv[(r["host"], r["arm"])][e["epoch"]].append(e["dev"]["ce"])
+    return tr, dv
+
+
+def table(title, tr, dv, keys, epochs):
+    print(f"\n## {title}\n")
+    print("Mean over completed runs. Each cell: train CE / dev CE (gap = dev − train).\n")
+    print("| Host | Arm | n | " + " | ".join(f"e{e}" for e in epochs) + " | dev slope, last 3 epochs (nats/epoch) | gap at last epoch |")
+    print("|---|---|---:|" + "---|" * len(epochs) + "---:|---:|")
+    for k in keys:
+        if k not in dv:
+            continue
+        n = len(dv[k][epochs[-1]])
+        cells = [f"{st.mean(tr[k][e]):.3f} / {st.mean(dv[k][e]):.3f}" if dv[k][e] else "—" for e in epochs]  # the graft arm's records start after its fork
+        last = sorted(dv[k])[-3:]
+        slope = (st.mean(dv[k][last[-1]]) - st.mean(dv[k][last[0]])) / (last[-1] - last[0])
+        gap = st.mean(dv[k][last[-1]]) - st.mean(tr[k][last[-1]])
+        print(f"| {k[0]} | {k[1]} | {n} | " + " | ".join(cells) + f" | {slope:+.4f} | {gap:+.3f} |")
+
+
+def main():
+    hosts = ("under_normalized", "channel_starved", "no_spatial_mix", "mild")
+    arms = ("no_growth", "scale_x2", "static", "graft")
+    tr, dv = collect(C1, set(arms))
+    table("Fleet C1 (10 epochs, 4,096 fit examples, lr 0.05 constant)", tr, dv,
+          [(h, a) for h in hosts for a in arms], [0, 3, 6, 7, 8, 9])
+    tr2, dv2 = collect(C1S, {"static_calibrated"})
+    table("Fleet C1-S, corrected static arm (BatchNorm hosts)", tr2, dv2,
+          [(h, "static_calibrated") for h in hosts[1:]], [0, 3, 6, 7, 8, 9])
+    tr4, dv4 = defaultdict(lambda: defaultdict(list)), defaultdict(lambda: defaultdict(list))
+    for line in gzip.open(R4, "rt"):
+        r = json.loads(line)
+        if r["cell"] != "H20" or r["train_ce"] is None or r["dev_ce"] is None:
+            continue
+        tr4[("under_normalized", r["arm"])][r["epoch"]].append(r["train_ce"])
+        dv4[("under_normalized", r["arm"])][r["epoch"]].append(r["dev_ce"])
+    table("Rung 4, H20 cell (20 epochs, under_normalized; includes runs that later diverged up to their last finite epoch)",
+          tr4, dv4, [("under_normalized", a) for a in ("no_growth", "static", "scheduled")], [0, 4, 9, 14, 17, 18, 19])
+
+
+if __name__ == "__main__":
+    main()

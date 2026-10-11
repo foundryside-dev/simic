@@ -1,0 +1,27 @@
+"""Rung 4, H20 cell, under_normalized: per-epoch paired gain quantiles (no_growth dev CE − arm dev CE).
+
+    cd <repo root> && python3 docs/product/spikes/2026-10-11-regime-review/evidence/rung4-gain-quantiles.py.txt
+
+Reads only the published table docs/results/2026-10-09-rung4-timing-horizon/tables/per-epoch.jsonl.gz.
+Paired by seed; a seed enters an epoch only if both arms have a finite dev CE there. Descriptive.
+"""
+import gzip, json, statistics as st
+from collections import defaultdict
+
+ce = defaultdict(dict)
+for line in gzip.open("docs/results/2026-10-09-rung4-timing-horizon/tables/per-epoch.jsonl.gz", "rt"):
+    r = json.loads(line)
+    if r["cell"] == "H20" and r["dev_ce"] is not None:
+        ce[(r["arm"], r["epoch"])][r["seed"]] = r["dev_ce"]
+
+def q(xs, p):
+    xs = sorted(xs); k = (len(xs) - 1) * p; f = int(k); c = min(f + 1, len(xs) - 1)
+    return xs[f] + (xs[c] - xs[f]) * (k - f)
+
+print("| Arm | Epoch | n | mean | median | p10 | p90 |")
+print("|---|---:|---:|---:|---:|---:|---:|")
+for arm in ("static", "scheduled"):
+    for e in (3, 6, 9, 12, 15, 19):
+        ng, a = ce[("no_growth", e)], ce[(arm, e)]
+        g = [ng[s] - a[s] for s in ng if s in a]
+        print(f"| {arm} | {e} | {len(g)} | {st.mean(g):+.3f} | {q(g, .5):+.3f} | {q(g, .1):+.3f} | {q(g, .9):+.3f} |")

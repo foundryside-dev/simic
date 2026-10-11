@@ -1,0 +1,110 @@
+"""Follow-up checks. Standalone; published summaries only; exploratory."""
+import gzip, json, math, random, statistics as st
+from collections import defaultdict
+from statistics import NormalDist
+
+R = "/home/john/simic/docs/results/"
+C1 = R + "2026-10-11-fleet-c1/arms-summary.jsonl.gz"
+R4RUN = R + "2026-10-09-rung4-timing-horizon/tables/per-run.jsonl.gz"
+LN10 = math.log(10)
+HOSTS = ["under_normalized", "mild", "no_spatial_mix", "channel_starved"]
+SC = ["scale_x1.1", "scale_x1.25", "scale_x1.5", "scale_x2"]
+late = defaultdict(dict); ep = defaultdict(dict); par = {}
+for l in gzip.open(C1, "rt"):
+    r = json.loads(l); k = (r["host"], r["arm"])
+    late[k][r["seed"]] = r["late_ce"] if r["status"] == "completed" else LN10
+    ep[k][r["seed"]] = r["dev_ce_by_epoch"] if r["status"] == "completed" else None
+    par.setdefault(k, r["installed_parameters"])
+seeds = sorted(late[("mild", "no_growth")])
+
+
+def lam_fit(get, hosts, ss, arms=("no_growth",) + tuple(SC)):
+    num = den = 0.0
+    for h in hosts:
+        xs = [math.log2(par[(h, a)] / par[(h, "no_growth")]) for a in arms]; xb = st.fmean(xs)
+        for s in ss:
+            ys = [get(h, a, s) for a in arms]; yb = st.fmean(ys)
+            for x, y in zip(xs, ys): num += (x - xb) * (y - yb); den += (x - xb) ** 2
+    return -num / den
+
+
+gl = lambda h, a, s: late[(h, a)][s]
+random.seed(7)
+B = 2000
+bs = defaultdict(list)
+for b in range(B):
+    ss = random.choices(seeds, k=len(seeds))
+    bs["pooled"].append(lam_fit(gl, HOSTS, ss))
+    for h in HOSTS: bs[h].append(lam_fit(gl, [h], ss))
+    bs["pooled_2arm"].append(lam_fit(gl, HOSTS, ss, ("no_growth", "scale_x2")))
+for k, v in bs.items():
+    v.sort(); print("lambda", k, f"[{v[int(.025*B)]:.5f}, {v[int(.975*B)]:.5f}] sd {st.stdev(v):.5f}")
+print("pooled 2-arm point", f"{lam_fit(gl, HOSTS, seeds, ('no_growth','scale_x2')):.5f}")
+
+# host-averaged per-seed (scale_x2 - ng)/log2(m): empirical sd (no independence assumed)
+lam_seed = []
+for s in seeds:
+    lam_seed.append(st.fmean(-(late[(h, "scale_x2")][s] - late[(h, "no_growth")][s]) / math.log2(par[(h, "scale_x2")] / par[(h, "no_growth")]) for h in HOSTS))
+print("per-seed host-averaged 2-arm lambda: mean", f"{st.fmean(lam_seed):.4f}", "sd", f"{st.stdev(lam_seed):.4f}")
+per_host_sd = [st.stdev([-(late[(h, 'scale_x2')][s] - late[(h, 'no_growth')][s]) for s in seeds]) for h in HOSTS]
+print("per-host sd of scale_x2-ng", [round(x, 4) for x in per_host_sd], "independence-predicted sd of host average",
+      f"{math.sqrt(sum(x*x for x in per_host_sd))/4:.4f}")
+
+# epoch jitter decomposition for paired diffs: persistent var ~ mean cov(d_e, d_e') over e != e' in 7..9
+print("\njitter decomposition of single-epoch paired diffs (e7..e9)")
+for h in HOSTS:
+    for a in ("scale_x2", "static", "graft"):
+        off = 1 if a == "graft" else 0
+        D = {e: [] for e in (7, 8, 9)}
+        for s in seeds:
+            x = ep[(h, a)].get(s); y = ep[(h, "no_growth")][s]
+            if x is None: continue
+            for e in (7, 8, 9): D[e].append(x[e - off] - y[e])
+        v = st.fmean(st.variance(D[e]) for e in D)
+        c = st.fmean([st.covariance(D[7], D[8]), st.covariance(D[7], D[9]), st.covariance(D[8], D[9])])
+        lv = st.variance([st.fmean([D[7][i], D[8][i], D[9][i]]) for i in range(len(D[7]))])
+        print(h, a, f"single-epoch var {v:.5f} persistent(cov) {c:.5f} jitter {v-c:.5f} jitter share {(v-c)/v:.2f};",
+              f"late(3-ep mean) var {lv:.5f} -> sd {math.sqrt(lv):.4f}; sd if jitter removed {math.sqrt(max(c,0)):.4f}")
+
+# keep/cull value by decision epoch
+print("\nkeep/cull with rollback: rule value vs best fixed (min of always-keep, never), by decision epoch d")
+for h in HOSTS:
+    row = []
+    for d in range(2, 7):
+        keep = []; alw = []; nev = []
+        for s in seeds:
+            g = ep[(h, "graft")].get(s); y = ep[(h, "no_growth")][s]
+            Lg = late[(h, "graft")][s]; Ln = late[(h, "no_growth")][s]
+            early = 0.0 if g is None else g[d - 1] - y[d]
+            keep.append(Lg if early < 0 else Ln); alw.append(Lg); nev.append(Ln)
+        best = min(st.fmean(alw), st.fmean(nev)); bestarm = alw if st.fmean(alw) <= st.fmean(nev) else nev
+        dd = [k - b for k, b in zip(keep, bestarm)]
+        m = st.fmean(dd); hw = 1.96 * st.stdev(dd) / math.sqrt(len(dd))
+        row.append(f"d{d}: {m:+.4f}[{m-hw:+.4f},{m+hw:+.4f}]")
+    print(h, " ".join(row))
+
+# rung 4: cross-horizon within-seed correlation of paired diffs, T2 (10 ep) vs H20 (20 ep)
+r4 = {}
+for l in gzip.open(R4RUN, "rt"):
+    r = json.loads(l); r4[(r["cell"], r["seed"])] = r
+s4 = sorted({s for c, s in r4 if c == "H20"})
+
+
+def lc(c, s, a):
+    r = r4[(c, s)]
+    return r["late_ce"][a] if r["status"][a] == "completed" and r["late_ce"].get(a) is not None else None
+
+
+print("\nrung 4 within-seed T2 vs H20 paired diffs")
+for a in ("scheduled", "static"):
+    x = []; y = []
+    for s in s4:
+        v = [lc("T2", s, a), lc("T2", s, "no_growth"), lc("H20", s, a), lc("H20", s, "no_growth")]
+        if None in v: continue
+        x.append(v[0] - v[1]); y.append(v[2] - v[3])
+    dd = [b - a_ for a_, b in zip(x, y)]
+    print(a, f"n={len(x)} sd10 {st.stdev(x):.4f} sd20 {st.stdev(y):.4f} corr {st.correlation(x, y):.3f} sd(change) {st.stdev(dd):.4f} mean change {st.fmean(dd):+.4f}")
+    xs = sorted(dd); k = int(.1 * len(xs)); print("   trimmed sd(change) (10%)", f"{st.stdev(xs[k:-k]):.4f}")
+# no_growth itself: T2 -> H20 per-seed improvement
+d = [lc("H20", s, "no_growth") - lc("T2", s, "no_growth") for s in s4 if lc("H20", s, "no_growth") and lc("T2", s, "no_growth")]
+print("no_growth late CE change 10->20 ep", f"{st.fmean(d):+.4f} sd {st.stdev(d):.4f}")

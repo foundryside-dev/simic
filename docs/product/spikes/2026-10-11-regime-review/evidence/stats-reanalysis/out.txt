@@ -1,0 +1,122 @@
+C1 seeds 768
+
+## A. Paired late-CE differences vs no_growth (arm - ng; negative = arm better), C1 [C1-S static_cal]
+host arm m mean sd lo hi median trim10 share(gain>0.05) corr(arm,ng)
+under_normalized graft 1.001 -0.0961 0.0722 -0.1012 -0.0910 -0.0945 -0.0951 0.781 0.635
+under_normalized static 1.001 -0.1419 0.1241 -0.1506 -0.1331 -0.1482 -0.1470 0.823 0.132
+under_normalized static_cal 1.001 -0.1239 0.1263 -0.1596 -0.0882 -0.1254 -0.1294 0.792 0.093
+under_normalized scale_x1.1 1.105 -0.0106 0.1073 -0.0182 -0.0030 -0.0093 -0.0104 0.342 0.151
+under_normalized scale_x1.25 1.244 -0.0157 0.1083 -0.0233 -0.0080 -0.0126 -0.0149 0.357 0.150
+under_normalized scale_x1.5 1.482 -0.0205 0.1128 -0.0284 -0.0125 -0.0240 -0.0222 0.387 0.144
+under_normalized scale_x2 1.984 -0.0254 0.1120 -0.0333 -0.0175 -0.0226 -0.0245 0.409 0.133
+under_normalized graft-scale_x1.25 -0.0805 0.1111
+under_normalized graft-scale_x2 -0.0707 0.1162
+mild graft 1.063 -0.0019 0.0665 -0.0066 +0.0028 -0.0009 -0.0018 0.212 0.789
+mild static 1.063 -0.0029 0.1018 -0.0101 +0.0043 -0.0016 -0.0020 0.319 0.478
+mild static_cal 1.063 -0.0039 0.1025 -0.0112 +0.0033 -0.0086 -0.0047 0.316 0.508
+mild scale_x1.1 1.112 -0.0033 0.1126 -0.0113 +0.0046 -0.0054 -0.0049 0.332 0.429
+mild scale_x1.25 1.260 -0.0138 0.1045 -0.0212 -0.0064 -0.0163 -0.0145 0.341 0.478
+mild scale_x1.5 1.517 -0.0162 0.1044 -0.0235 -0.0088 -0.0159 -0.0154 0.340 0.455
+mild scale_x2 1.985 -0.0231 0.1017 -0.0303 -0.0159 -0.0205 -0.0216 0.371 0.471
+mild graft-scale_x1.25 +0.0119 0.1014
+mild graft-scale_x2 +0.0212 0.1035
+no_spatial_mix graft 1.037 -0.0116 0.0597 -0.0158 -0.0074 -0.0131 -0.0117 0.215 0.740
+no_spatial_mix static 1.037 -0.0200 0.0810 -0.0257 -0.0143 -0.0197 -0.0186 0.349 0.475
+no_spatial_mix static_cal 1.037 -0.0199 0.0836 -0.0259 -0.0140 -0.0151 -0.0180 0.326 0.462
+no_spatial_mix scale_x1.1 1.102 -0.0030 0.0853 -0.0091 +0.0030 +0.0007 -0.0017 0.273 0.435
+no_spatial_mix scale_x1.25 1.229 -0.0132 0.0808 -0.0189 -0.0075 -0.0127 -0.0121 0.302 0.492
+no_spatial_mix scale_x1.5 1.460 -0.0152 0.0817 -0.0210 -0.0094 -0.0101 -0.0146 0.310 0.510
+no_spatial_mix scale_x2 1.990 -0.0299 0.0786 -0.0355 -0.0243 -0.0263 -0.0291 0.391 0.500
+no_spatial_mix graft-scale_x1.25 +0.0016 0.0822
+no_spatial_mix graft-scale_x2 +0.0183 0.0790
+channel_starved graft 1.463 +0.0009 0.0710 -0.0041 +0.0060 +0.0017 +0.0013 0.201 0.740
+channel_starved static 1.463 +0.0000 0.0986 -0.0069 +0.0070 -0.0016 -0.0003 0.294 0.512
+channel_starved static_cal 1.463 +0.0007 0.0984 -0.0063 +0.0077 +0.0031 +0.0011 0.277 0.506
+channel_starved scale_x1.1 1.094 +0.0031 0.1039 -0.0042 +0.0105 +0.0032 +0.0036 0.283 0.454
+channel_starved scale_x1.25 1.241 -0.0086 0.0991 -0.0156 -0.0016 -0.0079 -0.0084 0.305 0.470
+channel_starved scale_x1.5 1.530 -0.0131 0.1036 -0.0205 -0.0058 -0.0102 -0.0107 0.324 0.430
+channel_starved scale_x2 2.014 -0.0306 0.0975 -0.0375 -0.0237 -0.0287 -0.0287 0.404 0.488
+channel_starved graft-scale_x1.25 +0.0095 0.0989
+channel_starved graft-scale_x2 +0.0316 0.0983
+
+## B. lambda (nats per doubling), late CE, host x seed FE
+pooled 0.02709 {'under_normalized': 0.02322, 'mild': 0.0233, 'no_spatial_mix': 0.02962, 'channel_starved': 0.03181}
+lambda pooled 95% seed-bootstrap (seeds shared across hosts) [0.0238, 0.0303]
+lambda under_normalized 95% seed-bootstrap (seeds shared across hosts) [0.0161, 0.0303]
+lambda mild 95% seed-bootstrap (seeds shared across hosts) [0.0166, 0.0303]
+lambda no_spatial_mix 95% seed-bootstrap (seeds shared across hosts) [0.0245, 0.0350]
+lambda channel_starved 95% seed-bootstrap (seeds shared across hosts) [0.0258, 0.0372]
+uniform multiple needed for 0.05 at pooled lambda: 3.60x [3.14, 4.30]
+lambda-predicted gain at 1.10x: 0.0037 ; lambda needed for 1.10x to reach 0.05: 0.364
+
+## C. lambda by epoch (dev CE at epoch e), host x seed FE; residual curvature at late CE
+epoch 0 pooled 0.0026 under_=0.0050 mild=-0.0024 no_spa=0.0050 channe=0.0028
+epoch 1 pooled 0.0031 under_=0.0016 mild=-0.0005 no_spa=0.0113 channe=0.0002
+epoch 2 pooled 0.0056 under_=0.0056 mild=0.0050 no_spa=0.0093 channe=0.0026
+epoch 3 pooled 0.0143 under_=0.0030 mild=0.0114 no_spa=0.0163 channe=0.0256
+epoch 4 pooled 0.0212 under_=0.0117 mild=0.0222 no_spa=0.0260 channe=0.0248
+epoch 5 pooled 0.0188 under_=0.0128 mild=0.0214 no_spa=0.0184 channe=0.0223
+epoch 6 pooled 0.0180 under_=0.0146 mild=0.0203 no_spa=0.0193 channe=0.0176
+epoch 7 pooled 0.0250 under_=0.0170 mild=0.0231 no_spa=0.0221 channe=0.0370
+epoch 8 pooled 0.0273 under_=0.0269 mild=0.0189 no_spa=0.0362 channe=0.0274
+epoch 9 pooled 0.0289 under_=0.0258 mild=0.0278 no_spa=0.0306 channe=0.0311
+under_normalized scale_x1.1: obs -0.0106 vs lin -0.0033; scale_x1.25: obs -0.0157 vs lin -0.0073; scale_x1.5: obs -0.0205 vs lin -0.0132; scale_x2: obs -0.0254 vs lin -0.0230
+mild scale_x1.1: obs -0.0033 vs lin -0.0036; scale_x1.25: obs -0.0138 vs lin -0.0078; scale_x1.5: obs -0.0162 vs lin -0.0140; scale_x2: obs -0.0231 vs lin -0.0230
+no_spatial_mix scale_x1.1: obs -0.0030 vs lin -0.0042; scale_x1.25: obs -0.0132 vs lin -0.0088; scale_x1.5: obs -0.0152 vs lin -0.0162; scale_x2: obs -0.0299 vs lin -0.0294
+channel_starved scale_x1.1: obs +0.0031 vs lin -0.0041; scale_x1.25: obs -0.0086 vs lin -0.0099; scale_x1.5: obs -0.0131 vs lin -0.0195; scale_x2: obs -0.0306 vs lin -0.0321
+lambda(e9)-lambda(e5) pooled: +0.0101 [+0.0033, +0.0170] (300 boots)
+
+## D. Per-seed slopes over e7..e9 ((e9-e7)/2): dev CE of no_growth, and of paired gains
+under_normalized ng dev slope -0.0403 [-0.0444,-0.0363] | scale_x2-ng slope -0.0046 [-0.0094,+0.0001] | static-ng slope +0.0057 [+0.0010,+0.0104] | static_cal-ng slope +0.0018 [-0.0144,+0.0180] | graft-ng slope -0.0043 [-0.0086,-0.0001]
+mild ng dev slope -0.0328 [-0.0417,-0.0240] | scale_x2-ng slope -0.0032 [-0.0117,+0.0053] | static-ng slope -0.0019 [-0.0108,+0.0070] | static_cal-ng slope +0.0017 [-0.0071,+0.0106] | graft-ng slope +0.0017 [-0.0040,+0.0074]
+no_spatial_mix ng dev slope -0.0277 [-0.0350,-0.0203] | scale_x2-ng slope -0.0023 [-0.0094,+0.0048] | static-ng slope -0.0024 [-0.0097,+0.0048] | static_cal-ng slope -0.0017 [-0.0089,+0.0055] | graft-ng slope -0.0031 [-0.0084,+0.0021]
+channel_starved ng dev slope -0.0303 [-0.0384,-0.0222] | scale_x2-ng slope +0.0024 [-0.0056,+0.0104] | static-ng slope +0.0027 [-0.0057,+0.0111] | static_cal-ng slope +0.0007 [-0.0079,+0.0092] | graft-ng slope +0.0003 [-0.0055,+0.0060]
+
+## J. Keep/cull with rollback, one decision (exploratory; dev set reused for decision and score)
+rule fixed here: at epoch-end d, keep graft iff graft dev CE < no_growth dev CE at d; else revert to no-op branch
+under_normalized d=2 rule-always_keep +0.0181 [+0.0142,+0.0220] rule-never -0.0780 [-0.0830,-0.0730] oracle-always -0.0027 corr(early,late) 0.103 sign agree 0.768 kept 0.79
+under_normalized d=3 rule-always_keep +0.0175 [+0.0136,+0.0214] rule-never -0.0786 [-0.0836,-0.0737] oracle-always -0.0027 corr(early,late) 0.128 sign agree 0.785 kept 0.80
+mild d=2 rule-always_keep +0.0018 [-0.0013,+0.0049] rule-never -0.0001 [-0.0037,+0.0034] oracle-always -0.0240 corr(early,late) -0.030 sign agree 0.488 kept 0.50
+mild d=3 rule-always_keep +0.0011 [-0.0021,+0.0043] rule-never -0.0008 [-0.0042,+0.0026] oracle-always -0.0240 corr(early,late) 0.002 sign agree 0.483 kept 0.48
+no_spatial_mix d=2 rule-always_keep +0.0047 [+0.0015,+0.0078] rule-never -0.0069 [-0.0098,-0.0041] oracle-always -0.0174 corr(early,late) 0.032 sign agree 0.513 kept 0.49
+no_spatial_mix d=3 rule-always_keep +0.0053 [+0.0024,+0.0081] rule-never -0.0063 [-0.0095,-0.0032] oracle-always -0.0174 corr(early,late) 0.020 sign agree 0.512 kept 0.52
+channel_starved d=2 rule-always_keep -0.0001 [-0.0038,+0.0037] rule-never +0.0009 [-0.0025,+0.0042] oracle-always -0.0271 corr(early,late) 0.050 sign agree 0.490 kept 0.49
+channel_starved d=3 rule-always_keep -0.0029 [-0.0064,+0.0007] rule-never -0.0019 [-0.0055,+0.0016] oracle-always -0.0271 corr(early,late) 0.061 sign agree 0.503 kept 0.44
+
+## H. Rung 4 under_normalized: horizon 10 (T2 cell) vs 20 (H20) on the same seeds
+T2 static ln10 n=768 mean -0.1294 [-0.1388,-0.1200] sd 0.1333 median -0.1404 trim10 -0.1385 share gain>0.05 0.799
+T2 static completed n=765 mean -0.1322 [-0.1411,-0.1233] sd 0.1257 median -0.1408 trim10 -0.1394 share gain>0.05 0.803
+T2 scheduled ln10 n=768 mean -0.0794 [-0.0839,-0.0748] sd 0.0639 median -0.0780 trim10 -0.0784 share gain>0.05 0.685
+T2 scheduled completed n=768 mean -0.0794 [-0.0839,-0.0748] sd 0.0639 median -0.0780 trim10 -0.0784 share gain>0.05 0.685
+H20 static ln10 n=768 mean -0.0296 [-0.0579,-0.0013] sd 0.4003 median -0.1077 trim10 -0.0833 share gain>0.05 0.684
+H20 static completed n=756 mean -0.0446 [-0.0721,-0.0172] sd 0.3850 median -0.1098 trim10 -0.0880 share gain>0.05 0.694
+H20 scheduled ln10 n=768 mean -0.0867 [-0.0969,-0.0765] sd 0.1439 median -0.1086 trim10 -0.1060 share gain>0.05 0.831
+H20 scheduled completed n=763 mean -0.0933 [-0.1017,-0.0849] sd 0.1188 median -0.1088 trim10 -0.1066 share gain>0.05 0.836
+
+## H2. Detectability of the registered screen rule (mean gain > 0.05) at the observed spreads
+T2 static sd 0.133 n=192 half-width 0.0189 P(confirm|g): normal 0.04:0.149 0.05:0.500 0.06:0.851; shifted-bootstrap 0.04:0.143 0.06:0.851; LB>0 needs mean>0.0189
+T2 static sd 0.133 n=768 half-width 0.0094 P(confirm|g): normal 0.04:0.019 0.05:0.500 0.06:0.981; shifted-bootstrap 0.04:0.021 0.06:0.983; LB>0 needs mean>0.0094
+T2 static n for 95% half-width 0.01: 683
+H20 static sd 0.400 n=192 half-width 0.0566 P(confirm|g): normal 0.04:0.365 0.05:0.500 0.06:0.635; shifted-bootstrap 0.04:0.423 0.06:0.688; LB>0 needs mean>0.0566
+H20 static sd 0.400 n=768 half-width 0.0283 P(confirm|g): normal 0.04:0.244 0.05:0.500 0.06:0.756; shifted-bootstrap 0.04:0.284 0.06:0.774; LB>0 needs mean>0.0283
+H20 static n for 95% half-width 0.01: 6156
+H20 static completed sd 0.385 n=192 half-width 0.0545 P(confirm|g): normal 0.04:0.359 0.05:0.500 0.06:0.641; shifted-bootstrap 0.04:0.438 0.06:0.719; LB>0 needs mean>0.0545
+H20 static completed sd 0.385 n=768 half-width 0.0272 P(confirm|g): normal 0.04:0.236 0.05:0.500 0.06:0.764; shifted-bootstrap 0.04:0.243 0.06:0.778; LB>0 needs mean>0.0272
+H20 static completed n for 95% half-width 0.01: 5695
+
+## I. Rung 4 H20: per-seed train-dev gap (dev - train), same seeds, change e9 -> e19 and e3 -> e9
+no_growth gap change e3->e9: +0.0355 [+0.0275,+0.0434] n=768; share widened 0.693
+no_growth gap change e9->e19: +0.0664 [+0.0593,+0.0735] n=768; share widened 0.781
+no_growth gap at e19 mean +0.0616 share>0 0.814
+static gap change e3->e9: +0.0696 [+0.0612,+0.0779] n=765; share widened 0.771
+static gap change e9->e19: +0.0832 [+0.0669,+0.0995] n=756; share widened 0.745
+static gap at e19 mean +0.1027 share>0 0.854
+scheduled gap change e3->e9: +0.0576 [+0.0502,+0.0650] n=768; share widened 0.763
+scheduled gap change e9->e19: +0.0930 [+0.0833,+0.1026] n=763; share widened 0.811
+scheduled gap at e19 mean +0.0886 share>0 0.907
+no_growth H20 dev slope e17-e19 -0.0114 [-0.0148,-0.0081] median -0.0124
+static H20 dev slope e17-e19 -0.0142 [-0.0463,+0.0178] median -0.0126
+scheduled H20 dev slope e17-e19 -0.0080 [-0.0137,-0.0023] median -0.0138
+static - ng by epoch (mean / median), H20, completed pairs:
+e5: -0.138/-0.144 sd 0.144; e9: -0.124/-0.138 sd 0.150; e12: -0.112/-0.132 sd 0.164; e15: -0.088/-0.121 sd 0.193; e17: -0.037/-0.111 sd 0.914; e19: -0.041/-0.107 sd 0.310
+graft(sched) - ng: e5: -0.033/-0.034 sd 0.100; e9: -0.088/-0.084 sd 0.089; e12: -0.099/-0.099 sd 0.088; e15: -0.106/-0.104 sd 0.095; e17: -0.093/-0.105 sd 0.144; e19: -0.088/-0.112 sd 0.170
